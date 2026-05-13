@@ -37,6 +37,7 @@ class PropagationAgent:
         self.reward_mean = 0.0
         self.reward_std = 1.0
         self.reward_count = 0
+        self.reward_m2 = 0.0
 
         self.q_network = None
         self.target_network = None
@@ -112,11 +113,13 @@ class PropagationAgent:
 
     def normalize_reward(self, reward: float) -> float:
         self.reward_count += 1
-        self.reward_mean += (reward - self.reward_mean) / self.reward_count
-        self.reward_std += (abs(reward) - self.reward_std) / self.reward_count
+        delta = reward - self.reward_mean
+        self.reward_mean += delta / self.reward_count
+        self.reward_m2 += delta * (reward - self.reward_mean)
+        self.reward_std = max(np.sqrt(self.reward_m2 / self.reward_count), 1e-6)
         if self.reward_std < 1e-6:
             self.reward_std = 1.0
-        return (reward - self.reward_mean) / max(self.reward_std, 1e-6)
+        return (reward - self.reward_mean) / self.reward_std
 
     def act(self, state: List[float], available_actions: List[int] = None) -> int:
         if random.random() < self.epsilon:
@@ -365,6 +368,7 @@ class PropagationAgent:
                     'epsilon': self.epsilon,
                     'reward_mean': self.reward_mean,
                     'reward_std': self.reward_std,
+                    'reward_m2': self.reward_m2,
                 }, path)
             else:
                 self.q_network.save(path)
@@ -383,6 +387,8 @@ class PropagationAgent:
                     self.reward_mean = checkpoint['reward_mean']
                 if 'reward_std' in checkpoint:
                     self.reward_std = checkpoint['reward_std']
+                if 'reward_m2' in checkpoint:
+                    self.reward_m2 = checkpoint['reward_m2']
             else:
                 self.q_network.load_weights(path)
                 self.target_network.set_weights(self.q_network.get_weights())

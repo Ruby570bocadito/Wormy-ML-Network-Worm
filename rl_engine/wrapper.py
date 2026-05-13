@@ -90,7 +90,9 @@ class RealWorldPropagationAgent:
             return
 
         state = self._build_state(available)
-        next_state = self._build_state(available)
+        # Next state removes the target from available (either infected or failed)
+        next_available = [t for t in available if t['ip'] != target.get('ip')]
+        next_state = self._build_state(next_available)
         done = False
 
         self.agent.remember(state, target_idx, reward, next_state, done)
