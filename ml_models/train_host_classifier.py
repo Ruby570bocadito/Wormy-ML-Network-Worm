@@ -1,8 +1,9 @@
 """Train and persist host_classifier.pkl with enriched synthetic data."""
 
 import os
-import sys
 import pickle
+import sys
+
 import numpy as np
 from sklearn.ensemble import RandomForestClassifier
 
@@ -10,17 +11,49 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils.logger import logger
 
 FEATURE_NAMES = [
-    'port_21', 'port_22', 'port_23', 'port_25', 'port_53',
-    'port_80', 'port_110', 'port_135', 'port_139', 'port_143',
-    'port_443', 'port_445', 'port_993', 'port_995', 'port_1433',
-    'port_3306', 'port_3389', 'port_5432', 'port_5900', 'port_6379',
-    'port_8080', 'port_8443', 'port_9200', 'port_27017',
-    'total_ports', 'has_windows_ports', 'has_linux_ports',
-    'has_db_ports', 'has_web_ports', 'banner_count',
-    'has_ssh_banner', 'has_smb_banner', 'has_http_banner',
+    "port_21",
+    "port_22",
+    "port_23",
+    "port_25",
+    "port_53",
+    "port_80",
+    "port_110",
+    "port_135",
+    "port_139",
+    "port_143",
+    "port_443",
+    "port_445",
+    "port_993",
+    "port_995",
+    "port_1433",
+    "port_3306",
+    "port_3389",
+    "port_5432",
+    "port_5900",
+    "port_6379",
+    "port_8080",
+    "port_8443",
+    "port_9200",
+    "port_27017",
+    "total_ports",
+    "has_windows_ports",
+    "has_linux_ports",
+    "has_db_ports",
+    "has_web_ports",
+    "banner_count",
+    "has_ssh_banner",
+    "has_smb_banner",
+    "has_http_banner",
 ]
-OS_LABELS = ['workstation', 'server', 'database', 'web_server',
-             'domain_controller', 'network_device', 'iot']
+OS_LABELS = [
+    "workstation",
+    "server",
+    "database",
+    "web_server",
+    "domain_controller",
+    "network_device",
+    "iot",
+]
 
 N_SAMPLES = 5000
 
@@ -71,8 +104,9 @@ def generate_synthetic_data(n_samples=N_SAMPLES):
 
 
 def main():
-    save_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                            "ml_models", "saved")
+    save_dir = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "ml_models", "saved"
+    )
     os.makedirs(save_dir, exist_ok=True)
     save_path = os.path.join(save_dir, "host_classifier.pkl")
 
@@ -83,7 +117,7 @@ def main():
     model = RandomForestClassifier(n_estimators=200, max_depth=12, random_state=42, n_jobs=-1)
     model.fit(X, y)
 
-    with open(save_path, 'wb') as f:
+    with open(save_path, "wb") as f:
         pickle.dump(model, f)
 
     logger.success(f"Model saved to {save_path}")

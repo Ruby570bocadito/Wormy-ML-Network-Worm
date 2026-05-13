@@ -10,9 +10,8 @@ Adaptive rate limiting for scanning and exploitation
 """
 
 
-
-import time
 import threading
+import time
 from collections import defaultdict, deque
 from typing import Dict, Optional
 
@@ -20,7 +19,7 @@ from typing import Dict, Optional
 class SmartRateLimiter:
     """
     Adaptive rate limiter that adjusts based on target response patterns
-    
+
     Features:
     - Per-host rate limiting
     - Global rate limiting
@@ -29,11 +28,14 @@ class SmartRateLimiter:
     - Response time tracking
     """
 
-    def __init__(self, global_max_rate: float = 100.0,
-                 host_max_rate: float = 10.0,
-                 backoff_base: float = 1.0,
-                 backoff_max: float = 60.0,
-                 recovery_rate: float = 0.5):
+    def __init__(
+        self,
+        global_max_rate: float = 100.0,
+        host_max_rate: float = 10.0,
+        backoff_base: float = 1.0,
+        backoff_max: float = 60.0,
+        recovery_rate: float = 0.5,
+    ):
         self.global_max_rate = global_max_rate
         self.host_max_rate = host_max_rate
         self.backoff_base = backoff_base
@@ -53,7 +55,7 @@ class SmartRateLimiter:
     def should_proceed(self, target_ip: str) -> tuple:
         """
         Check if an action should proceed
-        
+
         Returns:
             (allowed: bool, delay: float)
         """
@@ -147,11 +149,11 @@ class SmartRateLimiter:
             avg_response = sum(times) / len(times) if times else 0
 
             return {
-                'requests_last_second': len(timestamps),
-                'failures': self._host_failures.get(target_ip, 0),
-                'backoff_remaining': max(0, self._host_backoff.get(target_ip, 0) - now),
-                'avg_response_time': avg_response,
-                'recommended_delay': self.get_host_delay(target_ip),
+                "requests_last_second": len(timestamps),
+                "failures": self._host_failures.get(target_ip, 0),
+                "backoff_remaining": max(0, self._host_backoff.get(target_ip, 0) - now),
+                "avg_response_time": avg_response,
+                "recommended_delay": self.get_host_delay(target_ip),
             }
 
     def reset_host(self, target_ip: str):
@@ -174,11 +176,8 @@ class SmartRateLimiter:
             now = time.time()
             self._cleanup_timestamps(self._global_timestamps, now)
             return {
-                'global_requests_per_second': len(self._global_timestamps),
-                'global_max_rate': self.global_max_rate,
-                'hosts_tracked': len(self._host_timestamps),
-                'hosts_on_backoff': sum(
-                    1 for ip, t in self._host_backoff.items()
-                    if now < t
-                ),
+                "global_requests_per_second": len(self._global_timestamps),
+                "global_max_rate": self.global_max_rate,
+                "hosts_tracked": len(self._host_timestamps),
+                "hosts_on_backoff": sum(1 for ip, t in self._host_backoff.items() if now < t),
             }

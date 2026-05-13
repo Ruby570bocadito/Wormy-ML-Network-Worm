@@ -81,7 +81,7 @@ metasploit:
   host: "127.0.0.1"
   port: 55553
   user: "msf"
-  password: "wormy2024"
+  password: "wormy2024"          # Default — override via WORMY_MSF_PASSWORD env var
   auto_start: false
   lhost: ""
   lport_base: 4444

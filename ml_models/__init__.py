@@ -5,5 +5,3 @@ Copyright (c) 2024 Ruby570bocadito. All rights reserved.
 """
 
 """ML models package"""
-
-

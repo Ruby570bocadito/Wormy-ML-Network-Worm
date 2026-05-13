@@ -82,3 +82,7 @@ ignore_missing_imports = true
 minversion = "7.0"
 testpaths = ["tests"]
 python_files = ["test_*.py"]
+markers = [
+    "slow: marks tests as slow (network/hanging, excluded from CI)",
+    "integration: marks tests that need Docker lab",
+]

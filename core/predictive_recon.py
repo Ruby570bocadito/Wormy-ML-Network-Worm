@@ -15,9 +15,9 @@ Instead of scanning randomly, the worm predicts:
 - If a web server is found → likely a load balancer or reverse proxy
 """
 
+import math
 import os
 import sys
-import math
 from collections import defaultdict
 from typing import Dict, List, Optional, Tuple
 
@@ -108,9 +108,7 @@ class BayesianNetworkAnalyzer:
 
     def __init__(self):
         self.discovered_services: Dict[str, List[str]] = defaultdict(list)
-        self.subnet_profiles: Dict[str, Dict[str, int]] = defaultdict(
-            lambda: defaultdict(int)
-        )
+        self.subnet_profiles: Dict[str, Dict[str, int]] = defaultdict(lambda: defaultdict(int))
         self.predictions: Dict[str, float] = {}
         self.scan_history: List[Dict] = []
 
@@ -168,9 +166,7 @@ class BayesianNetworkAnalyzer:
                         predicted_ip = f"{subnet}.{i}"
                         if predicted_ip not in self.discovered_services:
                             current = self.predictions.get(predicted_ip, 0.0)
-                            self.predictions[predicted_ip] = max(
-                                current, posterior * 0.5
-                            )
+                            self.predictions[predicted_ip] = max(current, posterior * 0.5)
 
     def get_priority_targets(self, limit: int = 20) -> List[Tuple[str, float]]:
         """Get IPs sorted by predicted value (highest probability first)"""
@@ -182,9 +178,7 @@ class BayesianNetworkAnalyzer:
         }
 
         # Sort by score descending
-        sorted_targets = sorted(
-            unknown_predictions.items(), key=lambda x: x[1], reverse=True
-        )
+        sorted_targets = sorted(unknown_predictions.items(), key=lambda x: x[1], reverse=True)
         return sorted_targets[:limit]
 
     def get_subnet_priority(self) -> List[Tuple[str, float]]:
@@ -238,9 +232,7 @@ class PredictiveScanner:
         self.scanned_ips = set()
         self.discovered_hosts = []
 
-    def analyze_and_prioritize(
-        self, ip: str, ports: List[int], os_guess: str = "Unknown"
-    ):
+    def analyze_and_prioritize(self, ip: str, ports: List[int], os_guess: str = "Unknown"):
         """Analyze a host and update scan priorities"""
         self.analyzer.register_host(ip, ports, os_guess)
         self.scanned_ips.add(ip)

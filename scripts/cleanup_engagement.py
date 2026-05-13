@@ -16,16 +16,16 @@ Usage:
   python3 scripts/cleanup_engagement.py --dry-run        # show what would happen
 """
 
-import os
-import sys
+import argparse
 import glob
 import json
+import os
 import shutil
-import argparse
 import subprocess
+import sys
 import threading
 from datetime import datetime
-from typing import List, Dict, Optional
+from typing import Dict, List, Optional
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils.logger import logger
@@ -39,19 +39,19 @@ class RemoteCleanup:
 
     # All paths the worm may have written to
     LINUX_ARTIFACTS = [
-        '/tmp/.sysd',
-        '/tmp/.wormy*',
-        '/tmp/.sysguard.py',
-        '/tmp/wormy_*',
-        '/tmp/.sys*',
-        '/dev/shm/.wormy*',
+        "/tmp/.sysd",
+        "/tmp/.wormy*",
+        "/tmp/.sysguard.py",
+        "/tmp/wormy_*",
+        "/tmp/.sys*",
+        "/dev/shm/.wormy*",
     ]
 
     # All persistence mechanisms the worm installs
     LINUX_PERSISTENCE = [
         # Systemd service
-        '~/.config/systemd/user/sys-helper.service',
-        '~/.config/systemd/user/sysupdate.service',
+        "~/.config/systemd/user/sys-helper.service",
+        "~/.config/systemd/user/sysupdate.service",
         # SSH authorized_keys injected line (contains "wormy" comment)
         None,  # handled separately
     ]
@@ -95,40 +95,41 @@ echo "CLEANUP_DONE"
 
     def clean_host(self, ip: str, username: str, password: str) -> Dict:
         """SSH into host and run cleanup commands."""
-        result = {'ip': ip, 'status': 'unknown', 'output': ''}
+        result = {"ip": ip, "status": "unknown", "output": ""}
         if self.dry_run:
-            result['status'] = 'dry_run'
-            result['output'] = 'DRY RUN — no changes made'
+            result["status"] = "dry_run"
+            result["output"] = "DRY RUN — no changes made"
             logger.info(f"[DRY RUN] Would clean {ip}")
             return result
 
         try:
             import paramiko
+
             ssh = paramiko.SSHClient()
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             ssh.connect(ip, username=username, password=password, timeout=10)
 
             # Run cleanup script
             _, stdout, stderr = ssh.exec_command(self.REMOTE_CLEANUP_CMD, timeout=30)
-            out = stdout.read().decode(errors='replace')
-            err = stderr.read().decode(errors='replace')
+            out = stdout.read().decode(errors="replace")
+            err = stderr.read().decode(errors="replace")
             ssh.close()
 
-            if 'CLEANUP_DONE' in out:
-                result['status'] = 'cleaned'
-                result['output'] = out
+            if "CLEANUP_DONE" in out:
+                result["status"] = "cleaned"
+                result["output"] = out
                 logger.success(f"Remote cleanup complete: {ip}")
             else:
-                result['status'] = 'partial'
-                result['output'] = out + err
+                result["status"] = "partial"
+                result["output"] = out + err
                 logger.warning(f"Partial cleanup on {ip}: {err[:100]}")
 
         except ImportError:
-            result['status'] = 'error'
-            result['output'] = 'paramiko not installed'
+            result["status"] = "error"
+            result["output"] = "paramiko not installed"
         except Exception as e:
-            result['status'] = 'error'
-            result['output'] = str(e)
+            result["status"] = "error"
+            result["output"] = str(e)
             logger.debug(f"Remote cleanup failed on {ip}: {e}")
 
         return result
@@ -139,7 +140,7 @@ echo "CLEANUP_DONE"
         lock = threading.Lock()
 
         def _clean(agent):
-            r = self.clean_host(agent['ip'], agent['username'], agent.get('password', ''))
+            r = self.clean_host(agent["ip"], agent["username"], agent.get("password", ""))
             with lock:
                 results.append(r)
 
@@ -160,8 +161,8 @@ class LocalCleanup:
 
     def __init__(self, worm_dir: str, dry_run: bool = False):
         self.worm_dir = worm_dir
-        self.dry_run  = dry_run
-        self.removed  = []
+        self.dry_run = dry_run
+        self.removed = []
 
     def _remove(self, path: str):
         if self.dry_run:
@@ -183,11 +184,11 @@ class LocalCleanup:
     def clean_logs(self) -> int:
         """Remove all log files."""
         patterns = [
-            os.path.join(self.worm_dir, 'logs', '*.log'),
-            os.path.join(self.worm_dir, 'logs', '**', '*.log'),
-            os.path.join(self.worm_dir, '*.log'),
-            '/tmp/wormy_*.log',
-            '/tmp/wormy_run_*.log',
+            os.path.join(self.worm_dir, "logs", "*.log"),
+            os.path.join(self.worm_dir, "logs", "**", "*.log"),
+            os.path.join(self.worm_dir, "*.log"),
+            "/tmp/wormy_*.log",
+            "/tmp/wormy_run_*.log",
         ]
         before = len(self.removed)
         for pat in patterns:
@@ -198,17 +199,17 @@ class LocalCleanup:
     def clean_temp_files(self) -> int:
         """Remove temp files and SQLite queues."""
         patterns = [
-            os.path.join(self.worm_dir, '*.db'),
-            os.path.join(self.worm_dir, '*.tmp'),
-            os.path.join(self.worm_dir, 'temp_new_brain.pth'),
-            '/tmp/wormy_*',
-            '/tmp/.sysguard.py',
-            '/tmp/.wormy*',
-            '/tmp/.sys*',
-            '/tmp/wormy_c2_server',
-            '/tmp/wormy_c2_listener.py',
-            '/tmp/wormy_c2.crt',
-            '/tmp/wormy_c2.key',
+            os.path.join(self.worm_dir, "*.db"),
+            os.path.join(self.worm_dir, "*.tmp"),
+            os.path.join(self.worm_dir, "temp_new_brain.pth"),
+            "/tmp/wormy_*",
+            "/tmp/.sysguard.py",
+            "/tmp/.wormy*",
+            "/tmp/.sys*",
+            "/tmp/wormy_c2_server",
+            "/tmp/wormy_c2_listener.py",
+            "/tmp/wormy_c2.crt",
+            "/tmp/wormy_c2.key",
         ]
         before = len(self.removed)
         for pat in patterns:
@@ -218,16 +219,17 @@ class LocalCleanup:
 
     def clean_pids(self) -> int:
         """Remove PID files."""
-        pid_dir = '/tmp/wormy_pids'
-        before  = len(self.removed)
+        pid_dir = "/tmp/wormy_pids"
+        before = len(self.removed)
         if os.path.isdir(pid_dir):
             # Kill all tracked processes first
-            for pid_file in glob.glob(os.path.join(pid_dir, '*.pid')):
+            for pid_file in glob.glob(os.path.join(pid_dir, "*.pid")):
                 try:
                     with open(pid_file) as f:
                         pid = int(f.read().strip())
                     if not self.dry_run:
                         import signal
+
                         try:
                             os.kill(pid, signal.SIGTERM)
                             logger.info(f"Killed PID {pid} ({os.path.basename(pid_file)})")
@@ -242,8 +244,8 @@ class LocalCleanup:
 
     def restore_config_backup(self):
         """Restore config.yaml from .bak if it exists."""
-        backup = os.path.join(self.worm_dir, 'configs', 'config.yaml.bak')
-        config = os.path.join(self.worm_dir, 'configs', 'config.yaml')
+        backup = os.path.join(self.worm_dir, "configs", "config.yaml.bak")
+        config = os.path.join(self.worm_dir, "configs", "config.yaml")
         if os.path.exists(backup):
             if not self.dry_run:
                 shutil.copy2(backup, config)
@@ -259,24 +261,24 @@ class LocalCleanup:
         if self.dry_run:
             logger.info("[DRY RUN] Would clear shell history")
             return
-        for hist in ['~/.bash_history', '~/.zsh_history', '~/.sh_history']:
+        for hist in ["~/.bash_history", "~/.zsh_history", "~/.sh_history"]:
             path = os.path.expanduser(hist)
             if os.path.exists(path):
                 try:
-                    open(path, 'w').close()
+                    open(path, "w").close()
                 except Exception:
                     pass
         try:
-            subprocess.run(['history', '-c'], capture_output=True)
+            subprocess.run(["history", "-c"], capture_output=True)
         except Exception:
             pass
         logger.info("Local shell history cleared")
 
     def kill_switch(self):
         """Create kill switch file to stop any running worm processes."""
-        ks = os.path.join(self.worm_dir, 'STOP_WORMY_NOW')
+        ks = os.path.join(self.worm_dir, "STOP_WORMY_NOW")
         if not self.dry_run:
-            open(ks, 'w').close()
+            open(ks, "w").close()
             logger.success(f"Kill switch created: {ks}")
         else:
             logger.info(f"[DRY RUN] Would create: {ks}")
@@ -284,18 +286,18 @@ class LocalCleanup:
     def run_all(self) -> Dict:
         """Run complete local cleanup."""
         self.kill_switch()
-        logs   = self.clean_logs()
-        temps  = self.clean_temp_files()
-        pids   = self.clean_pids()
+        logs = self.clean_logs()
+        temps = self.clean_temp_files()
+        pids = self.clean_pids()
         self.restore_config_backup()
         self.clear_local_history()
 
         return {
-            'logs_removed':  logs,
-            'temps_removed': temps,
-            'pids_cleaned':  pids,
-            'total_removed': len(self.removed),
-            'dry_run':       self.dry_run,
+            "logs_removed": logs,
+            "temps_removed": temps,
+            "pids_cleaned": pids,
+            "total_removed": len(self.removed),
+            "dry_run": self.dry_run,
         }
 
 
@@ -310,12 +312,14 @@ def load_agents_from_state(state_file: Optional[str] = None) -> List[Dict]:
                 data = json.load(f)
             agents = []
             for agent_id, info in data.items():
-                if info.get('ip') and info.get('username'):
-                    agents.append({
-                        'ip':       info['ip'],
-                        'username': info['username'],
-                        'password': info.get('password', ''),
-                    })
+                if info.get("ip") and info.get("username"):
+                    agents.append(
+                        {
+                            "ip": info["ip"],
+                            "username": info["username"],
+                            "password": info.get("password", ""),
+                        }
+                    )
             return agents
         except Exception as e:
             logger.warning(f"Could not load agents from {state_file}: {e}")
@@ -327,15 +331,21 @@ def load_agents_from_state(state_file: Optional[str] = None) -> List[Dict]:
 # ─────────────────────────────────────────────────────────────────────────────
 def main():
     parser = argparse.ArgumentParser(description="Wormy Post-Engagement Cleanup")
-    parser.add_argument('--dry-run',     action='store_true', help='Show what would happen, make no changes')
-    parser.add_argument('--local-only',  action='store_true', help='Only clean local machine, skip remote agents')
-    parser.add_argument('--agents-file', default=None,        help='JSON file with agent list (ip/username/password)')
-    parser.add_argument('--worm-dir',    default=None,        help='Path to worm directory')
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Show what would happen, make no changes"
+    )
+    parser.add_argument(
+        "--local-only", action="store_true", help="Only clean local machine, skip remote agents"
+    )
+    parser.add_argument(
+        "--agents-file", default=None, help="JSON file with agent list (ip/username/password)"
+    )
+    parser.add_argument("--worm-dir", default=None, help="Path to worm directory")
     args = parser.parse_args()
 
     worm_dir = args.worm_dir or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    mode     = "DRY RUN" if args.dry_run else "LIVE"
-    ts       = datetime.utcnow().isoformat()
+    mode = "DRY RUN" if args.dry_run else "LIVE"
+    ts = datetime.utcnow().isoformat()
 
     print(f"\n{'='*60}")
     print(f"  WORMY v3.0 — POST-ENGAGEMENT CLEANUP")
@@ -345,19 +355,21 @@ def main():
 
     if not args.dry_run:
         confirm = input("  This will REMOVE all worm artifacts. Type 'CLEANUP' to confirm: ")
-        if confirm != 'CLEANUP':
+        if confirm != "CLEANUP":
             print("  Aborted.")
             sys.exit(0)
 
-    audit = {'timestamp': ts, 'mode': mode, 'local': {}, 'remote': []}
+    audit = {"timestamp": ts, "mode": mode, "local": {}, "remote": []}
 
     # ── Local cleanup ────────────────────────────────────────────────────────
     print("\n[1/2] Local machine cleanup...")
     local = LocalCleanup(worm_dir, dry_run=args.dry_run)
     local_result = local.run_all()
-    audit['local'] = local_result
+    audit["local"] = local_result
     print(f"  Removed {local_result['total_removed']} files/dirs")
-    print(f"  Logs: {local_result['logs_removed']}  Temps: {local_result['temps_removed']}  PIDs: {local_result['pids_cleaned']}")
+    print(
+        f"  Logs: {local_result['logs_removed']}  Temps: {local_result['temps_removed']}  PIDs: {local_result['pids_cleaned']}"
+    )
 
     # ── Remote cleanup ───────────────────────────────────────────────────────
     if not args.local_only:
@@ -370,10 +382,11 @@ def main():
             # Try to load from AgentController memory
             try:
                 from core.agent_controller import AgentController
-                ctrl    = AgentController.__new__(AgentController)
+
+                ctrl = AgentController.__new__(AgentController)
                 # AgentController singleton would have agents in memory
                 # but since we are a new process, load from disk if saved
-                state_path = os.path.join(worm_dir, 'data', 'agents.json')
+                state_path = os.path.join(worm_dir, "data", "agents.json")
                 agents = load_agents_from_state(state_path)
             except Exception:
                 pass
@@ -381,21 +394,23 @@ def main():
         if agents:
             remote = RemoteCleanup(dry_run=args.dry_run)
             results = remote.clean_all_agents(agents)
-            audit['remote'] = results
-            cleaned = sum(1 for r in results if r['status'] == 'cleaned')
+            audit["remote"] = results
+            cleaned = sum(1 for r in results if r["status"] == "cleaned")
             print(f"  Remote hosts cleaned: {cleaned}/{len(results)}")
             for r in results:
-                icon = 'OK' if r['status'] == 'cleaned' else 'WARN'
+                icon = "OK" if r["status"] == "cleaned" else "WARN"
                 print(f"    [{icon}] {r['ip']}: {r['status']}")
         else:
             print("  No remote agents found — provide --agents-file path/to/agents.json")
-            print("  Format: {\"id\": {\"ip\": \"x.x.x.x\", \"username\": \"u\", \"password\": \"p\"}}")
+            print('  Format: {"id": {"ip": "x.x.x.x", "username": "u", "password": "p"}}')
 
     # ── Audit trail ──────────────────────────────────────────────────────────
-    audit_path = os.path.join(worm_dir, f"cleanup_audit_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.json")
+    audit_path = os.path.join(
+        worm_dir, f"cleanup_audit_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.json"
+    )
     if not args.dry_run:
         try:
-            with open(audit_path, 'w') as f:
+            with open(audit_path, "w") as f:
                 json.dump(audit, f, indent=2, default=str)
             print(f"\n  Audit log: {audit_path}")
         except Exception:
@@ -406,5 +421,5 @@ def main():
     print(f"{'='*60}\n")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

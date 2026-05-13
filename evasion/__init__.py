@@ -7,5 +7,5 @@ Copyright (c) 2024 Ruby570bocadito. All rights reserved.
 """Evasion package"""
 
 
-from .stealth_engine import StealthEngine
 from .ids_detector import IDSDetector
+from .stealth_engine import StealthEngine

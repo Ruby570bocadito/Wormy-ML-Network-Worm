@@ -9,22 +9,23 @@ Network utility functions for scanning and reconnaissance
 """
 
 
-
+import ipaddress
+import random
 import socket
 import struct
-import random
-from typing import List, Dict, Optional, Tuple
-from ipaddress import IPv4Network, IPv4Address
-import ipaddress
+from ipaddress import IPv4Address, IPv4Network
+from typing import Dict, List, Optional, Tuple
 
 try:
     import netifaces
+
     NETIFACES_AVAILABLE = True
 except ImportError:
     NETIFACES_AVAILABLE = False
 
 try:
-    from scapy.all import ARP, Ether, srp, IP, TCP, sr1, ICMP
+    from scapy.all import ARP, ICMP, IP, TCP, Ether, sr1, srp
+
     SCAPY_AVAILABLE = True
 except ImportError:
     SCAPY_AVAILABLE = False
@@ -46,18 +47,20 @@ def get_network_interfaces() -> List[Dict[str, str]]:
     """Get all network interfaces"""
     if not NETIFACES_AVAILABLE:
         return []
-    
+
     interfaces = []
     for iface in netifaces.interfaces():
         addrs = netifaces.ifaddresses(iface)
         if netifaces.AF_INET in addrs:
             for addr in addrs[netifaces.AF_INET]:
-                interfaces.append({
-                    "interface": iface,
-                    "ip": addr.get("addr", ""),
-                    "netmask": addr.get("netmask", ""),
-                    "broadcast": addr.get("broadcast", "")
-                })
+                interfaces.append(
+                    {
+                        "interface": iface,
+                        "ip": addr.get("addr", ""),
+                        "netmask": addr.get("netmask", ""),
+                        "broadcast": addr.get("broadcast", ""),
+                    }
+                )
     return interfaces
 
 
@@ -90,9 +93,9 @@ def ping_host(ip: str, timeout: int = 2) -> bool:
     """Ping a host using ICMP"""
     if not SCAPY_AVAILABLE:
         return False
-    
+
     try:
-        packet = IP(dst=ip)/ICMP()
+        packet = IP(dst=ip) / ICMP()
         response = sr1(packet, timeout=timeout, verbose=0)
         return response is not None
     except Exception:
@@ -111,14 +114,14 @@ def tcp_ping(ip: str, port: int = 80, timeout: int = 2) -> bool:
             return result == 0
         except Exception:
             return False
-    
+
     try:
-        packet = IP(dst=ip)/TCP(dport=port, flags="S")
+        packet = IP(dst=ip) / TCP(dport=port, flags="S")
         response = sr1(packet, timeout=timeout, verbose=0)
         if response and response.haslayer(TCP):
             if response[TCP].flags == 0x12:  # SYN-ACK
                 # Send RST to close connection
-                rst = IP(dst=ip)/TCP(dport=port, flags="R")
+                rst = IP(dst=ip) / TCP(dport=port, flags="R")
                 sr1(rst, timeout=1, verbose=0)
                 return True
         return False
@@ -130,18 +133,18 @@ def arp_scan(network: str, timeout: int = 2) -> List[Tuple[str, str]]:
     """ARP scan to discover hosts on local network"""
     if not SCAPY_AVAILABLE:
         return []
-    
+
     try:
         arp = ARP(pdst=network)
         ether = Ether(dst="ff:ff:ff:ff:ff:ff")
-        packet = ether/arp
-        
+        packet = ether / arp
+
         result = srp(packet, timeout=timeout, verbose=0)[0]
-        
+
         hosts = []
         for sent, received in result:
             hosts.append((received.psrc, received.hwsrc))
-        
+
         return hosts
     except Exception:
         return []
@@ -151,14 +154,14 @@ def get_mac_address(ip: str) -> Optional[str]:
     """Get MAC address for an IP"""
     if not SCAPY_AVAILABLE:
         return None
-    
+
     try:
         arp = ARP(pdst=ip)
         ether = Ether(dst="ff:ff:ff:ff:ff:ff")
-        packet = ether/arp
-        
+        packet = ether / arp
+
         result = srp(packet, timeout=2, verbose=0)[0]
-        
+
         if result:
             return result[0][1].hwsrc
         return None
@@ -169,19 +172,19 @@ def get_mac_address(ip: str) -> Optional[str]:
 def port_scan(ip: str, ports: List[int], timeout: int = 1) -> List[int]:
     """Simple TCP port scan"""
     open_ports = []
-    
+
     for port in ports:
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.settimeout(timeout)
             result = sock.connect_ex((ip, port))
             sock.close()
-            
+
             if result == 0:
                 open_ports.append(port)
         except Exception:
             pass
-    
+
     return open_ports
 
 
@@ -189,24 +192,24 @@ def stealth_port_scan(ip: str, ports: List[int], timeout: int = 1) -> List[int]:
     """SYN stealth scan"""
     if not SCAPY_AVAILABLE:
         return port_scan(ip, ports, timeout)
-    
+
     open_ports = []
-    
+
     for port in ports:
         try:
             # Send SYN
-            packet = IP(dst=ip)/TCP(dport=port, flags="S")
+            packet = IP(dst=ip) / TCP(dport=port, flags="S")
             response = sr1(packet, timeout=timeout, verbose=0)
-            
+
             if response and response.haslayer(TCP):
                 if response[TCP].flags == 0x12:  # SYN-ACK
                     open_ports.append(port)
                     # Send RST to close
-                    rst = IP(dst=ip)/TCP(dport=port, flags="R")
+                    rst = IP(dst=ip) / TCP(dport=port, flags="R")
                     sr1(rst, timeout=1, verbose=0)
         except Exception:
             pass
-    
+
     return open_ports
 
 
@@ -216,11 +219,11 @@ def grab_banner(ip: str, port: int, timeout: int = 3) -> Optional[str]:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.settimeout(timeout)
         sock.connect((ip, port))
-        
+
         # Try to receive banner
-        banner = sock.recv(1024).decode('utf-8', errors='ignore').strip()
+        banner = sock.recv(1024).decode("utf-8", errors="ignore").strip()
         sock.close()
-        
+
         return banner if banner else None
     except Exception:
         return None
@@ -273,9 +276,9 @@ def get_ttl(ip: str) -> Optional[int]:
     """Get TTL from ICMP response (helps identify OS)"""
     if not SCAPY_AVAILABLE:
         return None
-    
+
     try:
-        packet = IP(dst=ip)/ICMP()
+        packet = IP(dst=ip) / ICMP()
         response = sr1(packet, timeout=2, verbose=0)
         if response:
             return response.ttl
@@ -300,11 +303,11 @@ def create_tcp_packet(dst_ip: str, dst_port: int, src_port: int = None, flags: s
     """Create custom TCP packet"""
     if not SCAPY_AVAILABLE:
         return None
-    
+
     if src_port is None:
         src_port = random.randint(1024, 65535)
-    
-    return IP(dst=dst_ip)/TCP(sport=src_port, dport=dst_port, flags=flags)
+
+    return IP(dst=dst_ip) / TCP(sport=src_port, dport=dst_port, flags=flags)
 
 
 def randomize_scan_order(ips: List[str]) -> List[str]:
@@ -329,6 +332,6 @@ if __name__ == "__main__":
     print("\nExpanding 192.168.1.0/29:")
     ips = expand_cidr("192.168.1.0/29")
     print(f"  {ips}")
-    
+
     print("\nTesting localhost:")
     print(f"  Port 80 open: {is_port_open('127.0.0.1', 80)}")

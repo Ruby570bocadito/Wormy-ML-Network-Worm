@@ -10,12 +10,12 @@ Visual network map with host icons, training panel, and real-time control
 Inspired by Armitage's Metasploit GUI
 """
 
+import json
+import logging
 import os
 import sys
-import json
-import time
-import logging
 import threading
+import time
 from datetime import datetime
 from typing import Dict, List, Optional
 
@@ -24,11 +24,12 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils.logger import logger
 
 # ── Silence Flask/Werkzeug access logs (they pollute Rich Live TUI) ───────────
-logging.getLogger('werkzeug').setLevel(logging.ERROR)
-logging.getLogger('flask.app').setLevel(logging.ERROR)
+logging.getLogger("werkzeug").setLevel(logging.ERROR)
+logging.getLogger("flask.app").setLevel(logging.ERROR)
 
 try:
-    from flask import Flask, render_template_string, jsonify, request
+    from flask import Flask, jsonify, render_template_string, request
+
     FLASK_AVAILABLE = True
 except ImportError:
     FLASK_AVAILABLE = False
@@ -37,7 +38,7 @@ except ImportError:
 class ArmitageDashboard:
     """
     Armitage-style Dashboard
-    
+
     Features:
     - Visual network map with host icons (like Armitage)
     - Color-coded hosts (green=infected, red=failed, blue=discovered)
@@ -48,7 +49,7 @@ class ArmitageDashboard:
     - Simple, clean interface
     """
 
-    def __init__(self, worm_core=None, trainer=None, host: str = '0.0.0.0', port: int = 5001):
+    def __init__(self, worm_core=None, trainer=None, host: str = "0.0.0.0", port: int = 5001):
         self.worm = worm_core
         self.trainer = trainer
         self.host = host
@@ -64,130 +65,142 @@ class ArmitageDashboard:
         logger.info(f"Armitage Dashboard initialized on {host}:{port}")
 
     def _setup_routes(self):
-        @self.app.route('/')
+        @self.app.route("/")
         def index():
             return render_template_string(self._get_html())
 
-        @self.app.route('/api/map')
+        @self.app.route("/api/map")
         def api_map():
             return jsonify(self._get_map_data())
 
-        @self.app.route('/api/training')
+        @self.app.route("/api/training")
         def api_training():
             return jsonify(self._get_training_data())
 
-        @self.app.route('/api/start_training', methods=['POST'])
+        @self.app.route("/api/start_training", methods=["POST"])
         def api_start_training():
             data = request.json or {}
-            scenarios = data.get('scenarios', ['small_office', 'enterprise'])
+            scenarios = data.get("scenarios", ["small_office", "enterprise"])
             if self.trainer:
-                threading.Thread(target=self.trainer.train, kwargs={'scenarios': scenarios, 'total_episodes': 100}, daemon=True).start()
-            return jsonify({'status': 'started', 'scenarios': scenarios})
+                threading.Thread(
+                    target=self.trainer.train,
+                    kwargs={"scenarios": scenarios, "total_episodes": 100},
+                    daemon=True,
+                ).start()
+            return jsonify({"status": "started", "scenarios": scenarios})
 
-        @self.app.route('/api/start_propagation', methods=['POST'])
+        @self.app.route("/api/start_propagation", methods=["POST"])
         def api_start_propagation():
-            if self.worm and not getattr(self.worm, 'running', False):
+            if self.worm and not getattr(self.worm, "running", False):
                 threading.Thread(target=self.worm.propagate, daemon=True).start()
-            return jsonify({'status': 'propagation_started'})
+            return jsonify({"status": "propagation_started"})
 
-        @self.app.route('/api/stop_propagation', methods=['POST'])
+        @self.app.route("/api/stop_propagation", methods=["POST"])
         def api_stop_propagation():
             if self.worm:
                 self.worm.stop()
-            return jsonify({'status': 'stopped'})
+            return jsonify({"status": "stopped"})
 
-        @self.app.route('/api/exploit_host', methods=['POST'])
+        @self.app.route("/api/exploit_host", methods=["POST"])
         def api_exploit_host():
             data = request.json or {}
-            ip = data.get('ip', '')
+            ip = data.get("ip", "")
             if self.worm and ip:
-                target = next((t for t in self.worm.scan_results if t['ip'] == ip), None)
+                target = next((t for t in self.worm.scan_results if t["ip"] == ip), None)
                 if target:
-                    threading.Thread(target=self.worm.exploit_target, args=(target,), daemon=True).start()
-            return jsonify({'status': 'exploiting', 'target': ip})
+                    threading.Thread(
+                        target=self.worm.exploit_target, args=(target,), daemon=True
+                    ).start()
+            return jsonify({"status": "exploiting", "target": ip})
 
-        @self.app.route('/api/scan', methods=['POST'])
+        @self.app.route("/api/scan", methods=["POST"])
         def api_scan():
             if self.worm:
                 threading.Thread(target=self.worm.scan_network, daemon=True).start()
-            return jsonify({'status': 'scanning'})
+            return jsonify({"status": "scanning"})
 
     def _get_map_data(self) -> Dict:
         hosts = []
         if self.worm:
             for host in self.worm.scan_results:
-                ip = host['ip']
+                ip = host["ip"]
                 is_infected = ip in self.worm.infected_hosts
                 is_failed = ip in self.worm.failed_targets
-                status = 'infected' if is_infected else ('failed' if is_failed else 'discovered')
+                status = "infected" if is_infected else ("failed" if is_failed else "discovered")
 
-                hosts.append({
-                    'id': ip,
-                    'ip': ip,
-                    'os': host.get('os_guess', 'Unknown'),
-                    'status': status,
-                    'ports': host.get('open_ports', []),
-                    'vuln_score': host.get('vulnerability_score', 0),
-                    'services': host.get('services', {}),
-                    'vulnerabilities': len(host.get('vulnerabilities', [])),
-                    'exploit_chain': len(host.get('exploit_chain', [])),
-                })
+                hosts.append(
+                    {
+                        "id": ip,
+                        "ip": ip,
+                        "os": host.get("os_guess", "Unknown"),
+                        "status": status,
+                        "ports": host.get("open_ports", []),
+                        "vuln_score": host.get("vulnerability_score", 0),
+                        "services": host.get("services", {}),
+                        "vulnerabilities": len(host.get("vulnerabilities", [])),
+                        "exploit_chain": len(host.get("exploit_chain", [])),
+                    }
+                )
 
         if self.worm and self.worm.host_monitor:
-            mapped_ips = {h['ip'] for h in hosts}
+            mapped_ips = {h["ip"] for h in hosts}
             for ip, host_state in self.worm.host_monitor.hosts.items():
                 if ip not in mapped_ips:
-                    hosts.append({
-                        'id': ip,
-                        'ip': ip,
-                        'os': host_state.os_guess,
-                        'status': host_state.status,
-                        'ports': host_state.open_ports,
-                        'vuln_score': 0,
-                        'services': {},
-                        'vulnerabilities': 0,
-                        'exploit_chain': 0,
-                    })
+                    hosts.append(
+                        {
+                            "id": ip,
+                            "ip": ip,
+                            "os": host_state.os_guess,
+                            "status": host_state.status,
+                            "ports": host_state.open_ports,
+                            "vuln_score": 0,
+                            "services": {},
+                            "vulnerabilities": 0,
+                            "exploit_chain": 0,
+                        }
+                    )
 
         edges = []
         if self.worm and self.worm.host_monitor:
             for ip, hs in self.worm.host_monitor.hosts.items():
                 for lm in hs.lateral_movement_history:
-                    edges.append({
-                        'from': ip,
-                        'to': lm.get('target', ''),
-                        'technique': lm.get('technique', ''),
-                        'success': lm.get('success', False),
-                    })
+                    edges.append(
+                        {
+                            "from": ip,
+                            "to": lm.get("target", ""),
+                            "technique": lm.get("technique", ""),
+                            "success": lm.get("success", False),
+                        }
+                    )
 
         stats = {}
         if self.worm:
             stats = {
-                'infected': len(self.worm.infected_hosts),
-                'failed': len(self.worm.failed_targets),
-                'discovered': len(self.worm.scan_results),
-                'vulnerabilities': self.worm.stats.get('vulnerabilities_found', 0),
-                'credentials': self.worm.stats.get('credentials_discovered', 0),
-                'lateral': self.worm.stats.get('lateral_success', 0),
-                'running': self.worm.running,
-                'start_time': self.worm.start_time.isoformat() if self.worm.start_time else None,
+                "infected": len(self.worm.infected_hosts),
+                "failed": len(self.worm.failed_targets),
+                "discovered": len(self.worm.scan_results),
+                "vulnerabilities": self.worm.stats.get("vulnerabilities_found", 0),
+                "credentials": self.worm.stats.get("credentials_discovered", 0),
+                "lateral": self.worm.stats.get("lateral_success", 0),
+                "running": self.worm.running,
+                "start_time": self.worm.start_time.isoformat() if self.worm.start_time else None,
             }
 
-        return {'hosts': hosts, 'edges': edges, 'stats': stats}
+        return {"hosts": hosts, "edges": edges, "stats": stats}
 
     def _get_training_data(self) -> Dict:
         if not self.trainer:
-            return {'available': False}
+            return {"available": False}
 
         status = self.trainer.get_training_status()
         return {
-            'available': True,
-            'trained': status['trained'],
-            'best_reward': status.get('best_reward', 0),
-            'total_episodes': status.get('total_episodes', 0),
-            'scenarios': status.get('scenarios', []),
-            'timestamp': status.get('timestamp', ''),
-            'available_scenarios': ['small_office', 'enterprise', 'datacenter', 'cloud', 'iot'],
+            "available": True,
+            "trained": status["trained"],
+            "best_reward": status.get("best_reward", 0),
+            "total_episodes": status.get("total_episodes", 0),
+            "scenarios": status.get("scenarios", []),
+            "timestamp": status.get("timestamp", ""),
+            "available_scenarios": ["small_office", "enterprise", "datacenter", "cloud", "iot"],
         }
 
     def _get_html(self) -> str:
@@ -822,13 +835,15 @@ class ArmitageDashboard:
         if not FLASK_AVAILABLE:
             return
         import logging as _log
-        _log.getLogger('werkzeug').setLevel(_log.ERROR)
+
+        _log.getLogger("werkzeug").setLevel(_log.ERROR)
         logger.info(f"Starting Armitage Dashboard on {self.host}:{self.port}")
         self.app.run(
-            host=self.host, port=self.port,
-            debug=False,           # never debug — it spawns a second process
+            host=self.host,
+            port=self.port,
+            debug=False,  # never debug — it spawns a second process
             threaded=True,
-            use_reloader=False,    # prevents double-start on Windows
+            use_reloader=False,  # prevents double-start on Windows
         )
 
     def run_background(self):

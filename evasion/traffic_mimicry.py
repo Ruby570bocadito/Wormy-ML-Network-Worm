@@ -18,9 +18,9 @@ traffic look like normal enterprise traffic:
 """
 
 import os
-import sys
 import random
 import struct
+import sys
 import time
 from collections import defaultdict
 from typing import Dict, List, Optional, Tuple
@@ -139,9 +139,7 @@ class TrafficMimicryEngine:
             Encapsulated packet that looks like legitimate traffic
         """
         protocol = protocol or self.active_protocol or "http_browsing"
-        template = self.PROTOCOL_TEMPLATES.get(
-            protocol, self.PROTOCOL_TEMPLATES["http_browsing"]
-        )
+        template = self.PROTOCOL_TEMPLATES.get(protocol, self.PROTOCOL_TEMPLATES["http_browsing"])
 
         if protocol == "dns":
             return self._encapsulate_dns(data)
@@ -166,9 +164,7 @@ class TrafficMimicryEngine:
         authority = 0
         additional = 0
 
-        header = struct.pack(
-            ">HHHHHH", txn_id, flags, questions, answers, authority, additional
-        )
+        header = struct.pack(">HHHHHH", txn_id, flags, questions, answers, authority, additional)
 
         # Encode data as DNS name (base32-like encoding)
         encoded = "".join(chr(97 + (b % 26)) for b in data[:60])  # a-z only
@@ -264,12 +260,8 @@ class TrafficMimicryEngine:
         """Encapsulate data in SMTP format"""
         import base64
 
-        sender = (
-            f"noreply@{random.choice(['company.com', 'corp.net', 'enterprise.org'])}"
-        )
-        recipient = (
-            f"admin@{random.choice(['company.com', 'corp.net', 'enterprise.org'])}"
-        )
+        sender = f"noreply@{random.choice(['company.com', 'corp.net', 'enterprise.org'])}"
+        recipient = f"admin@{random.choice(['company.com', 'corp.net', 'enterprise.org'])}"
 
         encoded_data = base64.b64encode(data[:500]).decode()
 
@@ -293,18 +285,14 @@ class TrafficMimicryEngine:
     def get_timing(self, protocol: str = None) -> float:
         """Get realistic timing interval for a protocol"""
         protocol = protocol or self.active_protocol or "http_browsing"
-        template = self.PROTOCOL_TEMPLATES.get(
-            protocol, self.PROTOCOL_TEMPLATES["http_browsing"]
-        )
+        template = self.PROTOCOL_TEMPLATES.get(protocol, self.PROTOCOL_TEMPLATES["http_browsing"])
         min_interval, max_interval = template["interval"]
         return random.uniform(min_interval, max_interval)
 
     def get_packet_size(self, protocol: str = None) -> Tuple[int, int]:
         """Get realistic packet size range for a protocol"""
         protocol = protocol or self.active_protocol or "http_browsing"
-        template = self.PROTOCOL_TEMPLATES.get(
-            protocol, self.PROTOCOL_TEMPLATES["http_browsing"]
-        )
+        template = self.PROTOCOL_TEMPLATES.get(protocol, self.PROTOCOL_TEMPLATES["http_browsing"])
         min_size, max_size = template["packet_sizes"]
         return (min_size, max_size)
 

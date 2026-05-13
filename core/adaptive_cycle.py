@@ -19,24 +19,24 @@ This replaces the linear flow with a feedback loop:
 Recon → Predict → Exploit → Learn → Heal → Mimic → Mutate → Sleep → Repeat
 """
 
+import json
 import os
 import sys
 import time
-import json
-from typing import Dict, List, Optional
 from datetime import datetime
+from typing import Dict, List, Optional
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from utils.logger import logger
+from core.distributed_redundancy import DistributedRedundancy, HeartbeatProtocol
+from core.dormant_cells import DormantCellManager
 
 # Import all APT-level components
-from core.predictive_recon import PredictiveScanner, BayesianNetworkAnalyzer
-from exploits.adaptive_exploit_selector import AdaptiveExploitSelector
-from core.distributed_redundancy import DistributedRedundancy, HeartbeatProtocol
-from evasion.traffic_mimicry import TrafficMimicryEngine
+from core.predictive_recon import BayesianNetworkAnalyzer, PredictiveScanner
 from evasion.semantic_polymorphism import SemanticPolymorphicEngine
-from core.dormant_cells import DormantCellManager
+from evasion.traffic_mimicry import TrafficMimicryEngine
+from exploits.adaptive_exploit_selector import AdaptiveExploitSelector
+from utils.logger import logger
 
 
 class AdaptiveCycle:
@@ -192,9 +192,7 @@ class AdaptiveCycle:
         logger.info("Phase 5: DORMANT CELL DEPLOYMENT")
         cell_stats = self.dormant_cells.get_statistics()
         cycle_results["phase_results"]["dormant"] = cell_stats
-        logger.info(
-            f"  Cells: {cell_stats['dormant']} dormant, {cell_stats['active']} active"
-        )
+        logger.info(f"  Cells: {cell_stats['dormant']} dormant, {cell_stats['active']} active")
 
         # Cycle timing
         cycle_elapsed = time.time() - cycle_start

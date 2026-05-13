@@ -5,12 +5,13 @@ para que el motor de explotación real actue contra ellos.
 
 USO: python tests/run_worm_vs_lab.py
 """
-import sys
+
 import os
+import sys
 import time
 
-if sys.stdout.encoding and sys.stdout.encoding.lower() != 'utf-8':
-    sys.stdout.reconfigure(encoding='utf-8')
+if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
+    sys.stdout.reconfigure(encoding="utf-8")
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -39,7 +40,7 @@ worm = WormCore(
 LAB_HOSTS = [
     # ── Database Services ──────────────────────────────────────────────────
     {
-        "ip": "192.168.100.10",   # lab_redis (password: redis123)
+        "ip": "192.168.100.10",  # lab_redis (password: redis123)
         "open_ports": [6379],
         "os_guess": "Linux (Redis 7)",
         "services": {"6379": "redis"},
@@ -47,7 +48,7 @@ LAB_HOSTS = [
         "vulnerabilities": ["redis_weak_auth"],
     },
     {
-        "ip": "192.168.100.11",   # lab_redis_noauth (no password!)
+        "ip": "192.168.100.11",  # lab_redis_noauth (no password!)
         "open_ports": [6379],
         "os_guess": "Linux (Redis 7 noauth)",
         "services": {"6379": "redis"},
@@ -55,7 +56,7 @@ LAB_HOSTS = [
         "vulnerabilities": ["redis_noauth"],
     },
     {
-        "ip": "192.168.100.12",   # lab_mysql
+        "ip": "192.168.100.12",  # lab_mysql
         "open_ports": [3306],
         "os_guess": "Linux (MySQL 5.7)",
         "services": {"3306": "mysql"},
@@ -63,7 +64,7 @@ LAB_HOSTS = [
         "vulnerabilities": ["mysql_default_creds"],
     },
     {
-        "ip": "192.168.100.13",   # lab_postgres
+        "ip": "192.168.100.13",  # lab_postgres
         "open_ports": [5432],
         "os_guess": "Linux (PostgreSQL 14)",
         "services": {"5432": "postgresql"},
@@ -71,7 +72,7 @@ LAB_HOSTS = [
         "vulnerabilities": ["postgres_default_creds"],
     },
     {
-        "ip": "192.168.100.14",   # lab_mongodb
+        "ip": "192.168.100.14",  # lab_mongodb
         "open_ports": [27017],
         "os_guess": "Linux (MongoDB 6)",
         "services": {"27017": "mongodb"},
@@ -79,7 +80,7 @@ LAB_HOSTS = [
         "vulnerabilities": ["mongodb_default_creds"],
     },
     {
-        "ip": "192.168.100.15",   # lab_mssql
+        "ip": "192.168.100.15",  # lab_mssql
         "open_ports": [1433],
         "os_guess": "Windows Server 2019 (MSSQL)",
         "services": {"1433": "mssql"},
@@ -88,7 +89,7 @@ LAB_HOSTS = [
     },
     # ── Messaging ──────────────────────────────────────────────────────────
     {
-        "ip": "192.168.100.20",   # lab_rabbitmq
+        "ip": "192.168.100.20",  # lab_rabbitmq
         "open_ports": [5672, 15672],
         "os_guess": "Linux (RabbitMQ 3)",
         "services": {"5672": "amqp", "15672": "http"},
@@ -97,7 +98,7 @@ LAB_HOSTS = [
     },
     # ── HTTP / CI / Web Apps ───────────────────────────────────────────────
     {
-        "ip": "192.168.100.31",   # lab_tomcat
+        "ip": "192.168.100.31",  # lab_tomcat
         "open_ports": [8080],
         "os_guess": "Linux (Tomcat 9)",
         "services": {"8080": "http"},
@@ -105,7 +106,7 @@ LAB_HOSTS = [
         "vulnerabilities": ["tomcat_default_creds"],
     },
     {
-        "ip": "192.168.100.32",   # lab_jenkins
+        "ip": "192.168.100.32",  # lab_jenkins
         "open_ports": [8080],
         "os_guess": "Linux (Jenkins LTS)",
         "services": {"8080": "http"},
@@ -113,7 +114,7 @@ LAB_HOSTS = [
         "vulnerabilities": ["jenkins_unauth_rce"],
     },
     {
-        "ip": "192.168.100.40",   # lab_dvwa
+        "ip": "192.168.100.40",  # lab_dvwa
         "open_ports": [80],
         "os_guess": "Linux (DVWA - PHP)",
         "services": {"80": "http"},
@@ -121,7 +122,7 @@ LAB_HOSTS = [
         "vulnerabilities": ["dvwa_sqli", "dvwa_login_bypass"],
     },
     {
-        "ip": "192.168.100.50",   # lab_juice
+        "ip": "192.168.100.50",  # lab_juice
         "open_ports": [3000],
         "os_guess": "Linux (Node.js/Juice Shop)",
         "services": {"3000": "http"},
@@ -129,7 +130,7 @@ LAB_HOSTS = [
         "vulnerabilities": ["juice_shop_sqli", "juice_shop_xss"],
     },
     {
-        "ip": "192.168.100.60",   # lab_elasticsearch
+        "ip": "192.168.100.60",  # lab_elasticsearch
         "open_ports": [9200],
         "os_guess": "Linux (Elasticsearch 7)",
         "services": {"9200": "http"},
@@ -138,7 +139,7 @@ LAB_HOSTS = [
     },
     # ── Network Services (FTP, SSH, Telnet, SNMP) ──────────────────────────
     {
-        "ip": "192.168.100.70",   # lab_ftp
+        "ip": "192.168.100.70",  # lab_ftp
         "open_ports": [21],
         "os_guess": "Linux (Pure-FTPd)",
         "services": {"21": "ftp"},
@@ -146,7 +147,7 @@ LAB_HOSTS = [
         "vulnerabilities": ["ftp_default_creds"],
     },
     {
-        "ip": "192.168.100.71",   # lab_ssh
+        "ip": "192.168.100.71",  # lab_ssh
         "open_ports": [2222],
         "os_guess": "Linux (OpenSSH)",
         "services": {"2222": "ssh"},
@@ -154,7 +155,7 @@ LAB_HOSTS = [
         "vulnerabilities": ["ssh_weak_creds"],
     },
     {
-        "ip": "192.168.100.72",   # lab_telnet
+        "ip": "192.168.100.72",  # lab_telnet
         "open_ports": [23],
         "os_guess": "Linux (BusyBox telnetd)",
         "services": {"23": "telnet"},
@@ -162,7 +163,7 @@ LAB_HOSTS = [
         "vulnerabilities": ["telnet_default_creds"],
     },
     {
-        "ip": "192.168.100.73",   # lab_snmp
+        "ip": "192.168.100.73",  # lab_snmp
         "open_ports": [161],
         "os_guess": "Linux (Net-SNMP)",
         "services": {"161": "snmp"},
@@ -177,8 +178,12 @@ LAB_HOSTS = [
         "services": {"21": "ftp", "22": "ssh", "23": "telnet", "80": "http", "445": "smb"},
         "hostname": "lab_metasploitable",
         "vulnerabilities": [
-            "vsftpd_backdoor", "ssh_weak_creds", "telnet_default_creds",
-            "samba_usermap_script", "distcc_exec", "unreal_ircd_backdoor",
+            "vsftpd_backdoor",
+            "ssh_weak_creds",
+            "telnet_default_creds",
+            "samba_usermap_script",
+            "distcc_exec",
+            "unreal_ircd_backdoor",
         ],
     },
 ]
@@ -199,10 +204,10 @@ if worm.knowledge_graph:
 if worm.cli_monitor:
     for host in LAB_HOSTS:
         worm.cli_monitor.log_event(
-            'scan',
+            "scan",
             f'Host discovered: {host["hostname"]} ({host["os_guess"]})',
             host["ip"],
-            {"ports": host["open_ports"], "os": host["os_guess"]}
+            {"ports": host["open_ports"], "os": host["os_guess"]},
         )
 
 print(f"[*] Lab hosts injected. Starting worm exploitation engine...\n")
@@ -236,14 +241,16 @@ for i, target in enumerate(LAB_HOSTS):
     if not worm.running:
         break
 
-    print(f"\n[ITERATION {i+1}] Attacking {target['hostname']} ({target['ip']}:{target['open_ports']})...")
+    print(
+        f"\n[ITERATION {i+1}] Attacking {target['hostname']} ({target['ip']}:{target['open_ports']})..."
+    )
 
     if worm.cli_monitor:
         worm.cli_monitor.log_event(
-            'ml_decision',
+            "ml_decision",
             f'Target selected: {target["hostname"]}',
             target["ip"],
-            {"confidence": 0.85 - i * 0.05}
+            {"confidence": 0.85 - i * 0.05},
         )
 
     # Llamar al motor real de explotación

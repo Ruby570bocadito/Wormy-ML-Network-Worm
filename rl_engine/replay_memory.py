@@ -2,9 +2,11 @@
 RL Engine v2.0 - Prioritized Experience Replay
 Implements PER with alpha-beta prioritization for importance sampling.
 """
-import numpy as np
+
 from collections import deque
 from typing import List, Tuple
+
+import numpy as np
 
 
 class PrioritizedReplayMemory:
@@ -16,7 +18,7 @@ class PrioritizedReplayMemory:
 
     def push(self, experience, priority: float = 1.0):
         self.memory.append(experience)
-        self.priorities.append(priority ** self.alpha)
+        self.priorities.append(priority**self.alpha)
 
     def sample(self, batch_size: int, beta: float = 0.4) -> Tuple[List, List, np.ndarray]:
         if len(self.memory) < batch_size:

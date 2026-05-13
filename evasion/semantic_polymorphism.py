@@ -16,13 +16,13 @@ this engine:
 4. Changes control flow, data flow, and execution patterns
 """
 
-import os
-import sys
 import ast
-import random
 import hashlib
+import os
+import random
+import sys
 import textwrap
-from typing import Optional, List, Dict
+from typing import Dict, List, Optional
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -147,12 +147,8 @@ class ExpressionSimplifier(ASTTransformer):
             # x + y → x - (-y) or x * 1 + y * 1
             if isinstance(node.op, ast.Add):
                 # Add identity: x + y → (x * 1) + (y * 1)
-                node.left = ast.BinOp(
-                    left=node.left, op=ast.Mult(), right=ast.Constant(value=1)
-                )
-                node.right = ast.BinOp(
-                    left=node.right, op=ast.Mult(), right=ast.Constant(value=1)
-                )
+                node.left = ast.BinOp(left=node.left, op=ast.Mult(), right=ast.Constant(value=1))
+                node.right = ast.BinOp(left=node.right, op=ast.Mult(), right=ast.Constant(value=1))
             elif isinstance(node.op, ast.Sub):
                 # x - y → x + (-y)
                 node.op = ast.Add()
