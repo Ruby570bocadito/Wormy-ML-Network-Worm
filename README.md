@@ -781,6 +781,9 @@ wormy/
 ├── worm_core.py                      # Main orchestrator (2563 lines)
 ├── configs/
 │   ├── config.yaml                   # Default config
+│   ├── config_test.yaml              # Safe test mode
+│   ├── config_simulation.yaml        # Simulation mode
+│   ├── config_aggressive.yaml        # Aggressive mode
 │   └── lab_docker.yaml               # Docker lab config
 ├── scanner/
 │   ├── enterprise_scanner.py         # TCP-probe scanner v2 ★
@@ -812,12 +815,30 @@ wormy/
 │   └── multi_protocol_c2.py          # C2 + OTA brain updates
 ├── rl_engine/
 │   └── propagation_agent.py          # DQN + Thompson Sampling
+├── swarm/
+│   ├── multi_agent.py                # Swarm coordinator
+│   └── enhanced_swarm.py             # Enhanced swarm agents
+├── payloads/
+│   ├── payload_manager.py            # Payload management
+│   ├── payload_generator.py          # Payload generation
+│   └── specialized_payloads.py       # Specialized payloads
+├── core/
+│   ├── adaptive_cycle.py             # APT-level adaptive cycle
+│   ├── wave_propagation.py           # Wave propagation engine
+│   ├── agent_controller.py           # Agent heartbeat controller
+│   └── advanced_self_healing.py      # Self-healing engine
+├── training/
+│   ├── realistic_training.py         # RL training pipeline
+│   └── scenarios.py                  # Training scenarios
 ├── docker-compose-lab.yml            # Vulnerable lab environment
 └── tests/
-    ├── run_worm_vs_lab.py            # Live lab test ★
-    ├── test_docker_lab.py            # Docker integration tests
+    ├── test_academic.py              # Core unit tests (11)
+    ├── test_unit.py                  # Component unit tests (12)
+    ├── test_advanced_features.py     # Advanced feature tests (5)
     ├── test_enterprise_modules.py    # Enterprise module validation ★
-    └── test_advanced_features.py     # Unit tests (mock-isolated)
+    ├── test_v2.py                    # v2 module tests (10)
+    ├── test_integration_e2e.py       # End-to-end integration
+    └── test_docker_lab.py            # Docker integration tests
 ```
 
 ★ = Added or upgraded in v3.0
