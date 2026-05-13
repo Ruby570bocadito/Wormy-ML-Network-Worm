@@ -190,18 +190,10 @@ class TestConfigValidation(unittest.TestCase):
         try:
             from configs.config import Config
 
-            config = Config("config_simulation.yaml")
+            config = Config("configs/config.yaml", profile="simulation")
 
-            self.assertIsNotNone(config)
-        except ImportError as e:
-            self.skipTest(f"Config module not available: {e}")
-
-    def test_simulation_config(self):
-        """Test simulation config is valid"""
-        try:
-            from configs.config import Config
-
-            config = Config("configs/config_simulation.yaml")
+            # Try with full path
+            config = Config("configs/config.yaml", profile="simulation")
 
             self.assertTrue(config.validate())
 

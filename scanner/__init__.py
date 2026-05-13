@@ -816,7 +816,7 @@ if __name__ == "__main__":
     except ImportError:
         from config import Config
 
-    config = Config("config_simulation.yaml")
+    config = Config("configs/config.yaml", profile="simulation")
     scanner = IntelligentScanner(config, use_ml=True)
 
     results = scanner.scan_network(["192.168.1.0/24"])

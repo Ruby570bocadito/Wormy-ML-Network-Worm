@@ -1,3 +1,9 @@
+# Wormy v4.0 — Consolidated Configuration
+# Profile-specific overrides are merged on top of base defaults.
+# Use: --profile <name> to activate a profile.
+
+# ─── Base Configuration (applied to all profiles) ──────────────────
+
 network:
   target_ranges:
     - "192.168.100.0/24"
@@ -50,3 +56,94 @@ safety:
   max_runtime_hours: 24
   enable_logging: true
   log_encryption: true
+
+# ─── Profile Overrides ─────────────────────────────────────────────
+# Each profile deep-merges on top of the base config.
+
+profiles:
+
+  default:
+    description: "Normal operation with balanced stealth and speed"
+
+  stealth:
+    description: "Slow, careful, full evasion active"
+    network:
+      max_threads: 10
+      scan_timeout: 10
+      self_replicate: false
+    evasion:
+      stealth_mode: true
+      randomize_timing: true
+      detect_honeypots: true
+      detect_ids: true
+      max_scan_rate: 100
+    c2:
+      beacon_interval: 120
+    safety:
+      enable_logging: true
+
+  aggressive:
+    description: "Fast, maximum spread"
+    network:
+      max_threads: 200
+      scan_timeout: 3
+      self_replicate: true
+    evasion:
+      stealth_mode: false
+      randomize_timing: false
+      max_scan_rate: 1000
+    c2:
+      beacon_interval: 30
+
+  audit:
+    description: "Medium speed with detailed logging"
+    network:
+      max_threads: 30
+      scan_timeout: 5
+    evasion:
+      stealth_mode: true
+    safety:
+      enable_logging: true
+      log_encryption: false
+
+  test:
+    description: "Safe test mode (no real exploits)"
+    network:
+      target_ranges:
+        - "192.168.100.0/24"
+      scan_timeout: 10
+      max_threads: 20
+    safety:
+      kill_switch_enabled: true
+      max_runtime_hours: 2
+    c2:
+      beacon_interval: 5
+
+  simulation:
+    description: "Full simulation mode"
+    network:
+      target_ranges:
+        - "192.168.100.0/24"
+      scan_timeout: 10
+      max_threads: 100
+    evasion:
+      stealth_mode: false
+    c2:
+      beacon_interval: 5
+    safety:
+      max_runtime_hours: 48
+
+  lab_docker:
+    description: "Docker lab environment"
+    network:
+      target_ranges:
+        - "192.168.100.0/24"
+      scan_timeout: 3
+      max_threads: 5
+    evasion:
+      stealth_mode: false
+    c2:
+      c2_server: "127.0.0.1"
+      beacon_interval: 5
+    safety:
+      max_runtime_hours: 4

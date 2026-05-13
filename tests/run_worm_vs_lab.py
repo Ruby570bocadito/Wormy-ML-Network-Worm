@@ -26,7 +26,7 @@ print("=" * 70)
 time.sleep(1)
 
 # Cargar config del lab
-config = Config(config_file="configs/lab_docker.yaml")
+config = Config(config_file="configs/config.yaml", profile="lab_docker")
 
 # Crear instancia del worm (con monitor CLI enriquecido)
 worm = WormCore(

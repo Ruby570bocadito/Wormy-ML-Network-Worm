@@ -134,7 +134,7 @@ class MetasploitConfig:
 class Config:
     """Main configuration class"""
 
-    def __init__(self, config_file: str = None):
+    def __init__(self, config_file: str = None, profile: str = None):
         self.network = NetworkConfig()
         self.exploit = ExploitConfig()
         self.propagation = PropagationConfig()
@@ -146,35 +146,60 @@ class Config:
 
         # Load from file if provided
         if config_file and os.path.exists(config_file):
-            self.load_from_file(config_file)
+            self.load_from_file(config_file, profile)
 
         # Override Metasploit password from env var
         msf_password = os.getenv("MSF_PASSWORD")
         if msf_password:
             self.metasploit.password = msf_password
 
-    def load_from_file(self, config_file: str):
-        """Load configuration from YAML file"""
+    def load_from_file(self, config_file: str, profile: str = None):
+        """Load configuration from YAML file, optionally applying profile overrides"""
         with open(config_file, "r") as f:
             config_data = yaml.safe_load(f)
 
-        # Update configurations
-        if "network" in config_data:
-            self._update_dataclass(self.network, config_data["network"])
-        if "exploit" in config_data:
-            self._update_dataclass(self.exploit, config_data["exploit"])
-        if "propagation" in config_data:
-            self._update_dataclass(self.propagation, config_data["propagation"])
-        if "evasion" in config_data:
-            self._update_dataclass(self.evasion, config_data["evasion"])
-        if "c2" in config_data:
-            self._update_dataclass(self.c2, config_data["c2"])
-        if "ml" in config_data:
-            self._update_dataclass(self.ml, config_data["ml"])
-        if "safety" in config_data:
-            self._update_dataclass(self.safety, config_data["safety"])
-        if "metasploit" in config_data:
-            self._update_dataclass(self.metasploit, config_data["metasploit"])
+        def deep_merge(base: Dict, override: Dict) -> Dict:
+            """Deep merge two dictionaries"""
+            result = dict(base)
+            for key, value in override.items():
+                if key in result and isinstance(result[key], dict) and isinstance(value, dict):
+                    result[key] = deep_merge(result[key], value)
+                else:
+                    result[key] = value
+            return result
+
+        def apply_section(section_name: str, data: Dict):
+            """Apply a config section to the corresponding dataclass"""
+            attr_map = {
+                "network": "network",
+                "exploit": "exploit",
+                "propagation": "propagation",
+                "evasion": "evasion",
+                "c2": "c2",
+                "ml": "ml",
+                "safety": "safety",
+                "metasploit": "metasploit",
+            }
+            target_attr = attr_map.get(section_name)
+            if target_attr and hasattr(self, target_attr):
+                self._update_dataclass(getattr(self, target_attr), data)
+
+        # Apply base config
+        for section in ["network", "exploit", "propagation", "evasion", "c2", "ml", "safety", "metasploit"]:
+            if section in config_data:
+                apply_section(section, config_data[section])
+
+        # Apply profile overrides if specified
+        if profile and "profiles" in config_data and profile in config_data["profiles"]:
+            profile_data = config_data["profiles"][profile]
+            # Remove non-config keys
+            profile_data.pop("description", None)
+            for section, overrides in profile_data.items():
+                if isinstance(overrides, dict) and section in config_data:
+                    merged = deep_merge(config_data.get(section, {}), overrides)
+                    apply_section(section, merged)
+                elif isinstance(overrides, dict):
+                    apply_section(section, overrides)
 
     def _update_dataclass(self, obj, data: Dict[str, Any]):
         """Update dataclass fields from dictionary"""
