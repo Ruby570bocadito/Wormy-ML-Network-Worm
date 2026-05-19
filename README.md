@@ -1,234 +1,339 @@
 <p align="center">
-  <h1 align="center">Wormy -- ML Network Worm v4.0</h1>
-  <p align="center">
-    <strong>ML-Driven Autonomous Network Propagation Platform</strong>
-  </p>
-  <p align="center">
-    <a href="https://github.com/Ruby570bocadito/Wormy-ML-Network-Worm"><img src="https://img.shields.io/badge/version-4.0.0-blue.svg" alt="Version"></a>
-    <a href="https://github.com/Ruby570bocadito/Wormy-ML-Network-Worm"><img src="https://img.shields.io/badge/python-3.10+-green.svg" alt="Python"></a>
-    <a href="https://github.com/Ruby570bocadito/Wormy-ML-Network-Worm"><img src="https://img.shields.io/badge/license-MIT-orange.svg" alt="License"></a>
-    <a href="https://github.com/Ruby570bocadito/Wormy-ML-Network-Worm"><img src="https://img.shields.io/badge/exploits-44-blue.svg" alt="Exploits"></a>
-    <a href="https://github.com/Ruby570bocadito/Wormy-ML-Network-Worm"><img src="https://img.shields.io/badge/evasion-enterprise-purple.svg" alt="Evasion"></a>
-    <a href="https://github.com/Ruby570bocadito/Wormy-ML-Network-Worm"><img src="https://img.shields.io/badge/AD-kerberoast-darkred.svg" alt="AD"></a>
-    <a href="https://github.com/Ruby570bocadito/Wormy-ML-Network-Worm"><img src="https://img.shields.io/badge/tests-35%2F39-brightgreen.svg" alt="Tests"></a>
-  </p>
-  <p align="center">
-    <strong>Developed by <a href="https://github.com/Ruby570bocadito">Ruby570bocadito</a></strong>
-  </p>
+  <img src="https://capsule-render.vercel.app/api?type=rect&color=8B0000&height=100&section=header&text=Wormy&fontSize=40&fontColor=ffffff&fontAlign=50&fontAlignY=50&animation=fadeIn" alt="header"/>
+</p>
+
+<p align="center">
+  <strong>ML-Powered Polymorphic Network Worm</strong><br/>
+  <em>Self-replicating payload with dynamic encryption, multi-vector propagation, and adversarial evasion.</em>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python"/>
+  <img src="https://img.shields.io/badge/PyTorch-2.0+-EE4C2C?style=for-the-badge&logo=pytorch&logoColor=white" alt="PyTorch"/>
+  <img src="https://img.shields.io/badge/version-4.0.0-blue?style=for-the-badge" alt="Version"/>
+  <img src="https://img.shields.io/badge/license-MIT-orange?style=for-the-badge" alt="License"/>
+  <img src="https://img.shields.io/badge/exploits-44%20modules-blue?style=for-the-badge" alt="Exploits"/>
+  <img src="https://img.shields.io/badge/evasion-AMSI%20%7C%20ETW%20%7C%20DLL-purple?style=for-the-badge" alt="Evasion"/>
+  <img src="https://img.shields.io/badge/AD-Kerberoast%20%7C%20AS--REP%20Roast-darkred?style=for-the-badge" alt="AD"/>
+  <img src="https://img.shields.io/badge/tests-35%2F39%20PASS-brightgreen?style=for-the-badge" alt="Tests"/>
+</p>
+
+<p align="center">
+  <img src="https://komarev.com/ghpvc/?username=Ruby570bocadito&label=Downloads&color=8B0000&style=flat" alt="downloads"/>
 </p>
 
 ---
 
-> **EDUCATIONAL & AUDIT PURPOSE ONLY** -- Only use on systems you own or have explicit written authorization for. Unauthorized access is illegal.
+## 🎯 What is Wormy?
 
----
+**Wormy** is an **ML-driven network propagation framework** for authorized red team operations and security research. It combines reinforcement learning-based decision making with enterprise-grade exploitation techniques to simulate advanced persistent threats (APTs) in controlled environments.
 
-## Table of Contents
-
-- [Overview](#overview)
-- [Architecture](#architecture)
-- [Quick Start](#quick-start)
-- [Usage & Commands](#usage--commands)
-- [Exploit Modules (44)](#exploit-modules-44)
-- [The ML Brain](#the-ml-brain)
-- [Enterprise Evasion Engine](#enterprise-evasion-engine)
-- [Enterprise Password Engine](#enterprise-password-engine)
-- [Active Directory Module](#active-directory-module)
-- [Multi-Protocol C2](#multi-protocol-c2)
-- [Web Dashboards](#web-dashboards)
-- [Interactive CLI](#interactive-cli)
-- [Project Structure](#project-structure)
-- [Requirements](#requirements)
-- [License](#license)
-
----
-
-## Overview
-
-Wormy is an **ML-driven network propagation framework** for authorized red team operations. It combines reinforcement learning-based decision making with enterprise-grade exploitation techniques to simulate advanced persistent threats (APTs) in controlled environments.
-
-### What makes it different
-
-- **RL Brain** -- DQN + Thompson Sampling that learns which targets to prioritize based on asset value (DC=100, DB=70, Workstation=10)
-- **44 real exploit modules** -- Windows critical, webapp, cloud, SCADA, IoT, and classic network services
-- **Real AMSI/ETW/DLL-unhook evasion** -- actual memory patching, not stubs
-- **Active Directory attack chain** -- LDAP enum to AS-REP Roast to Kerberoast (no credentials needed)
-- **Multi-protocol C2** -- HTTPS, DNS-over-HTTPS, ICMP tunneling, P2P gossip mesh
-- **OTA Brain Updates** -- receive new model weights via C2 and hot-swap without restart
-- **Adaptive exploit selection** -- contextual bandit with Thompson Sampling chooses the best exploit per target
-
----
-
-## Architecture
-
-### System Overview
-
-```mermaid
-graph TB
-    subgraph "Worm Core v4"
-        WC[worm_core/ package]
-        SM[Enterprise Scanner v2]
-        RL[RL Brain DQN+Thompson]
-        EM[Exploit Manager]
-        KG[Knowledge Graph]
-    end
-
-    subgraph "Enterprise Engines"
-        EPE[Password Engine<br/>Spray+Brute+Stuffing]
-        EEE[Evasion Engine<br/>AMSI+ETW+DLL]
-        ADA[AD Attacker<br/>LDAP+AS-REP+Kerb]
-        EPS[Persistence Engine<br/>WMI+SSH+Cron]
-    end
-
-    subgraph "Exploit Modules x44"
-        WIN[Windows Critical<br/>SMB/RDP/BlueKeep/...]
-        WEB[Web App<br/>Log4j/Struts/Jenkins/...]
-        CLO[Cloud<br/>AWS/Azure/GCP/K8s]
-        SCADA[SCADA/IoT<br/>S7/MQTT/OPC UA]
-        SRV[Network Services<br/>SSH/FTP/MySQL/Redis/...]
-    end
-
-    subgraph "Post-Exploitation"
-        LM[Lateral Movement]
-        CD[Credential Dumping]
-        EXF[Data Exfiltration]
-    end
-
-    subgraph "C2 + OTA"
-        C2[Multi-Protocol C2]
-        OTA[OTA Brain Update]
-    end
-
-    subgraph "Dashboards"
-        ARM[Armitage :5001]
-        WEB[Web Dashboard :5000]
-        CLI[Rich Terminal Monitor]
-    end
-
-    WC --> SM & RL & EM & KG
-    WC --> EPE & EEE & ADA & EPS
-    EM --> WIN & WEB & CLO & SCADA & SRV
-    EM --> LM --> CD --> EXF
-    WC --> C2 --> OTA
-    WC --> ARM & WEB & CLI
 ```
-
-### Propagation Flow
-
-```mermaid
-sequenceDiagram
-    participant W as Worm Core
-    participant S as Enterprise Scanner v2
-    participant RL as RL Brain
-    participant EV as Evasion Engine
-    participant EM as Exploit Manager
-    participant AD as AD Attacker
-    participant PE as Persistence
-
-    W->>S: scan_range(cidr) TCP-probe
-    S-->>W: hosts sorted by asset_value
-    W->>AD: attack(hosts) -- find DCs
-    AD-->>W: LDAP enum + AS-REP hashes
-    W->>RL: select_next_target(hosts)
-    RL-->>W: highest-value target
-    W->>EV: apply_all() AMSI+ETW+sandbox
-    EV-->>W: evasion confirmed
-    W->>EM: exploit_target()
-    EM-->>W: success + credentials
-    W->>PE: establish(payload_path)
-    PE-->>W: Registry/WMI/SSH key
-    W->>RL: provide_feedback(reward)
-    Note over RL: reward=asset_value*stealth_bonus
+┌──────────────────────────────────────────────────────────────────────┐
+│                         Wormy Core v4                                 │
+│                                                                       │
+│  ┌────────────┐  ┌────────────┐  ┌────────────┐  ┌────────────────┐  │
+│  │  Scanner   │  │  RL Brain  │  │  Exploit   │  │  Knowledge     │  │
+│  │  CIDR/TCP  │─▶│  DQN+TS    │─▶│  Manager   │─▶│  Graph         │  │
+│  └────────────┘  └────────────┘  └──────┬─────┘  └────────────────┘  │
+│                                         │                              │
+│  ┌──────────────────────────────────────┼──────────────────────────┐  │
+│  │  Enterprise Engines                   │                          │  │
+│  │  ┌──────────┐ ┌──────────┐ ┌────────┴──────┐ ┌──────────────┐  │  │
+│  │  │ Password │ │ Evasion  │ │ AD Attacker   │ │ Persistence  │  │  │
+│  │  │ Engine   │ │ AMSI/ETW │ │ LDAP+Kerb     │ │ WMI+SSH+Cron │  │  │
+│  │  └──────────┘ └──────────┘ └───────────────┘ └──────────────┘  │  │
+│  └────────────────────────────────────────────────────────────────┘  │
+│                                                                       │
+│  ┌────────────────────────────────────────────────────────────────┐   │
+│  │  44 Exploit Modules                                            │   │
+│  │  Windows(7) │ WebApp(12) │ Cloud(6) │ SCADA(3) │ Network(16)  │   │
+│  └────────────────────────────────────────────────────────────────┘   │
+│                                                                       │
+│                    ┌──────────────────────────┐                        │
+│                    │  Multi-Protocol C2 + OTA │                        │
+│                    │  HTTPS │ DoH │ ICMP │ P2P │                        │
+│                    └────────────┬─────────────┘                        │
+│                                 │                                      │
+│              ┌──────────────────┼──────────────────┐                   │
+│              │                  │                  │                    │
+│        ┌─────┴─────┐    ┌──────┴──────┐    ┌──────┴──────┐             │
+│        │ Armitage  │    │ Web Dash    │    │ Rich CLI    │             │
+│        │ :5001     │    │ :5000       │    │ Interactive │             │
+│        └───────────┘    └─────────────┘    └─────────────┘             │
+└───────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Quick Start
+## ⚡ Features
+
+| Feature | Description | Category |
+|---------|-------------|----------|
+| **RL Brain** | DQN + Thompson Sampling learns target priority (DC=100, DB=70, WS=10) | ML |
+| **44 Exploit Modules** | Windows, WebApp, Cloud, SCADA, IoT, Network services | Exploitation |
+| **AMSI/ETW/DLL Unhooking** | Real memory patching, not stubs | Evasion |
+| **Active Directory** | LDAP enum → AS-REP Roast → Kerberoast (no creds needed) | AD |
+| **Multi-Protocol C2** | HTTPS, DoH, ICMP tunneling, P2P gossip mesh | C2 |
+| **OTA Brain Updates** | Hot-swap model weights via C2 without restart | ML |
+| **Password Engine** | Spray + mutation (35 variants) + credential stuffing | Credentials |
+| **Polymorphic Engine** | AST metamorphism, semantic NOP injection, hash verification | Evasion |
+| **Web Dashboards** | Armitage-style (:5001) + professional (:5000) | Monitoring |
+| **Docker Lab** | 11-container vulnerable network for safe testing | Testing |
+| **MITRE ATT&CK** | Automatic technique mapping and reporting | Reporting |
+| **Kill Switch** | Remote propagation termination with auth code | Safety |
+
+---
+
+## 🚀 Quick Start
+
+### Installation
 
 ```bash
-# 1. Clone
-git clone https://github.com/Ruby570bocadito/Wormy-ML-Network-Worm
+# Clone
+git clone https://github.com/Ruby570bocadito/Wormy-ML-Network-Worm.git
 cd Wormy-ML-Network-Worm
 
-# 2. Install all dependencies
+# Install dependencies
 pip install -r requirements.txt
-
-# 3. Dry-run (safe simulation, no real exploits)
-python3 -m worm_core --dry-run
-
-# 4. Against Docker lab
-docker compose -f docker-compose-lab.yml up -d
-python3 tests/run_worm_vs_lab.py
-
-# 5. Full scan + exploit mode (authorized environment only)
-sudo ./scripts/deploy_kali.sh --live --target 192.168.1.0/24
 ```
 
----
-
-## Usage & Commands
+### Dry-Run (Safe Simulation)
 
 ```bash
-# Interactive mode with full CLI (recommended)
+# Interactive mode — no real exploits
 python3 -m worm_core --dry-run --interactive
-
-# Profiles
-python3 -m worm_core --profile stealth       # Slow, full evasion
-python3 -m worm_core --profile aggressive    # Fast, maximum spread
-python3 -m worm_core --profile audit         # Medium, logging
 
 # Scan only
 python3 -m worm_core --scan-only
+```
 
-# With Metasploit
+### Docker Lab (Safe Testing)
+
+```bash
+# Start 11-container vulnerable network
+docker compose -f docker-compose-lab.yml up -d
+
+# Run worm against lab
+python3 tests/run_worm_vs_lab.py
+```
+
+### Live Mode (Authorized Only)
+
+```bash
+# Stealth profile — slow, full evasion
+python3 -m worm_core --profile stealth --target 192.168.1.0/24
+
+# Aggressive profile — fast, maximum spread
+python3 -m worm_core --profile aggressive --target 10.0.1.0/24
+
+# With Metasploit integration
 python3 -m worm_core --config configs/config_msf.yaml
 
 # One-command automation (Kali)
 sudo ./scripts/deploy_kali.sh --live --target 10.0.1.0/24
 ```
 
-### Arguments
+---
 
-| Argument | Description |
-|---|---|
-| `--config <file>` | Configuration file |
-| `--scan-only` | Scan network and exit |
-| `--kill-switch <code>` | Activate kill switch |
-| `--profile <name>` | stealth, aggressive, audit |
-| `--dry-run` | Simulate without real exploits |
-| `--no-monitor` | Disable CLI monitor |
-| `--interactive` | Interactive CLI mode |
+## 🎬 Demo
+
+### Interactive CLI Session
+
+```
+$ python3 -m worm_core --dry-run --interactive
+
+  ╔══════════════════════════════════════════════════╗
+  ║         Wormy v4.0 — ML Network Worm             ║
+  ║         Ruby570bocadito (c) 2024                 ║
+  ╚══════════════════════════════════════════════════╝
+
+  [DRY-RUN MODE] No real exploits will be executed
+
+wormy > scan professional
+  Scanning 192.168.1.0/24...
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 100% 0:00:12
+  [+] Discovered 23 hosts (5 classified)
+
+wormy > targets
+  +----------------+----------------+--------+-------+
+  | IP             | OS             | Type   | Value |
+  +----------------+----------------+--------+-------+
+  | 192.168.1.10   | Windows 2019   | DC     | 100   |
+  | 192.168.1.20   | Ubuntu 22.04   | DB     | 70    |
+  | 192.168.1.30   | Windows 2016   | Exchange| 80   |
+  | 192.168.1.50   | Windows 11     | WS     | 10    |
+  | 192.168.1.60   | CentOS 8       | Web    | 30    |
+  +----------------+----------------+--------+-------+
+
+wormy > vulns 192.168.1.10
+  [!] CVE-2020-1472  Zerologon        — Netlogon privilege escalation
+  [!] CVE-2021-34527 PrintNightmare    — Spooler RCE/LPE
+  [~] MS17-010       EternalBlue      — SMBv1 buffer overflow
+
+wormy > run 5
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 5/5 iterations
+  [+] Propagation complete
+      Infected: 8  |  Discovered: 23  |  Failed: 3
+      Credentials: 12  |  Lateral moves: 5
+
+wormy > report
+  [+] Audit report saved to reports/audit_20240115.json
+  [+] MITRE ATT&CK mapping saved to reports/mitre_mapping.json
+```
+
+### All Commands
+
+```bash
+# Core
+python3 -m worm_core --dry-run                    # Safe simulation
+python3 -m worm_core --dry-run --interactive       # Interactive CLI
+python3 -m worm_core --scan-only                   # Scan and exit
+python3 -m worm_core --profile stealth             # Slow, full evasion
+python3 -m worm_core --profile aggressive          # Fast, max spread
+python3 -m worm_core --profile audit               # Medium, logging
+
+# With config
+python3 -m worm_core --config configs/config_msf.yaml
+
+# Kill switch
+python3 -m worm_core --kill-switch <code>
+
+# Testing
+make test                                          # Run test suite
+python3 tests/run_worm_vs_lab.py                   # Docker lab test
+```
 
 ---
 
-## Exploit Modules (44)
+## 🏗️ Architecture
 
-All modules inherit from `BaseExploit` and plug into the `ExploitManager` which uses a contextual bandit to select the best exploit per target.
+### Propagation Flow
+
+```
+  ┌─────────┐     ┌──────────────┐     ┌──────────────┐
+  │  Worm   │────▶│  Scanner     │────▶│  Hosts       │
+  │  Core   │     │  CIDR/TCP    │     │  Sorted by   │
+  │         │     │  Probe       │     │  Asset Value │
+  └────┬────┘     └──────────────┘     └──────┬───────┘
+       │                                      │
+       │         ┌──────────────┐             │
+       │         │  AD Attacker │◀────────────┘
+       │         │  LDAP+AS-REP │
+       │         └──────┬───────┘
+       │                │
+       │         ┌──────▼───────┐
+       │         │  RL Brain    │  ← Thompson Sampling
+       │         │  DQN+TS      │     selects best exploit
+       │         └──────┬───────┘
+       │                │
+       │         ┌──────▼───────┐
+       │         │  Evasion     │  ← AMSI + ETW + DLL
+       │         │  Engine      │     + Sandbox detection
+       │         └──────┬───────┘
+       │                │
+       │         ┌──────▼───────┐
+       │         │  Exploit     │  ← 44 modules
+       │         │  Manager     │     contextual bandit
+       │         └──────┬───────┘
+       │                │
+       │         ┌──────▼───────┐
+       │         │  Persistence │  ← WMI + SSH + Cron
+       │         │  Engine      │
+       │         └──────┬───────┘
+       │                │
+       │         ┌──────▼───────┐
+       │         │  Feedback    │  ← reward = asset_value
+       │         │  to RL       │     * stealth_bonus
+       │         └──────────────┘
+       │
+       ▼
+  ┌─────────────────┐
+  │  C2 + Dashboards│
+  │  HTTPS/DoH/ICMP │
+  │  :5000/:5001    │
+  └─────────────────┘
+```
+
+### Project Structure
+
+```
+wormy/
+├── worm_core/                  # Main orchestrator (700+ lines)
+│   ├── mixin_base.py           # Init, safety, shutdown
+│   ├── mixin_scanning.py       # CIDR discovery, host classification
+│   ├── mixin_exploitation.py   # Exploit target, brute force
+│   ├── mixin_lateral.py        # Pivot, spread, pass-the-hash
+│   ├── mixin_propagation.py    # Adaptive cycles, online learning
+│   └── mixin_reporting.py      # Audit trail, session logging
+├── scanner/                    # Enterprise + professional scanners
+├── exploits/                   # 44 exploit modules + manager
+│   ├── exploit_manager.py      # Contextual bandit selector
+│   ├── modules/                # All exploit implementations
+│   ├── enterprise_password_engine.py
+│   └── active_directory.py
+├── evasion/                    # AMSI/ETW/DLL, polymorphic, IDS
+├── post_exploit/               # Lateral movement, persistence
+├── c2/                         # Multi-protocol C2 + OTA
+│   ├── multi_protocol_c2.py    # HTTPS/DoH/ICMP/P2P
+│   ├── pfs_crypto.py           # X25519 + AES-256-GCM
+│   └── resilient_c2.py         # DoH + Domain Fronting
+├── rl_engine/                  # DQN + Thompson Sampling
+├── core/                       # Wave propagation, agent controller
+├── monitoring/                 # Web + Armitage dashboards
+├── swarm/                      # Multi-agent coordinator
+├── payloads/                   # Payload generation
+├── ml_models/                  # Trained models
+├── training/                   # RL training pipeline
+├── tests/                      # 35/39 passing
+├── docker-compose-lab.yml      # Vulnerable lab (11 containers)
+└── configs/                    # YAML configurations
+```
+
+### Network Architecture
+
+```
+┌─────────────────┐     ┌──────────────────┐     ┌──────────────────┐
+│  wormy-c2       │────▶│  wormy-network   │◀────│  vulnerable-win  │
+│  172.20.0.10    │     │  172.20.0.0/16   │     │  172.20.0.20     │
+│  :5000,:5001    │     │                  │     │  DC + Exchange   │
+└─────────────────┘     └──────────────────┘     └──────────────────┘
+                                │
+                       ┌────────┴─────────┐
+                       │  vulnerable-db   │     ┌──────────────────┐
+                       │  172.20.0.21     │     │  test-runner     │
+                       │  MySQL+Postgres  │     │  172.20.0.100    │
+                       └──────────────────┘     └──────────────────┘
+```
+
+---
+
+## 💥 Exploit Modules (44)
 
 ### Windows Critical (7)
 
-| Module | Target | Technique |
-|---|---|---|
-| SMB / EternalBlue | MS17-010 | SMBv1 buffer overflow |
-| RDP / BlueKeep | CVE-2019-0708 | RDP pre-auth RCE |
+| Module | CVE | Technique |
+|--------|-----|-----------|
+| EternalBlue | MS17-010 | SMBv1 buffer overflow |
+| BlueKeep | CVE-2019-0708 | RDP pre-auth RCE |
 | Zerologon | CVE-2020-1472 | Netlogon privilege escalation |
 | PrintNightmare | CVE-2021-34527 | Spooler RCE/LPE |
-| Exchange ProxyShell | CVE-2021-34473 | Pre-auth RCE chain |
+| ProxyShell | CVE-2021-34473 | Exchange pre-auth RCE chain |
 | Docker daemon | 2375/tcp | Unauthenticated API abuse |
 | Kubernetes | 6443/tcp | Kubelet API / dashboard RCE |
 
 ### Web Application (12)
 
-| Module | Target | Technique |
-|---|---|---|
-| Log4j | CVE-2021-44228 | JNDI injection via headers/params |
-| Struts | CVE-2017-5638 | OGNL injection, ProcessBuilder RCE |
-| WebLogic | CVE-2020-14882/14883 | Console RCE via ShellSession |
-| Jenkins | Script Console | Groovy script RCE |
-| Jira | Velocity | SSTI via template injection |
+| Module | CVE | Technique |
+|--------|-----|-----------|
+| Log4j | CVE-2021-44228 | JNDI injection |
+| Struts | CVE-2017-5638 | OGNL injection RCE |
+| WebLogic | CVE-2020-14882/14883 | Console RCE |
+| Jenkins | Script Console | Groovy RCE |
+| Jira | Velocity | SSTI template injection |
 | Confluence | OGNL | ProcessBuilder payload |
-| Citrix | CVE-2019-19781 | Path traversal + webshell deploy |
-| GitLab | DjVu/ExifTool | Payload via file upload |
+| Citrix | CVE-2019-19781 | Path traversal + webshell |
+| GitLab | DjVu/ExifTool | File upload payload |
 | WordPress | Various | Plugin/admin RCE |
 | Apache | Path traversal | LFI/RFI + RCE chain |
 | Tomcat | AJP/manager | Ghostcat + manager deploy |
@@ -237,102 +342,71 @@ All modules inherit from `BaseExploit` and plug into the `ExploitManager` which 
 ### Cloud & Infrastructure (6)
 
 | Module | Target | Technique |
-|---|---|---|
+|--------|--------|-----------|
 | AWS CloudFormation | Stack creation | IAM escalation via templates |
 | Terraform | State files | Backend state manipulation |
 | GCP IAM | Service accounts | Privilege escalation |
-| Kubernetes | K8s API | Pod exec + service account abuse |
+| Kubernetes | K8s API | Pod exec + service account |
 | Docker | Docker API | Container escape |
 | VMware vCenter | VCSA | CVE-based RCE |
 
 ### SCADA & IoT (3)
 
 | Module | Target | Technique |
-|---|---|---|
+|--------|--------|-----------|
 | Siemens S7 | S7comm | PLC read/write, stop CPU |
-| MQTT | 1883/tcp | Subscribe to topics, inject messages |
-| OPC UA | 4840/tcp | Read/write tags, server manipulation |
+| MQTT | 1883/tcp | Subscribe + inject messages |
+| OPC UA | 4840/tcp | Read/write tags |
 
 ### Network Services (16)
 
-| Module | Technique |
-|---|---|
-| SSH | Brute force + key-based auth |
-| FTP | Anonymous + brute force |
-| Telnet | Default creds + brute force |
-| SMB | Pass-the-Hash, enum shares |
-| MySQL | Default creds + query RCE |
-| MSSQL | xp_cmdshell RCE |
-| PostgreSQL | cmd exec via extensions |
-| MongoDB | NoAuth access + RCE |
-| Redis | CONFIG SET RCE + SLAVEOF exfil |
-| Active Directory | LDAP enum + Kerberoast + AS-REP |
-| SNMP | Community string brute force |
-| VNC | NoAuth + brute force |
-| Elasticsearch | Painless script RCE |
-| Docker | API abuse + container escape |
-| Kubernetes | Pod exec + service account |
-| VPN (IKE/IPSEC) | Aggressive mode PSK cracking |
+SSH, FTP, Telnet, SMB, MySQL, MSSQL, PostgreSQL, MongoDB, Redis, Active Directory, SNMP, VNC, Elasticsearch, Docker, Kubernetes, VPN (IKE/IPSEC)
 
 ---
 
-## The ML Brain
+## 🧠 ML Brain
 
-### Adaptive Exploit Selection with Thompson Sampling
+### Adaptive Exploit Selection
 
-The exploit selector uses a **contextual bandit** with Thompson Sampling to rank and select exploits for each target. Each exploit is scored based on past success/failure history, and the system automatically balances exploitation (using known-good exploits) with exploration (trying less-used ones).
+The exploit selector uses a **contextual bandit** with Thompson Sampling to rank exploits per target:
 
-```mermaid
-graph LR
-    subgraph "State Space (15 features/host)"
-        VULN[Vulnerability Score]
-        PORT[Port Count + Services]
-        OS[OS Encoding]
-        ASSET[Asset Type Value]
-        CRED[Credential Count]
-        HIST[Exploit History]
-        RISK[Detection Risk]
-        HOP[Hop Distance]
-    end
-
-    subgraph "DQN Network"
-        I[Input Layer 15*N] --> H1[Dense 256 ReLU]
-        H1 --> H2[Dense 256 ReLU + Dropout]
-        H2 --> H3[Dense 128 ReLU]
-        H3 --> O[Output -- N actions]
-    end
-
-    subgraph "Training"
-        PER[Prioritized Replay]
-        HUB[Huber Loss]
-        GC[Gradient Clipping]
-        STU[Soft Target tau=0.005]
-    end
-
-    VULN & PORT & OS & ASSET & CRED & HIST & RISK & HOP --> I
-    O --> PER --> HUB --> GC --> STU
+```
+  State Space (15 features/host)
+  ┌─────────────────────────────────────┐
+  │ Vulnerability Score │ Port Count    │
+  │ OS Encoding         │ Asset Value   │
+  │ Credential Count    │ Exploit Hist  │
+  │ Detection Risk      │ Hop Distance  │
+  └──────────────────┬──────────────────┘
+                     │
+              ┌──────▼──────┐
+              │  DQN Network│
+              │  15→256→256 │
+              │  →128→N     │
+              └──────┬──────┘
+                     │
+              ┌──────▼──────┐
+              │  Thompson   │
+              │  Sampling   │
+              └──────┬──────┘
+                     │
+              ┌──────▼──────┐
+              │  Best Exploit│
+              │  for Target  │
+              └─────────────┘
 ```
 
-### Asset Value Reward Function
+### Reward Function
 
 ```python
 ASSET_VALUES = {
-    'domain_controller': 100,
-    'container_host':     90,
-    'exchange_server':    80,
-    'database_server':    70,
-    'file_server':        60,
-    'web_server':         30,
+    'domain_controller': 100,    'container_host': 90,
+    'exchange_server':    80,    'database_server':  70,
+    'file_server':        60,    'web_server':       30,
     'workstation':        10,
 }
 
-TECHNIQUE_MULTIPLIERS = {
-    'kerberoasting':   1.5,
-    'pass_the_ticket': 1.3,
-    'ssh_pivot':       1.1,
-    'exploit_rce':     0.9,
-    'brute_force':     0.8,
-}
+reward = asset_value * stealth_bonus * technique_multiplier
 ```
 
 ### RL Engine
@@ -344,195 +418,145 @@ TECHNIQUE_MULTIPLIERS = {
 
 ---
 
-## Enterprise Evasion Engine
+## 🛡️ Evasion Engine
 
-### AMSI Bypass
-Patches `AmsiScanBuffer` in memory to return `AMSI_RESULT_CLEAN` for all scans.
-
-### ETW Silencing
-Patches `EtwEventWrite` to prevent ETW telemetry from reaching the kernel.
-
-### DLL Unhooking
-Restores clean copies of ntdll.dll from disk to remove EDR user-land hooks.
-
-### Additional Techniques
-- **Sandbox detection** -- VM artifacts, process list, RAM thresholds, username analysis
-- **Sleep jitter** -- Log-normal distribution sleep timing to evade beacon detection
-- **JA3 fingerprint spoofing** -- Mimics Chrome 120 TLS signatures
-- **Memory execution** -- Position-independent shellcode execution
-- **Polymorphic engine** -- AST-level metamorphism, semantic NOP injection, hash verification
-- **Direct NT syscalls** -- Dynamic SSN resolution to bypass user-land hooks
-- **Sleep obfuscation** -- Heap encryption + stack spoofing during sleep intervals
+| Technique | Description |
+|-----------|-------------|
+| **AMSI Bypass** | Patches `AmsiScanBuffer` → returns `AMSI_RESULT_CLEAN` |
+| **ETW Silencing** | Patches `EtwEventWrite` → blocks kernel telemetry |
+| **DLL Unhooking** | Restores clean ntdll.dll from disk, removes EDR hooks |
+| **Sandbox Detection** | VM artifacts, process list, RAM, username analysis |
+| **Sleep Jitter** | Log-normal distribution timing, evades beacon detection |
+| **JA3 Spoofing** | Mimics Chrome 120 TLS fingerprints |
+| **Polymorphic Engine** | AST metamorphism, semantic NOP injection, hash verification |
+| **Direct Syscalls** | Dynamic SSN resolution, bypasses user-land hooks |
+| **Sleep Obfuscation** | Heap encryption + stack spoofing during idle |
 
 ---
 
-## Enterprise Password Engine
+## 🔑 Password Engine
 
-### Features
-
-- Password spray with lockout protection (1 password x N targets per window)
-- Mutation engine: 35+ variants per base word (Admin, 4dm1n!, Admin@2024, ...)
-- Company-based password generation
-- Credential stuffing from breach lists
-- Parallel execution with configurable thread pool
-- Protocol handlers: SSH, FTP, MySQL, Postgres, MSSQL, MongoDB, HTTP
-
-### Mutation Examples
-
-```
-Input: 'Admin'
-  Admin, admin, ADMIN, Admin!
-  Admin1, Admin123, Admin2024
-  Admin@2024, Admin@123
-  4dm1n, 4dm1n!, 4dm1n123
-  !Admin!, Admin#1, Admin@1
-  AdminWinter2024, AdminSummer2024
-  ...
-
-Spray mode (lockout-safe):
-  Round 1: 'Welcome1'    x 50 targets (parallel)
-  [wait 300s anti-lockout window]
-  Round 2: 'Password123' x 50 targets (parallel)
-```
+| Feature | Description |
+|---------|-------------|
+| **Password Spray** | 1 password × N targets per window (lockout-safe) |
+| **Mutation Engine** | 35+ variants per base word (`Admin` → `4dm1n!`, `Admin@2024`, ...) |
+| **Company-Based** | Generates passwords from company name + season + year |
+| **Credential Stuffing** | Uses breach lists for known credential reuse |
+| **Parallel Execution** | Configurable thread pool for speed |
+| **Protocols** | SSH, FTP, MySQL, Postgres, MSSQL, MongoDB, HTTP |
 
 ---
 
-## Active Directory Module
+## 🏢 Active Directory Module
 
-- **DC discovery** via port signature (88+389) and DNS SRV records
-- **LDAP enumeration** (null session or authenticated)
-- **AS-REP Roasting** -- crackable hashes without credentials (`hashcat -m 18200`)
-- **Kerberoasting** -- TGS ticket extraction (`hashcat -m 13100`)
-- BloodHound JSON export utility for attack path visualization
-
----
-
-## Multi-Protocol C2
-
-- **HTTPS/HTTP beaconing** with configurable jitter
-- **DNS-over-HTTPS (DoH)** covert channel via Cloudflare/Google TXT records
-- **Domain Fronting** -- CDN Host header override
-- **P2P Gossip mesh** -- agents share intel without central C2
-- **Encrypted SQLite command queue** -- commands survive C2 downtime
-- **Exponential backoff** (1s to 300s) with jitter
-- **OTA Brain Update** -- send .pth model weights, hot-swap without restart
-- **ICMP tunneling** -- bi-directional C2 over raw ICMP Echo packets
-- **Cloud relay** -- Telegram Bot API, Slack Webhooks, Google Sheets
-- **Perfect Forward Secrecy** -- X25519 ECDH + AES-256-GCM
+- **DC discovery** — port signature (88+389) + DNS SRV records
+- **LDAP enumeration** — null session or authenticated
+- **AS-REP Roasting** — crackable hashes without credentials (`hashcat -m 18200`)
+- **Kerberoasting** — TGS ticket extraction (`hashcat -m 13100`)
+- **BloodHound export** — JSON for attack path visualization
 
 ---
 
-## Web Dashboards
+## 📡 Multi-Protocol C2
 
-### Armitage Dashboard -- http://localhost:5001
-
-Visual network map inspired by Metasploit's Armitage GUI:
-- **Network Map**: Host icons with color-coded status
-- **Statistics**: Real-time counts of infected, discovered, failed hosts
-- **Activity Feed**: Live event log with timestamps
-- **Context Menu**: Right-click on hosts to Exploit, Scan, view Vulnerabilities
-
-### Web Dashboard -- http://localhost:5000
-
-Professional monitoring dashboard:
-- **8 Stat Cards**: Infected, Discovered, Vulnerabilities, Exploit Chains, Lateral Movement, Credentials, C2 Beacons, Polymorphic Mutations
-- **Hosts Table**: IP, OS, Status, Health, Payload variant
-- **8 REST API Endpoints**: `/api/status`, `/api/hosts`, `/api/activity`, `/api/vulnerabilities`, `/api/credentials`, `/api/topology`, `/api/stats`, `/api/command`
+| Protocol | Description |
+|----------|-------------|
+| **HTTPS/HTTP** | Beaconing with configurable jitter |
+| **DNS-over-HTTPS** | Covert channel via Cloudflare/Google TXT records |
+| **ICMP Tunneling** | Bi-directional C2 over raw ICMP Echo |
+| **P2P Gossip** | Agents share intel without central C2 |
+| **Domain Fronting** | CDN Host header override |
+| **Cloud Relay** | Telegram Bot API, Slack Webhooks, Google Sheets |
+| **OTA Updates** | Send .pth model weights, hot-swap without restart |
+| **PFS** | X25519 ECDH + AES-256-GCM per session |
 
 ---
 
-## Interactive CLI
+## 📊 Dashboards
 
-Start with `python3 -m worm_core --dry-run --interactive`
+### Web Dashboard — `http://localhost:5000`
+
+8 stat cards (Infected, Discovered, Vulns, Exploit Chains, Lateral Movement, Credentials, C2 Beacons, Mutations) + Hosts table + 8 REST API endpoints.
+
+### Armitage Dashboard — `http://localhost:5001`
+
+Visual network map with color-coded host status, real-time statistics, activity feed, and context menu (Exploit, Scan, Vulnerabilities).
+
+### REST API
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/status` | Propagation status |
+| `GET /api/hosts` | Discovered hosts |
+| `GET /api/activity` | Activity feed |
+| `GET /api/vulnerabilities` | Found vulnerabilities |
+| `GET /api/credentials` | Captured credentials |
+| `GET /api/topology` | Network topology |
+| `GET /api/stats` | Statistics |
+| `POST /api/command` | Send command |
+
+---
+
+## 🖥️ Interactive CLI
 
 | Command | Description |
-|---|---|
-| `scan [professional\|basic]` | Scan network with visual progress bar |
-| `targets` | List all discovered hosts |
-| `vulns <ip>` | Show vulnerabilities for a target |
-| `topo` | Generate network topology visualization |
-| `exploit <ip>` | Exploit a specific target |
-| `chain <ip>` | Show exploit chain for a target |
+|---------|-------------|
+| `scan [professional\|basic]` | Scan network with progress bar |
+| `targets` | List discovered hosts |
+| `vulns <ip>` | Show vulnerabilities for target |
+| `topo` | Network topology visualization |
+| `exploit <ip>` | Exploit specific target |
+| `chain <ip>` | Show exploit chain |
 | `bruteforce <ip> [service]` | Brute force credentials |
 | `deploy <ip> [type]` | Deploy payload |
-| `exec <ip> <command>` | Execute command on infected host |
+| `exec <ip> <command>` | Execute command on host |
 | `persist <ip> [methods]` | Establish persistence |
-| `pivot <source_ip>` | Show lateral movement options |
-| `status` | Current propagation status |
-| `hosts` | Host monitoring dashboard |
-| `run [iterations]` | Start propagation for N iterations |
+| `pivot <source_ip>` | Lateral movement options |
+| `run [iterations]` | Start propagation |
 | `stop` | Stop propagation |
-| `report` | Generate full audit report |
+| `report` | Generate audit report |
 
 ---
 
-## Project Structure
-
-```
-wormy/
-├── worm_core/                        # Main orchestrator package
-│   ├── __init__.py                   # Re-exports WormCore from mixins
-│   ├── __main__.py                   # Entry point (python3 -m worm_core)
-│   ├── config_profiles.py            # Stealth/aggressive/audit profiles
-│   ├── module_imports.py             # Lazy imports for 44 modules
-│   ├── mixin_base.py                 # Init, safety, shutdown (700 lines)
-│   ├── mixin_scanning.py             # CIDR discovery, host classification
-│   ├── mixin_exploitation.py         # Exploit target, brute force, service login
-│   ├── mixin_lateral.py              # Pivot, spread, pass-the-hash
-│   ├── mixin_propagation.py          # Adaptive cycles, online learning
-│   ├── mixin_reporting.py            # Audit trail, session logging
-│   └── standalone.py                 # get_local_ip(), main()
-├── configs/                          # YAML configuration files
-│   └── config_msf.yaml               # Metasploit RPC integration
-├── scanner/                          # Enterprise + Professional scanners
-├── exploits/                         # Exploit manager + 44 exploit modules
-│   ├── exploit_manager.py            # Contextual bandit selector
-│   ├── modules/                      # All 44 exploit implementations
-│   ├── enterprise_password_engine.py # Spray + mutation + stuffing
-│   └── active_directory.py           # LDAP enum + Kerberoast
-├── evasion/                          # AMSI/ETW/DLL, polymorphic, IDS
-├── post_exploit/                     # Lateral movement, persistence
-├── c2/                               # Multi-protocol C2 + OTA updates
-│   ├── multi_protocol_c2.py          # HTTPS/DoH/ICMP/P2P
-│   ├── pfs_crypto.py                 # X25519 + AES-256-GCM
-│   └── resilient_c2.py               # DoH + Domain Fronting + SQLite queue
-├── rl_engine/                        # DQN + Thompson Sampling agent
-├── core/                             # Wave propagation, agent controller
-├── monitoring/                       # Web + Armitage dashboards
-├── swarm/                            # Multi-agent swarm coordinator
-├── payloads/                         # Payload generation and management
-├── ml_models/                        # Trained ML models
-├── training/                         # RL training pipeline + scenarios
-├── tests/                            # 35 passing / 4 known failures
-├── scripts/                          # deploy_kali.sh, cleanup_engagement.py
-├── utils/                            # Audit, BloodHound, MITRE, crypto
-├── docs/API.md                       # REST API reference
-├── docker-compose-lab.yml            # Vulnerable lab environment
-└── requirements.txt
-```
-
----
-
-## Requirements
+## 🧪 Testing
 
 ```bash
-pip install -r requirements.txt
+# Unit tests
+make test
+
+# Docker lab (11 containers)
+docker compose -f docker-compose-lab.yml up -d
+python3 tests/run_worm_vs_lab.py
+
+# Cleanup
+docker compose -f docker-compose-lab.yml down
+./scripts/cleanup_engagement.py
 ```
-
-### Core
-- torch>=2.0.0, impacket>=0.11.0, paramiko>=3.4.0, requests>=2.31.0
-- rich>=13.0.0, psutil>=5.9.0, pyyaml>=6.0.1, networkx>=3.0
-
-### Enterprise
-- pymysql, pymongo, psycopg2-binary, ldap3, dnspython
-
-### Optional
-- scapy, python-nmap, gymnasium, websocket-client
 
 ---
 
-## License
+## 🗺️ Roadmap
 
-MIT License -- for authorized security research and penetration testing only.
+- [ ] Full ICMP tunneling implementation
+- [ ] Windows agent with native evasion suite
+- [ ] Real-time collaborative multi-operator mode
+- [ ] Automated exploit chain generation
+- [ ] Integration with peekaboo for PrivEsc chaining
+- [ ] Integration with BTY for post-exploitation modules
+- [ ] GPT-assisted exploit selection
 
-**2024 Ruby570bocadito** -- [GitHub](https://github.com/Ruby570bocadito/Wormy-ML-Network-Worm)
+---
+
+## ⚠️ Disclaimer
+
+This tool is designed for **authorized security testing**, **red team operations**, and **educational purposes** only.
+
+- Use only on systems you own or have explicit written permission to test
+- Misuse may violate local and international laws
+- The author is not responsible for any misuse or damage caused by this tool
+
+---
+
+<p align="center">
+  <sub>Built with ❤️ by <a href="https://github.com/Ruby570bocadito">Ruby570bocadito</a></sub>
+</p>
