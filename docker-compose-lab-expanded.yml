@@ -1,0 +1,355 @@
+# Wormy ML Network Worm — EXPANDED LAB v2.0 (Pre-built images only)
+# 30+ vulnerable services covering ALL 33 exploit modules
+#
+# Usage:
+#   docker compose -f docker-compose-lab-expanded.yml up -d
+#   docker compose -f docker-compose-lab-expanded.yml down
+
+services:
+  # ═══════════════════════════════════════════════════════════════════
+  # DATABASE SERVICES (6)
+  # ═══════════════════════════════════════════════════════════════════
+
+  redis:
+    image: redis:7-alpine
+    container_name: lab_redis
+    networks:
+      lab_network:
+        ipv4_address: 192.168.100.10
+    ports:
+      - "6379:6379"
+    command: redis-server --requirepass "redis123" --protected-mode no
+
+  redis-noauth:
+    image: redis:7-alpine
+    container_name: lab_redis_noauth
+    networks:
+      lab_network:
+        ipv4_address: 192.168.100.11
+    ports:
+      - "6380:6379"
+    command: redis-server --protected-mode no
+
+  mysql:
+    image: mysql:5.7
+    container_name: lab_mysql
+    networks:
+      lab_network:
+        ipv4_address: 192.168.100.12
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: "root"
+      MYSQL_DATABASE: "testdb"
+
+  postgresql:
+    image: postgres:14
+    container_name: lab_postgres
+    networks:
+      lab_network:
+        ipv4_address: 192.168.100.13
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: "admin"
+      POSTGRES_PASSWORD: "admin123"
+      POSTGRES_DB: "testdb"
+
+  mongodb:
+    image: mongo:6
+    container_name: lab_mongodb
+    networks:
+      lab_network:
+        ipv4_address: 192.168.100.14
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: "admin"
+      MONGO_INITDB_ROOT_PASSWORD: "admin123"
+
+  mssql:
+    image: mcr.microsoft.com/mssql/server:2019-latest
+    container_name: lab_mssql
+    networks:
+      lab_network:
+        ipv4_address: 192.168.100.15
+    ports:
+      - "1433:1433"
+    environment:
+      ACCEPT_EULA: "Y"
+      SA_PASSWORD: "SqlPassword123!"
+
+  # ═══════════════════════════════════════════════════════════════════
+  # MESSAGING (2)
+  # ═══════════════════════════════════════════════════════════════════
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: lab_rabbitmq
+    networks:
+      lab_network:
+        ipv4_address: 192.168.100.20
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+
+  mqtt:
+    image: eclipse-mosquitto:2
+    container_name: lab_mqtt
+    networks:
+      lab_network:
+        ipv4_address: 192.168.100.21
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./docker-lab/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+
+  # ═══════════════════════════════════════════════════════════════════
+  # WEB APPLICATIONS (5)
+  # ═══════════════════════════════════════════════════════════════════
+
+  tomcat:
+    image: tomcat:9.0
+    container_name: lab_tomcat
+    networks:
+      lab_network:
+        ipv4_address: 192.168.100.31
+    ports:
+      - "8080:8080"
+
+  jenkins:
+    image: jenkins/jenkins:lts
+    container_name: lab_jenkins
+    networks:
+      lab_network:
+        ipv4_address: 192.168.100.32
+    ports:
+      - "8081:8080"
+
+  dvwa:
+    image: vulnerables/web-dvwa:latest
+    container_name: lab_dvwa
+    networks:
+      lab_network:
+        ipv4_address: 192.168.100.40
+    ports:
+      - "8082:80"
+
+  juice-shop:
+    image: bkimminich/juice-shop:latest
+    container_name: lab_juice
+    networks:
+      lab_network:
+        ipv4_address: 192.168.100.50
+    ports:
+      - "8083:3000"
+
+  wordpress:
+    image: wordpress:6.4-php8.2-apache
+    container_name: lab_wordpress
+    networks:
+      lab_network:
+        ipv4_address: 192.168.100.41
+    ports:
+      - "8085:80"
+    environment:
+      WORDPRESS_DB_HOST: "lab_mysql:3306"
+      WORDPRESS_DB_USER: "root"
+      WORDPRESS_DB_PASSWORD: "root"
+      WORDPRESS_DB_NAME: "wordpress"
+    depends_on:
+      - mysql
+
+  # ═══════════════════════════════════════════════════════════════════
+  # SEARCH / CACHE / TIME-SERIES (4)
+  # ═══════════════════════════════════════════════════════════════════
+
+  elasticsearch:
+    image: elasticsearch:7.17.0
+    container_name: lab_elasticsearch
+    networks:
+      lab_network:
+        ipv4_address: 192.168.100.60
+    ports:
+      - "9200:9200"
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+
+  memcached:
+    image: memcached:latest
+    container_name: lab_memcached
+    networks:
+      lab_network:
+        ipv4_address: 192.168.100.61
+    ports:
+      - "11211:11211"
+
+  couchdb:
+    image: couchdb:latest
+    container_name: lab_couchdb
+    networks:
+      lab_network:
+        ipv4_address: 192.168.100.62
+    ports:
+      - "5984:5984"
+    environment:
+      COUCHDB_USER: "admin"
+      COUCHDB_PASSWORD: "admin"
+
+  influxdb:
+    image: influxdb:1.8
+    container_name: lab_influxdb
+    networks:
+      lab_network:
+        ipv4_address: 192.168.100.63
+    ports:
+      - "8086:8086"
+    environment:
+      INFLUXDB_DB: "wormy_lab"
+
+  # ═══════════════════════════════════════════════════════════════════
+  # NETWORK SERVICES (4)
+  # ═══════════════════════════════════════════════════════════════════
+
+  ftp:
+    image: stilliard/pure-ftpd:latest
+    container_name: lab_ftp
+    networks:
+      lab_network:
+        ipv4_address: 192.168.100.70
+    ports:
+      - "21:21"
+      - "30000-30009:30000-30009"
+    environment:
+      FTP_USER_NAME: "ftpuser"
+      FTP_USER_PASS: "ftpuser"
+      FTP_USER_HOME: "/home/ftpuser"
+      PUBLICHOST: "localhost"
+
+  ssh:
+    image: linuxserver/openssh-server:latest
+    container_name: lab_ssh
+    networks:
+      lab_network:
+        ipv4_address: 192.168.100.71
+    ports:
+      - "2222:2222"
+    environment:
+      PUID: "1000"
+      PGID: "1000"
+      USER_PASSWORD: "password"
+      USER_NAME: "admin"
+      SUDO_ACCESS: "true"
+      PASSWORD_ACCESS: "true"
+
+  vnc:
+    image: dorowu/ubuntu-desktop-lxde-vnc:focal
+    container_name: lab_vnc
+    networks:
+      lab_network:
+        ipv4_address: 192.168.100.74
+    ports:
+      - "5901:5900"
+      - "6901:6901"
+    environment:
+      VNC_PASSWORD: ""
+
+  snmp:
+    image: polinux/snmpd:latest
+    container_name: lab_snmp
+    networks:
+      lab_network:
+        ipv4_address: 192.168.100.73
+    ports:
+      - "161:161/udp"
+    environment:
+      SNMP_COMMUNITY: "public"
+      SNMP_LOCATION: "Wormy Lab DC"
+
+  # ═══════════════════════════════════════════════════════════════════
+  # CLOUD / INFRASTRUCTURE (3)
+  # ═══════════════════════════════════════════════════════════════════
+
+  docker-api:
+    image: alpine:latest
+    container_name: lab_docker_api
+    networks:
+      lab_network:
+        ipv4_address: 192.168.100.80
+    ports:
+      - "2375:2375"
+    command: sh -c "apk add --no-cache socat && socat TCP-LISTEN:2375,fork UNIX-CONNECT:/var/run/docker.sock"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  kubernetes:
+    image: rancher/k3s:v1.31.5-k3s1
+    container_name: lab_kubernetes
+    networks:
+      lab_network:
+        ipv4_address: 192.168.100.81
+    ports:
+      - "6443:6443"
+    privileged: true
+    environment:
+      K3S_TOKEN: "k3s-token"
+
+  gitlab:
+    image: gitlab/gitlab-ce:latest
+    container_name: lab_gitlab
+    networks:
+      lab_network:
+        ipv4_address: 192.168.100.82
+    ports:
+      - "8088:80"
+      - "8443:443"
+      - "2289:22"
+    environment:
+      GITLAB_ROOT_PASSWORD: "Str0ngP@ssw0rd!2026"
+      GITLAB_OMNIBUS_CONFIG: |
+        gitlab_rails['initial_root_password'] = 'Str0ngP@ssw0rd!2026'
+
+  # ═══════════════════════════════════════════════════════════════════
+  # SCADA / IoT (1)
+  # ═══════════════════════════════════════════════════════════════════
+
+  modbus:
+    image: oitc/modbus-server:latest
+    container_name: lab_modbus
+    networks:
+      lab_network:
+        ipv4_address: 192.168.100.90
+    ports:
+      - "502:5020"
+
+  # ═══════════════════════════════════════════════════════════════════
+  # METASPLOITABLE (multi-service legacy target)
+  # ═══════════════════════════════════════════════════════════════════
+
+  metasploitable:
+    image: tleemcjr/metasploitable2:latest
+    container_name: lab_metasploitable
+    networks:
+      lab_network:
+        ipv4_address: 192.168.100.100
+    ports:
+      - "2323:23"
+      - "2121:21"
+      - "2223:22"
+      - "8084:80"
+      - "33061:3306"
+      - "54321:5432"
+      - "5901:5900"
+      - "6667:6667"
+      - "8180:8180"
+    tty: true
+    stdin_open: true
+
+networks:
+  lab_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 192.168.100.0/24

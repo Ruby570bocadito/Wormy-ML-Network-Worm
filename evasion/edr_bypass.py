@@ -369,6 +369,7 @@ class EDRBypass:
             "etw_disable": self.disable_etw(),
             "dll_unhooking": self.unhook_dlls(),
             "ppid_spoofing": self.ppid_spoofing(),
+            "module_stomping": self.module_stomping(),
         }
 
     def get_statistics(self) -> Dict:

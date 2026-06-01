@@ -1,0 +1,13 @@
+anonymous:anonymous
+anonymous:
+ftp:ftp
+ftpuser:ftpuser
+admin:admin
+root:root
+user:user
+test:test
+guest:guest
+admin:password
+root:toor
+administrator:administrator
+backup:backup

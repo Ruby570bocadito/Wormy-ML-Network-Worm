@@ -1,0 +1,9 @@
+administrator:administrator
+administrator:password
+administrator:admin
+admin:admin
+admin:password
+Administrator:P@ssw0rd
+user:user
+test:test
+guest:guest

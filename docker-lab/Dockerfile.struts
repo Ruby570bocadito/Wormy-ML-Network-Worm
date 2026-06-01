@@ -1,0 +1,9 @@
+FROM tomcat:8.5-jre8
+
+# Download Struts 2.3.20 (vulnerable to CVE-2017-5638)
+RUN wget -q https://archive.apache.org/dist/struts/2.3.20/struts-2.3.20-apps.zip -O /tmp/struts.zip && \
+    unzip /tmp/struts.zip -d /tmp/struts && \
+    cp /tmp/struts/struts-2.3.20/apps/struts2-rest-showcase.war /opt/tomcat/webapps/struts.war && \
+    rm -rf /tmp/struts /tmp/struts.zip
+
+EXPOSE 8080

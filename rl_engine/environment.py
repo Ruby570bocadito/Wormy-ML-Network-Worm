@@ -10,9 +10,10 @@ import numpy as np
 
 
 class NetworkEnvironment:
-    def __init__(self, network_size: int = 20, max_steps: int = 100):
+    def __init__(self, network_size: int = 20, max_steps: int = 100, max_state_size: int = None):
         self.network_size = network_size
         self.max_steps = max_steps
+        self.max_state_size = max_state_size
         self.current_step = 0
 
         self.hosts = []
@@ -106,10 +107,11 @@ class NetworkEnvironment:
             state.extend(features)
 
         features_per_host = 15
-        while len(state) < self.network_size * features_per_host:
+        target_size = self.max_state_size or (self.network_size * features_per_host)
+        while len(state) < target_size:
             state.append(0.0)
 
-        return np.array(state[: self.network_size * features_per_host], dtype=np.float32)
+        return np.array(state[:target_size], dtype=np.float32)
 
     def step(self, action: int) -> Tuple[np.ndarray, float, bool, Dict]:
         self.current_step += 1

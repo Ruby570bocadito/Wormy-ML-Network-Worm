@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<web-app xmlns="http://xmlns.jcp.org/xml/ns/javaee" version="3.1">
+    <servlet>
+        <servlet-name>Log4jServlet</servlet-name>
+        <servlet-class>Log4jServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>Log4jServlet</servlet-name>
+        <url-pattern>/</url-pattern>
+    </servlet-mapping>
+</web-app>

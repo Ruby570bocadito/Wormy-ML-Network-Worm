@@ -1,0 +1,12 @@
+admin:admin
+admin:password
+admin:admin123
+root:root
+root:toor
+administrator:administrator
+tomcat:tomcat
+jenkins:jenkins
+test:test
+guest:guest
+user:user
+admin:changeme

@@ -11,6 +11,8 @@ Provides intelligent network scanning and host discovery
 
 
 import concurrent.futures
+import hashlib
+import hmac
 import os
 import random
 import socket
@@ -212,34 +214,39 @@ class IntelligentScanner:
 
     @staticmethod
     def _default_banner(port: int) -> str:
-        """Return default banner for port when real grab fails"""
+        """Return default banner for port when real grab fails
+
+        FIX: Return empty string instead of fake banners.
+        Fake banners corrupt vulnerability scoring and OS detection.
+        """
+        # Only return generic service type, NOT version-specific strings
         default_map = {
-            21: "220 FTP Service ready",
-            22: "SSH-2.0-OpenSSH_8.9",
-            23: "Telnet Service",
-            25: "220 SMTP Service",
-            53: "DNS Service",
-            80: "HTTP/1.1 200 OK Server: Apache",
-            110: "+OK POP3 Service",
-            135: "MS RPC Endpoint Mapper",
-            139: "NetBIOS Session Service",
-            143: "* OK IMAP Service",
-            443: "HTTPS Service",
-            445: "SMB Service",
-            993: "IMAPS Service",
-            995: "POP3S Service",
-            1433: "MSSQL Service",
-            3306: "MySQL 8.0",
-            3389: "MS Terminal Services",
-            5432: "PostgreSQL 14",
-            5900: "VNC Service",
-            6379: "Redis 7.0",
-            8080: "HTTP/1.1 200 OK Server: Tomcat",
-            8443: "HTTPS Service",
-            9200: "Elasticsearch 8.x",
-            27017: "MongoDB 6.0",
+            21: "FTP",
+            22: "SSH",
+            23: "Telnet",
+            25: "SMTP",
+            53: "DNS",
+            80: "HTTP",
+            110: "POP3",
+            135: "RPC",
+            139: "NetBIOS",
+            143: "IMAP",
+            443: "HTTPS",
+            445: "SMB",
+            993: "IMAPS",
+            995: "POP3S",
+            1433: "MSSQL",
+            3306: "MySQL",
+            3389: "RDP",
+            5432: "PostgreSQL",
+            5900: "VNC",
+            6379: "Redis",
+            8080: "HTTP-Proxy",
+            8443: "HTTPS-Proxy",
+            9200: "Elasticsearch",
+            27017: "MongoDB",
         }
-        return default_map.get(port, f"Service on port {port}")
+        return default_map.get(port, "")
 
     def _guess_os(self, ip: str, open_ports: List[int], banners: Dict = None) -> str:
         """Guess operating system using TTL, banner, port pattern analysis"""
@@ -497,7 +504,10 @@ class IntelligentScanner:
 
     @staticmethod
     def _check_known_vuln_versions(service_str: str, port: int) -> int:
-        """Check for known vulnerable versions"""
+        """Check for known vulnerable versions
+
+        FIX: Updated to 2026 CVE thresholds
+        """
         import re
 
         score = 0
@@ -510,15 +520,17 @@ class IntelligentScanner:
         major = int(version_match.group(1))
         minor = int(version_match.group(2))
 
-        # Known vulnerable versions
+        # FIX: Updated known vulnerable versions (2026 thresholds)
         vuln_checks = {
-            22: [("OpenSSH", 7, 4, 15)],  # OpenSSH < 7.4
-            80: [("Apache", 2, 4, 10), ("nginx", 1, 17, 10)],
+            22: [("OpenSSH", 9, 0, 20)],  # OpenSSH < 9.0 (CVE-2023-28531, etc.)
+            80: [("Apache", 2, 4, 55), ("nginx", 1, 25, 15)],  # Apache < 2.4.55, nginx < 1.25
             445: [("SMB", 1, 0, 30)],  # SMBv1
-            3306: [("MySQL", 5, 5, 15)],
-            5432: [("PostgreSQL", 9, 5, 15)],
-            9200: [("Elasticsearch", 1, 0, 25)],
-            8080: [("Tomcat", 8, 5, 20), ("Jenkins", 2, 0, 25)],
+            3306: [("MySQL", 8, 0, 35)],  # MySQL < 8.0.35
+            5432: [("PostgreSQL", 14, 0, 20)],  # PostgreSQL < 14
+            9200: [("Elasticsearch", 8, 0, 25)],  # Elasticsearch < 8.x
+            8080: [("Tomcat", 10, 0, 20), ("Jenkins", 2, 400, 25)],  # Tomcat < 10, Jenkins < 2.400
+            6379: [("Redis", 7, 0, 15)],  # Redis < 7.0
+            27017: [("MongoDB", 6, 0, 20)],  # MongoDB < 6.0
         }
 
         if port in vuln_checks:
@@ -616,8 +628,22 @@ class HostClassifier:
             from sklearn.ensemble import RandomForestClassifier
 
             if self.model_path and os.path.exists(self.model_path):
-                with open(self.model_path, "rb") as f:
-                    self.model = pickle.load(f)
+                sig_path = self.model_path + ".sig"
+                if os.path.exists(sig_path):
+                    with open(self.model_path, "rb") as f:
+                        raw_data = f.read()
+                    with open(sig_path, "rb") as sf:
+                        expected_sig = sf.read().strip()
+                    computed_sig = hmac.new(
+                        b"wormy_model_integrity_key", raw_data, hashlib.sha256
+                    ).hexdigest().encode()
+                    if not hmac.compare_digest(computed_sig, expected_sig):
+                        raise ValueError("Model integrity check failed — possible tampering")
+                    self.model = pickle.loads(raw_data)
+                else:
+                    logger.warning(f"No signature for {self.model_path}, loading without verification")
+                    with open(self.model_path, "rb") as f:
+                        self.model = pickle.load(f)
                 if not hasattr(self.model, "predict"):
                     raise ValueError("Loaded object is not a valid model (no predict method)")
                 self.is_trained = True
@@ -632,6 +658,14 @@ class HostClassifier:
                 os.makedirs(os.path.dirname(self.model_path), exist_ok=True)
                 with open(self.model_path, "wb") as f:
                     pickle.dump(self.model, f)
+                sig_path = self.model_path + ".sig"
+                with open(self.model_path, "rb") as f:
+                    raw_data = f.read()
+                sig = hmac.new(
+                    b"wormy_model_integrity_key", raw_data, hashlib.sha256
+                ).hexdigest()
+                with open(sig_path, "wb") as sf:
+                    sf.write(sig.encode())
 
         except ImportError:
             self.model = None

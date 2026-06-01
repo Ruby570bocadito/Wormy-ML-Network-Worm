@@ -19,14 +19,20 @@ network:
     - 80
     - 135
     - 139
+    - 161
     - 445
     - 6379
     - 3306
     - 5432
     - 27017
     - 1433
+    - 5672
+    - 5900
     - 8080
     - 9200
+    - 2375
+    - 3000
+    - 15672
   self_replicate: false
   mutation_enabled: true
 
@@ -50,7 +56,7 @@ safety:
   kill_switch_enabled: true
   kill_switch_code: "EMERGENCY_STOP_2024"
   auto_destruct_time: 0
-  geofence_enabled: false
+  geofence_enabled: true
   allowed_networks:
     - "192.168.100.0/24"
   max_runtime_hours: 24
@@ -131,19 +137,23 @@ profiles:
     c2:
       beacon_interval: 5
     safety:
-      max_runtime_hours: 48
+      max_runtime_hours: 4
 
   lab_docker:
     description: "Docker lab environment"
     network:
       target_ranges:
         - "192.168.100.0/24"
-      scan_timeout: 3
-      max_threads: 5
+      scan_timeout: 2
+      max_threads: 100
+    exploit:
+      exploit_timeout: 5
     evasion:
       stealth_mode: false
     c2:
       c2_server: "127.0.0.1"
       beacon_interval: 5
+    propagation:
+      propagation_delay: 1
     safety:
       max_runtime_hours: 4

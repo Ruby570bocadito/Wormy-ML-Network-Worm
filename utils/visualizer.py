@@ -36,7 +36,10 @@ class WormVisualizer:
         self.output_dir = output_dir
         os.makedirs(output_dir, exist_ok=True)
 
-        self.network_graph = nx.Graph()
+        if not VISUALIZATION_AVAILABLE:
+            self.network_graph = None
+        else:
+            self.network_graph = nx.Graph()
         self.infected_nodes = set()
         self.failed_nodes = set()
         self.scan_history = []

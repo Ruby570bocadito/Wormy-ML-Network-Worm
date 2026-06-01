@@ -1,5 +1,36 @@
 # Changelog
 
+## v4.1.0 (2026-06-01)
+
+### Fixed
+- Critical: missing `Optional` import in mixin_exploitation.py (package was unimportable)
+- Missing `Optional`/`Dict` imports in evasion/direct_syscalls.py
+- test_config_structure path resolution (config.py -> configs/config.py)
+- All 194 Python files validated for syntax and typing imports
+
+### Added
+- C2: SMTP/Email channel for stealthy command & control
+- C2: SSH Tunnel channel with multi-jump host support
+- Exploit: RabbitMQ module (auth bypass + management RCE)
+- Core: Adaptive rate limiter for intelligent scan throttling
+- Core: Exploit chaining engine (multi-vuln dependency chains)
+- Core: State persistence (snapshot/restore worm state across restarts)
+- Monitoring: Credential dashboard for real-time cred visibility
+- Docker Lab: Log4j and Struts2 vulnerable containers
+- Kernel module stub for future LKM capabilities
+- Wordlists: 13 per-service credential dictionaries
+- Tests: 6 new test modules (C2, expanded lab, new modules, persistence, worm vs lab)
+
+### Improved
+- CI: bandit + semgrep security scanning integrated
+- CI: pytest-cov with 30% coverage threshold
+- Reproducible builds: requirements-lock.txt added
+- Run lab script (run_lab.sh) with safety checks
+- Config lab profile (config_lab.yaml) for isolated testing
+
+### Changed
+- 117 files changed, 10,547 insertions, 1,672 deletions
+
 ## v4.0.0 (2026-05-13)
 
 ### Added

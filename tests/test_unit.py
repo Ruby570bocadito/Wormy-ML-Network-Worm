@@ -20,12 +20,17 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 class TestCredentialManager(unittest.TestCase):
     """Test CredentialManager"""
 
+    def setUp(self):
+        """Set up test fixtures"""
+        self.project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        self.wordlist_dir = os.path.join(self.project_root, "wordlists")
+
     def test_credential_manager_init(self):
         """Test CredentialManager initialization"""
         try:
             from exploits.credential_manager import CredentialManager
 
-            cm = CredentialManager(wordlist_dir="wordlists")
+            cm = CredentialManager(wordlist_dir=self.wordlist_dir)
             self.assertGreater(cm.stats["total_loaded"], 0)
         except ImportError:
             self.skipTest("CredentialManager not available")
@@ -35,7 +40,7 @@ class TestCredentialManager(unittest.TestCase):
         try:
             from exploits.credential_manager import CredentialManager
 
-            cm = CredentialManager(wordlist_dir="wordlists")
+            cm = CredentialManager(wordlist_dir=self.wordlist_dir)
             creds = cm.get_credentials_for_service("ssh", limit=10)
             self.assertGreater(len(creds), 0)
             self.assertLessEqual(len(creds), 10)
@@ -47,7 +52,7 @@ class TestCredentialManager(unittest.TestCase):
         try:
             from exploits.credential_manager import CredentialManager
 
-            cm = CredentialManager(wordlist_dir="wordlists")
+            cm = CredentialManager(wordlist_dir=self.wordlist_dir)
             initial = len(cm.get_discovered_credentials())
             cm.add_discovered_credential("admin", "password123")
             after = len(cm.get_discovered_credentials())
@@ -71,7 +76,7 @@ class TestCredentialManager(unittest.TestCase):
         try:
             from exploits.credential_manager import CredentialManager
 
-            cm = CredentialManager(wordlist_dir="wordlists")
+            cm = CredentialManager(wordlist_dir=self.wordlist_dir)
 
             for i in range(6):
                 cm.record_attempt("192.168.1.100", "admin", False)

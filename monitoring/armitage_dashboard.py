@@ -210,55 +210,79 @@ class ArmitageDashboard:
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wormy - Armitage Dashboard</title>
+    <title>Wormy - Network Map</title>
     <style>
+        :root {
+            --bg-primary: #0a0a0a;
+            --bg-secondary: #111111;
+            --bg-tertiary: #1a1a1a;
+            --border: #222222;
+            --text-primary: #e5e5e5;
+            --text-secondary: #888888;
+            --text-muted: #555555;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --success: #22c55e;
+            --success-bg: rgba(34, 197, 94, 0.1);
+            --danger: #ef4444;
+            --danger-bg: rgba(239, 68, 68, 0.1);
+            --warning: #f59e0b;
+            --warning-bg: rgba(245, 158, 11, 0.1);
+            --purple: #a855f7;
+            --purple-bg: rgba(168, 85, 247, 0.1);
+        }
+
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            font-family: 'Consolas', 'Monaco', monospace;
-            background: #0d1117;
-            color: #c9d1d9;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
             height: 100vh;
             display: flex;
             flex-direction: column;
             overflow: hidden;
+            font-size: 13px;
         }
 
         /* Top Bar */
         .topbar {
-            background: #161b22;
-            border-bottom: 1px solid #30363d;
-            padding: 8px 16px;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            padding: 0 16px;
             display: flex;
             justify-content: space-between;
             align-items: center;
             height: 48px;
         }
         .topbar h1 {
-            font-size: 1.1em;
-            color: #58a6ff;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-primary);
+            letter-spacing: -0.01em;
         }
         .topbar .controls {
             display: flex;
-            gap: 8px;
+            gap: 6px;
         }
         .btn {
-            padding: 6px 14px;
-            border: 1px solid #30363d;
-            background: #21262d;
-            color: #c9d1d9;
+            padding: 6px 12px;
+            border: 1px solid var(--border);
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
             border-radius: 6px;
             cursor: pointer;
-            font-size: 0.85em;
+            font-size: 12px;
             font-family: inherit;
-            transition: all 0.2s;
+            font-weight: 500;
+            transition: all 0.15s;
         }
-        .btn:hover { background: #30363d; }
-        .btn-green { background: #238636; border-color: #2ea043; color: #fff; }
-        .btn-green:hover { background: #2ea043; }
-        .btn-red { background: #da3633; border-color: #f85149; color: #fff; }
-        .btn-red:hover { background: #f85149; }
-        .btn-blue { background: #1f6feb; border-color: #388bfd; color: #fff; }
-        .btn-blue:hover { background: #388bfd; }
+        .btn:hover { background: var(--border); }
+        .btn-success { background: var(--success); border-color: var(--success); color: #fff; }
+        .btn-success:hover { background: #16a34a; }
+        .btn-danger { background: var(--danger); border-color: var(--danger); color: #fff; }
+        .btn-danger:hover { background: #dc2626; }
+        .btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+        .btn-primary:hover { background: var(--accent-hover); }
 
         /* Main Layout */
         .main {
@@ -267,67 +291,50 @@ class ArmitageDashboard:
             overflow: hidden;
         }
 
-        /* Left Panel - Training */
+        /* Left Panel */
         .left-panel {
-            width: 280px;
-            background: #161b22;
-            border-right: 1px solid #30363d;
+            width: 260px;
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border);
             display: flex;
             flex-direction: column;
             overflow-y: auto;
         }
         .panel-section {
             padding: 12px;
-            border-bottom: 1px solid #30363d;
+            border-bottom: 1px solid var(--border);
         }
         .panel-section h3 {
-            font-size: 0.85em;
-            color: #8b949e;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-secondary);
             text-transform: uppercase;
-            letter-spacing: 1px;
+            letter-spacing: 0.05em;
             margin-bottom: 10px;
         }
         .stat-row {
             display: flex;
             justify-content: space-between;
             padding: 4px 0;
-            font-size: 0.9em;
+            font-size: 12px;
         }
-        .stat-row .label { color: #8b949e; }
-        .stat-row .value { color: #58a6ff; font-weight: bold; }
-        .stat-row .value.green { color: #3fb950; }
-        .stat-row .value.red { color: #f85149; }
-        .stat-row .value.yellow { color: #d29922; }
-
-        .scenario-list {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-        }
-        .scenario-item {
-            padding: 8px 10px;
-            background: #0d1117;
-            border: 1px solid #30363d;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        .scenario-item:hover { border-color: #58a6ff; }
-        .scenario-item.selected { border-color: #58a6ff; background: #161b22; }
-        .scenario-item .name { font-size: 0.9em; color: #c9d1d9; }
-        .scenario-item .desc { font-size: 0.75em; color: #8b949e; margin-top: 2px; }
+        .stat-row .label { color: var(--text-secondary); }
+        .stat-row .value { color: var(--text-primary); font-weight: 500; }
+        .stat-row .value.success { color: var(--success); }
+        .stat-row .value.danger { color: var(--danger); }
+        .stat-row .value.warning { color: var(--warning); }
 
         .progress-bar {
             width: 100%;
-            height: 8px;
-            background: #21262d;
-            border-radius: 4px;
+            height: 4px;
+            background: var(--bg-tertiary);
+            border-radius: 2px;
             overflow: hidden;
             margin-top: 8px;
         }
         .progress-fill {
             height: 100%;
-            background: linear-gradient(90deg, #238636, #3fb950);
+            background: var(--success);
             transition: width 0.5s;
         }
 
@@ -335,7 +342,7 @@ class ArmitageDashboard:
         .center-panel {
             flex: 1;
             position: relative;
-            background: #0d1117;
+            background: var(--bg-primary);
             overflow: hidden;
         }
         #network-map {
@@ -345,9 +352,9 @@ class ArmitageDashboard:
 
         /* Right Panel - Activity */
         .right-panel {
-            width: 320px;
-            background: #161b22;
-            border-left: 1px solid #30363d;
+            width: 280px;
+            background: var(--bg-secondary);
+            border-left: 1px solid var(--border);
             display: flex;
             flex-direction: column;
         }
@@ -357,196 +364,110 @@ class ArmitageDashboard:
             padding: 8px;
         }
         .activity-item {
-            padding: 6px 8px;
-            border-bottom: 1px solid #21262d;
-            font-size: 0.8em;
+            padding: 8px;
+            border-bottom: 1px solid var(--border);
+            font-size: 11px;
         }
-        .activity-item .time { color: #484f58; font-size: 0.85em; }
+        .activity-item .time { color: var(--text-muted); font-size: 10px; }
         .activity-item .type {
             display: inline-block;
-            padding: 1px 6px;
-            border-radius: 3px;
-            font-size: 0.85em;
-            margin: 0 4px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 500;
+            margin: 0 4px 0 0;
         }
-        .type-infected { background: #23863622; color: #3fb950; }
-        .type-failed { background: #da363322; color: #f85149; }
-        .type-scan { background: #1f6feb22; color: #58a6ff; }
-        .type-lateral { background: #d2992222; color: #d29922; }
-        .type-credential { background: #a371f722; color: #a371f7; }
-        .activity-item .details { color: #c9d1d9; }
-
-        /* Host Icon on Map */
-        .host-icon {
-            position: absolute;
-            width: 60px;
-            text-align: center;
-            cursor: pointer;
-            transition: transform 0.2s;
-        }
-        .host-icon:hover { transform: scale(1.1); }
-        .host-icon .icon {
-            width: 40px;
-            height: 40px;
-            margin: 0 auto 4px;
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.2em;
-            border: 2px solid;
-        }
-        .host-infected .icon { background: #23863622; border-color: #3fb950; color: #3fb950; }
-        .host-failed .icon { background: #da363322; border-color: #f85149; color: #f85149; }
-        .host-discovered .icon { background: #1f6feb22; border-color: #58a6ff; color: #58a6ff; }
-        .host-icon .ip {
-            font-size: 0.7em;
-            color: #8b949e;
-            white-space: nowrap;
-        }
-        .host-icon .os {
-            font-size: 0.6em;
-            color: #484f58;
-        }
-
-        /* Connection Lines */
-        .connection-line {
-            position: absolute;
-            height: 2px;
-            transform-origin: left center;
-            pointer-events: none;
-        }
-        .conn-success { background: #3fb950; opacity: 0.6; }
-        .conn-failed { background: #f85149; opacity: 0.4; }
-
-        /* Context Menu */
-        .context-menu {
-            position: absolute;
-            background: #161b22;
-            border: 1px solid #30363d;
-            border-radius: 8px;
-            padding: 4px 0;
-            min-width: 180px;
-            z-index: 1000;
-            display: none;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
-        }
-        .context-menu.show { display: block; }
-        .context-menu-item {
-            padding: 8px 16px;
-            cursor: pointer;
-            font-size: 0.85em;
-            transition: background 0.1s;
-        }
-        .context-menu-item:hover { background: #21262d; }
-        .context-menu-item.danger { color: #f85149; }
+        .type-infected { background: var(--success-bg); color: var(--success); }
+        .type-failed { background: var(--danger-bg); color: var(--danger); }
+        .type-scan { background: rgba(59, 130, 246, 0.1); color: var(--accent); }
+        .type-lateral { background: var(--warning-bg); color: var(--warning); }
+        .type-credential { background: var(--purple-bg); color: var(--purple); }
+        .activity-item .details { color: var(--text-secondary); margin-top: 2px; }
 
         /* Legend */
         .legend {
             position: absolute;
-            bottom: 10px;
-            left: 10px;
-            background: #161b22ee;
-            border: 1px solid #30363d;
+            bottom: 12px;
+            left: 12px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
             border-radius: 8px;
             padding: 10px;
-            font-size: 0.75em;
+            font-size: 11px;
         }
         .legend-item {
             display: flex;
             align-items: center;
             gap: 6px;
-            margin: 3px 0;
+            margin: 4px 0;
         }
         .legend-dot {
-            width: 10px;
-            height: 10px;
-            border-radius: 3px;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
         }
-        .dot-infected { background: #3fb950; }
-        .dot-failed { background: #f85149; }
-        .dot-discovered { background: #58a6ff; }
+        .dot-infected { background: var(--success); }
+        .dot-failed { background: var(--danger); }
+        .dot-discovered { background: var(--accent); }
 
-        /* Training Progress */
-        .training-status {
-            padding: 8px 12px;
-            background: #0d1117;
-            border-radius: 6px;
-            margin-top: 8px;
+        /* Context Menu */
+        .context-menu {
+            position: absolute;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 4px 0;
+            min-width: 160px;
+            z-index: 1000;
+            display: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
         }
-        .training-status .label { font-size: 0.8em; color: #8b949e; }
-        .training-status .value { font-size: 1em; color: #3fb950; font-weight: bold; }
+        .context-menu.show { display: block; }
+        .context-menu-item {
+            padding: 8px 12px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background 0.1s;
+        }
+        .context-menu-item:hover { background: var(--bg-tertiary); }
+        .context-menu-item.danger { color: var(--danger); }
     </style>
 </head>
 <body>
     <div class="topbar">
-        <h1>🐛 Wormy ML Network Worm v3.0</h1>
+        <h1>Wormy Network Map</h1>
         <div class="controls">
-            <button class="btn btn-blue" onclick="scanNetwork()">🔍 Scan</button>
-            <button class="btn btn-green" onclick="startPropagation()">▶ Propagate</button>
-            <button class="btn btn-red" onclick="stopPropagation()">⏹ Stop</button>
-            <button class="btn" onclick="refreshMap()">🔄 Refresh</button>
+            <button class="btn btn-primary" onclick="scanNetwork()">Scan</button>
+            <button class="btn btn-success" onclick="startPropagation()">Propagate</button>
+            <button class="btn btn-danger" onclick="stopPropagation()">Stop</button>
+            <button class="btn" onclick="refreshMap()">Refresh</button>
         </div>
     </div>
 
     <div class="main">
-        <!-- Left Panel: Training -->
         <div class="left-panel">
             <div class="panel-section">
-                <h3>📊 Statistics</h3>
-                <div class="stat-row"><span class="label">Infected</span><span class="value green" id="stat-infected">0</span></div>
+                <h3>Statistics</h3>
+                <div class="stat-row"><span class="label">Infected</span><span class="value success" id="stat-infected">0</span></div>
                 <div class="stat-row"><span class="label">Discovered</span><span class="value" id="stat-discovered">0</span></div>
-                <div class="stat-row"><span class="label">Failed</span><span class="value red" id="stat-failed">0</span></div>
-                <div class="stat-row"><span class="label">Vulnerabilities</span><span class="value yellow" id="stat-vulns">0</span></div>
+                <div class="stat-row"><span class="label">Failed</span><span class="value danger" id="stat-failed">0</span></div>
+                <div class="stat-row"><span class="label">Vulnerabilities</span><span class="value warning" id="stat-vulns">0</span></div>
                 <div class="stat-row"><span class="label">Credentials</span><span class="value" id="stat-creds">0</span></div>
-                <div class="stat-row"><span class="label">Lateral Movement</span><span class="value green" id="stat-lateral">0</span></div>
+                <div class="stat-row"><span class="label">Lateral Movement</span><span class="value success" id="stat-lateral">0</span></div>
                 <div class="stat-row"><span class="label">Status</span><span class="value" id="stat-status">Stopped</span></div>
             </div>
 
             <div class="panel-section">
-                <h3>🧠 Training</h3>
-                <div class="training-status">
-                    <div class="label">Status</div>
-                    <div class="value" id="training-status">Not Trained</div>
-                    <div class="label" style="margin-top:4px;">Episodes</div>
-                    <div class="value" id="training-episodes">0</div>
-                    <div class="label" style="margin-top:4px;">Best Reward</div>
-                    <div class="value" id="training-reward">0</div>
-                </div>
-                <div class="progress-bar" style="margin-top:8px;">
+                <h3>Training</h3>
+                <div class="stat-row"><span class="label">Status</span><span class="value" id="training-status">Not Trained</span></div>
+                <div class="stat-row"><span class="label">Episodes</span><span class="value" id="training-episodes">0</span></div>
+                <div class="stat-row"><span class="label">Best Reward</span><span class="value" id="training-reward">0</span></div>
+                <div class="progress-bar">
                     <div class="progress-fill" id="training-progress" style="width:0%"></div>
                 </div>
             </div>
-
-            <div class="panel-section">
-                <h3>🎯 Training Scenarios</h3>
-                <div class="scenario-list" id="scenario-list">
-                    <div class="scenario-item selected" data-scenario="small_office">
-                        <div class="name">Small Office</div>
-                        <div class="desc">10 hosts - Basic network</div>
-                    </div>
-                    <div class="scenario-item selected" data-scenario="enterprise">
-                        <div class="name">Enterprise</div>
-                        <div class="desc">30 hosts - Multi-subnet, AD</div>
-                    </div>
-                    <div class="scenario-item" data-scenario="datacenter">
-                        <div class="name">Datacenter</div>
-                        <div class="desc">50 hosts - Servers, containers</div>
-                    </div>
-                    <div class="scenario-item" data-scenario="cloud">
-                        <div class="name">Cloud</div>
-                        <div class="desc">40 hosts - Microservices</div>
-                    </div>
-                    <div class="scenario-item" data-scenario="iot">
-                        <div class="name">IoT/OT</div>
-                        <div class="desc">25 hosts - Industrial IoT</div>
-                    </div>
-                </div>
-                <button class="btn btn-green" style="width:100%;margin-top:10px;" onclick="startTraining()">🧠 Start Training</button>
-            </div>
         </div>
 
-        <!-- Center: Network Map -->
         <div class="center-panel" id="map-container">
             <canvas id="network-map"></canvas>
             <div class="legend">
@@ -556,30 +477,27 @@ class ArmitageDashboard:
             </div>
         </div>
 
-        <!-- Right Panel: Activity -->
         <div class="right-panel">
             <div class="panel-section" style="border-bottom:none;">
-                <h3>📋 Activity Feed</h3>
+                <h3>Activity Feed</h3>
             </div>
             <div class="activity-feed" id="activity-feed">
-                <div style="color:#484f58;padding:20px;text-align:center;">Waiting for activity...</div>
+                <div style="color:var(--text-muted);padding:20px;text-align:center;">Waiting for activity...</div>
             </div>
         </div>
     </div>
 
-    <!-- Context Menu -->
     <div class="context-menu" id="context-menu">
-        <div class="context-menu-item" onclick="exploitHost()">🎯 Exploit</div>
-        <div class="context-menu-item" onclick="scanHost()">🔍 Scan</div>
-        <div class="context-menu-item" onclick="viewVulns()">⚠️ Vulnerabilities</div>
-        <div class="context-menu-item" onclick="viewCreds()">🔑 Credentials</div>
-        <div class="context-menu-item danger" onclick="removeHost()">🗑️ Remove</div>
+        <div class="context-menu-item" onclick="exploitHost()">Exploit</div>
+        <div class="context-menu-item" onclick="scanHost()">Scan</div>
+        <div class="context-menu-item" onclick="viewVulns()">Vulnerabilities</div>
+        <div class="context-menu-item" onclick="viewCreds()">Credentials</div>
+        <div class="context-menu-item danger" onclick="removeHost()">Remove</div>
     </div>
 
     <script>
         let hosts = [];
         let edges = [];
-        let selectedHost = null;
         let contextMenuHost = null;
 
         const canvas = document.getElementById('network-map');
@@ -613,12 +531,11 @@ class ArmitageDashboard:
             if (!data.available) return;
             const statusEl = document.getElementById('training-status');
             statusEl.textContent = data.trained ? 'Trained' : 'Training...';
-            statusEl.style.color = data.trained ? '#3fb950' : '#d29922';
+            statusEl.style.color = data.trained ? 'var(--success)' : 'var(--warning)';
             
             document.getElementById('training-episodes').textContent = data.total_episodes || 0;
             document.getElementById('training-reward').textContent = (data.best_reward || 0).toFixed(2);
             
-            // Fake progress if training is active but not finished (since we don't have real progress)
             const progressEl = document.getElementById('training-progress');
             if (data.trained) {
                 progressEl.style.width = '100%';
@@ -636,14 +553,14 @@ class ArmitageDashboard:
             document.getElementById('stat-creds').textContent = stats.credentials || 0;
             document.getElementById('stat-lateral').textContent = stats.lateral || 0;
             document.getElementById('stat-status').textContent = stats.running ? 'Running' : 'Stopped';
-            document.getElementById('stat-status').style.color = stats.running ? '#3fb950' : '#f85149';
+            document.getElementById('stat-status').style.color = stats.running ? 'var(--success)' : 'var(--danger)';
         }
 
         function drawMap() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
             // Draw grid
-            ctx.strokeStyle = '#21262d';
+            ctx.strokeStyle = '#1a1a1a';
             ctx.lineWidth = 0.5;
             for (let x = 0; x < canvas.width; x += 40) {
                 ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
@@ -652,19 +569,79 @@ class ArmitageDashboard:
                 ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
             }
 
-            // Position hosts in a grid
-            const cols = Math.ceil(Math.sqrt(hosts.length));
-            const spacingX = Math.min(120, (canvas.width - 100) / cols);
-            const spacingY = Math.min(100, (canvas.height - 100) / Math.ceil(hosts.length / cols));
-            const startX = (canvas.width - (cols - 1) * spacingX) / 2;
-            const startY = 60;
+            // Force-directed layout simulation
+            const nodeRadius = 24;
+            const padding = 60;
+            
+            // Initialize positions if not set
+            if (!hosts[0] || !hosts[0].x) {
+                const cols = Math.ceil(Math.sqrt(hosts.length));
+                const spacingX = Math.min(100, (canvas.width - padding * 2) / cols);
+                const spacingY = Math.min(80, (canvas.height - padding * 2) / Math.ceil(hosts.length / cols));
+                const startX = (canvas.width - (cols - 1) * spacingX) / 2;
+                const startY = padding;
 
-            hosts.forEach((host, i) => {
-                const col = i % cols;
-                const row = Math.floor(i / cols);
-                host.x = startX + col * spacingX;
-                host.y = startY + row * spacingY;
-            });
+                hosts.forEach((host, i) => {
+                    const col = i % cols;
+                    const row = Math.floor(i / cols);
+                    host.x = startX + col * spacingX;
+                    host.y = startY + row * spacingY;
+                    host.vx = 0;
+                    host.vy = 0;
+                });
+            }
+
+            // Simple force simulation
+            for (let iter = 0; iter < 50; iter++) {
+                // Repulsion between nodes
+                for (let i = 0; i < hosts.length; i++) {
+                    for (let j = i + 1; j < hosts.length; j++) {
+                        const dx = hosts[j].x - hosts[i].x;
+                        const dy = hosts[j].y - hosts[i].y;
+                        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+                        const force = 500 / (dist * dist);
+                        hosts[i].vx -= force * dx / dist;
+                        hosts[i].vy -= force * dy / dist;
+                        hosts[j].vx += force * dx / dist;
+                        hosts[j].vy += force * dy / dist;
+                    }
+                }
+
+                // Attraction along edges
+                edges.forEach(edge => {
+                    const from = hosts.find(h => h.id === edge.from);
+                    const to = hosts.find(h => h.id === edge.to);
+                    if (from && to) {
+                        const dx = to.x - from.x;
+                        const dy = to.y - from.y;
+                        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+                        const force = (dist - 100) * 0.01;
+                        from.vx += force * dx / dist;
+                        from.vy += force * dy / dist;
+                        to.vx -= force * dx / dist;
+                        to.vy -= force * dy / dist;
+                    }
+                });
+
+                // Center gravity
+                const centerX = canvas.width / 2;
+                const centerY = canvas.height / 2;
+                hosts.forEach(h => {
+                    h.vx += (centerX - h.x) * 0.001;
+                    h.vy += (centerY - h.y) * 0.001;
+                });
+
+                // Apply forces
+                hosts.forEach(h => {
+                    h.vx *= 0.8;
+                    h.vy *= 0.8;
+                    h.x += h.vx;
+                    h.y += h.vy;
+                    // Keep in bounds
+                    h.x = Math.max(padding, Math.min(canvas.width - padding, h.x));
+                    h.y = Math.max(padding, Math.min(canvas.height - padding, h.y));
+                });
+            }
 
             // Draw edges
             edges.forEach(edge => {
@@ -672,55 +649,62 @@ class ArmitageDashboard:
                 const to = hosts.find(h => h.id === edge.to);
                 if (from && to) {
                     ctx.beginPath();
-                    ctx.moveTo(from.x + 20, from.y + 20);
-                    ctx.lineTo(to.x + 20, to.y + 20);
-                    ctx.strokeStyle = edge.success ? '#3fb95066' : '#f8514944';
+                    ctx.moveTo(from.x, from.y);
+                    ctx.lineTo(to.x, to.y);
+                    ctx.strokeStyle = edge.success ? 'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.2)';
                     ctx.lineWidth = 2;
                     ctx.stroke();
 
                     // Arrow
                     const angle = Math.atan2(to.y - from.y, to.x - from.x);
+                    const arrowDist = nodeRadius + 4;
+                    const arrowX = to.x - arrowDist * Math.cos(angle);
+                    const arrowY = to.y - arrowDist * Math.sin(angle);
                     ctx.beginPath();
-                    ctx.moveTo(to.x + 20, to.y + 20);
-                    ctx.lineTo(to.x + 20 - 8 * Math.cos(angle - 0.3), to.y + 20 - 8 * Math.sin(angle - 0.3));
-                    ctx.moveTo(to.x + 20, to.y + 20);
-                    ctx.lineTo(to.x + 20 - 8 * Math.cos(angle + 0.3), to.y + 20 - 8 * Math.sin(angle + 0.3));
+                    ctx.moveTo(arrowX, arrowY);
+                    ctx.lineTo(arrowX - 8 * Math.cos(angle - 0.4), arrowY - 8 * Math.sin(angle - 0.4));
+                    ctx.moveTo(arrowX, arrowY);
+                    ctx.lineTo(arrowX - 8 * Math.cos(angle + 0.4), arrowY - 8 * Math.sin(angle + 0.4));
                     ctx.stroke();
                 }
             });
 
             // Draw hosts
             hosts.forEach(host => {
-                const color = host.status === 'infected' ? '#3fb950' :
-                              host.status === 'failed' ? '#f85149' : '#58a6ff';
-                const bg = host.status === 'infected' ? '#23863622' :
-                           host.status === 'failed' ? '#da363322' : '#1f6feb22';
+                const color = host.status === 'infected' ? 'var(--success)' :
+                              host.status === 'failed' ? 'var(--danger)' : 'var(--accent)';
+                const colors = { success: '#22c55e', danger: '#ef4444', accent: '#3b82f6' };
+                const nodeColor = colors[host.status === 'infected' ? 'success' : host.status === 'failed' ? 'danger' : 'accent'];
+                const bgColor = host.status === 'infected' ? 'rgba(34, 197, 94, 0.1)' :
+                               host.status === 'failed' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(59, 130, 246, 0.1)';
 
-                // Icon box
-                ctx.fillStyle = bg;
-                ctx.strokeStyle = color;
+                // Node circle
+                ctx.fillStyle = bgColor;
+                ctx.strokeStyle = nodeColor;
                 ctx.lineWidth = 2;
                 ctx.beginPath();
-                ctx.roundRect(host.x, host.y, 40, 40, 8);
+                ctx.arc(host.x, host.y, nodeRadius, 0, Math.PI * 2);
                 ctx.fill();
                 ctx.stroke();
 
                 // Icon
-                ctx.fillStyle = color;
-                ctx.font = '16px Consolas';
+                ctx.fillStyle = nodeColor;
+                ctx.font = 'bold 14px -apple-system, BlinkMacSystemFont, sans-serif';
                 ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
                 const icon = host.status === 'infected' ? '✓' : host.status === 'failed' ? '✗' : '?';
-                ctx.fillText(icon, host.x + 20, host.y + 26);
+                ctx.fillText(icon, host.x, host.y);
 
-                // IP
-                ctx.fillStyle = '#8b949e';
-                ctx.font = '10px Consolas';
-                ctx.fillText(host.ip, host.x + 20, host.y + 55);
+                // IP label
+                ctx.fillStyle = '#888888';
+                ctx.font = '10px -apple-system, BlinkMacSystemFont, sans-serif';
+                ctx.textBaseline = 'top';
+                ctx.fillText(host.ip, host.x, host.y + nodeRadius + 6);
 
-                // OS
-                ctx.fillStyle = '#484f58';
-                ctx.font = '8px Consolas';
-                ctx.fillText(host.os.substring(0, 12), host.x + 20, host.y + 66);
+                // OS label
+                ctx.fillStyle = '#555555';
+                ctx.font = '9px -apple-system, BlinkMacSystemFont, sans-serif';
+                ctx.fillText(host.os.substring(0, 15), host.x, host.y + nodeRadius + 20);
             });
         }
 
@@ -731,7 +715,11 @@ class ArmitageDashboard:
             const mx = e.clientX - rect.left;
             const my = e.clientY - rect.top;
 
-            contextMenuHost = hosts.find(h => mx >= h.x && mx <= h.x + 40 && my >= h.y && my <= h.y + 40);
+            contextMenuHost = hosts.find(h => {
+                const dx = mx - h.x;
+                const dy = my - h.y;
+                return Math.sqrt(dx * dx + dy * dy) < 24;
+            });
             const menu = document.getElementById('context-menu');
             if (contextMenuHost) {
                 menu.style.left = e.clientX + 'px';
@@ -753,19 +741,19 @@ class ArmitageDashboard:
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ip: contextMenuHost.ip})
             });
-            addActivity('exploit', contextMenuHost.ip, `Exploiting ${contextMenuHost.ip}`);
+            addActivity('exploit', contextMenuHost.ip, 'Exploiting ' + contextMenuHost.ip);
             document.getElementById('context-menu').classList.remove('show');
         }
 
         function scanHost() {
             if (!contextMenuHost) return;
-            addActivity('scan', contextMenuHost.ip, `Scanning ${contextMenuHost.ip}`);
+            addActivity('scan', contextMenuHost.ip, 'Scanning ' + contextMenuHost.ip);
             document.getElementById('context-menu').classList.remove('show');
         }
 
         function viewVulns() {
             if (!contextMenuHost) return;
-            alert(`Vulnerabilities for ${contextMenuHost.ip}:\\nScore: ${contextMenuHost.vuln_score}/100\\nCount: ${contextMenuHost.vulnerabilities}`);
+            alert('Vulnerabilities for ' + contextMenuHost.ip + ':\\nScore: ' + contextMenuHost.vuln_score + '/100\\nCount: ' + contextMenuHost.vulnerabilities);
             document.getElementById('context-menu').classList.remove('show');
         }
 
@@ -781,23 +769,21 @@ class ArmitageDashboard:
         function addActivity(type, host, details) {
             const feed = document.getElementById('activity-feed');
             const time = new Date().toLocaleTimeString();
-            const typeClass = `type-${type}`;
+            const typeClass = 'type-' + type;
             const item = document.createElement('div');
             item.className = 'activity-item';
-            item.innerHTML = `<span class="time">${time}</span><span class="type ${typeClass}">${type.toUpperCase()}</span><span class="details">${details}</span>`;
+            item.innerHTML = '<span class="time">' + time + '</span><span class="type ' + typeClass + '">' + type.toUpperCase() + '</span><div class="details">' + details + '</div>';
             feed.insertBefore(item, feed.firstChild);
             if (feed.children.length > 50) feed.removeChild(feed.lastChild);
         }
 
         function startTraining() {
-            const selected = Array.from(document.querySelectorAll('.scenario-item.selected'))
-                .map(el => el.dataset.scenario);
             fetch('/api/start_training', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({scenarios: selected})
+                body: JSON.stringify({scenarios: ['small_office', 'enterprise']})
             });
-            addActivity('training', 'system', `Starting training: ${selected.join(', ')}`);
+            addActivity('training', 'system', 'Starting training');
         }
 
         function startPropagation() {
@@ -814,11 +800,6 @@ class ArmitageDashboard:
             fetch('/api/scan', {method: 'POST'});
             addActivity('scan', 'system', 'Network scan started');
         }
-
-        // Scenario selection
-        document.querySelectorAll('.scenario-item').forEach(item => {
-            item.addEventListener('click', () => item.classList.toggle('selected'));
-        });
 
         // Auto-refresh
         setInterval(refreshMap, 3000);

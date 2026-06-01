@@ -1,0 +1,25 @@
+FROM openjdk:8-jre-slim
+
+RUN apt-get update && apt-get install -y wget && rm -rf /var/lib/apt/lists/*
+
+# Download Tomcat 8.5
+RUN wget -q https://archive.apache.org/dist/tomcat/tomcat-8/v8.5.0/bin/apache-tomcat-8.5.0.tar.gz -O /tmp/tomcat.tar.gz && \
+    tar xzf /tmp/tomcat.tar.gz -C /opt && \
+    mv /opt/apache-tomcat-8.5.0 /opt/tomcat && \
+    rm /tmp/tomcat.tar.gz
+
+# Download log4j 2.14.1 (vulnerable to Log4Shell)
+RUN wget -q https://repo1.maven.org/maven2/org/apache/logging/log4j/log4j-core/2.14.1/log4j-core-2.14.1.jar -O /opt/tomcat/lib/log4j-core.jar && \
+    wget -q https://repo1.maven.org/maven2/org/apache/logging/log4j/log4j-api/2.14.1/log4j-api-2.14.1.jar -O /opt/tomcat/lib/log4j-api.jar
+
+# Create vulnerable webapp
+RUN mkdir -p /opt/tomcat/webapps/log4j/WEB-INF/classes
+COPY Log4jServlet.java /tmp/Log4jServlet.java
+RUN cd /tmp && \
+    javac -cp /opt/tomcat/lib/servlet-api.jar:/opt/tomcat/lib/log4j-api.jar:/opt/tomcat/lib/log4j-core.jar Log4jServlet.java && \
+    mv Log4jServlet.class /opt/tomcat/webapps/log4j/WEB-INF/classes/
+
+COPY web.xml /opt/tomcat/webapps/log4j/WEB-INF/web.xml
+
+EXPOSE 8080
+CMD ["/opt/tomcat/bin/catalina.sh", "run"]

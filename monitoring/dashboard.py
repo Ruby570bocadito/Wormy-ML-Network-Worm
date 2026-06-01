@@ -450,13 +450,16 @@ class MonitoringDashboard:
 
 # Global dashboard instance
 _dashboard = None
+_dashboard_lock = __import__('threading').Lock()
 
 
 def get_dashboard(port=8080):
-    """Get or create global dashboard instance"""
+    """Get or create global dashboard instance (thread-safe)"""
     global _dashboard
     if _dashboard is None:
-        _dashboard = MonitoringDashboard(port=port)
+        with _dashboard_lock:
+            if _dashboard is None:
+                _dashboard = MonitoringDashboard(port=port)
     return _dashboard
 
 

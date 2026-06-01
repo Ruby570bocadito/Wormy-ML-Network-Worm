@@ -224,15 +224,16 @@ class ProfessionalScanner:
         self.service_detector = ServiceDetector()
 
         # Common ports by category
-        self.port_categories = {
+        self.    port_categories = {
             "essential": [22, 80, 443],
             "windows": [135, 139, 445, 3389, 5985, 5986],
             "linux": [22, 631, 2049, 111],
             "database": [1433, 3306, 5432, 6379, 27017, 1521],
-            "web": [80, 443, 8080, 8443, 8888, 9090],
+            "web": [80, 443, 8080, 8443, 8888, 9090, 3000],
             "mail": [25, 110, 143, 465, 587, 993, 995],
-            "infrastructure": [53, 161, 162, 389, 636, 88, 10250, 6443, 2375],
+            "infrastructure": [53, 161, 162, 389, 636, 88, 10250, 6443, 2375, 5672, 15672],
             "remote": [22, 23, 3389, 5900, 5901, 5902, 5903],
+            "search": [9200, 9300],
         }
 
     def get_ports_for_scan(self, categories: List[str] = None) -> List[int]:
@@ -399,7 +400,10 @@ class ProfessionalScanner:
 
     @staticmethod
     def _check_known_vuln_versions(service_str: str, port: int) -> int:
-        """Check for known vulnerable versions"""
+        """Check for known vulnerable versions
+
+        FIX: Updated to 2026 CVE thresholds
+        """
         score = 0
         version_match = re.search(r"([\d]+)\.([\d]+)", service_str)
         if not version_match:
@@ -409,13 +413,15 @@ class ProfessionalScanner:
         minor = int(version_match.group(2))
 
         vuln_checks = {
-            22: [("OpenSSH", 7, 4, 15)],
-            80: [("Apache", 2, 4, 10), ("nginx", 1, 17, 10)],
+            22: [("OpenSSH", 9, 0, 20)],
+            80: [("Apache", 2, 4, 55), ("nginx", 1, 25, 15)],
             445: [("SMB", 1, 0, 30)],
-            3306: [("MySQL", 5, 5, 15)],
-            5432: [("PostgreSQL", 9, 5, 15)],
-            9200: [("Elasticsearch", 1, 0, 25)],
-            8080: [("Tomcat", 8, 5, 20), ("Jenkins", 2, 0, 25)],
+            3306: [("MySQL", 8, 0, 35)],
+            5432: [("PostgreSQL", 14, 0, 20)],
+            9200: [("Elasticsearch", 8, 0, 25)],
+            8080: [("Tomcat", 10, 0, 20), ("Jenkins", 2, 400, 25)],
+            6379: [("Redis", 7, 0, 15)],
+            27017: [("MongoDB", 6, 0, 20)],
         }
 
         if port in vuln_checks:
@@ -434,6 +440,7 @@ class ProfessionalScanner:
         callback=None,
         progress_callback=None,
         show_progress: bool = True,
+        excluded_ips: List[str] = None,
     ) -> List[Dict]:
         """
         Scan multiple targets
@@ -444,11 +451,14 @@ class ProfessionalScanner:
             categories: Port categories
             callback: Optional callback per host
             show_progress: Show visual progress bar
+            excluded_ips: List of IPs to skip
 
         Returns:
             List of host results
         """
         import ipaddress
+
+        exclude_set = set(excluded_ips or [])
 
         # Expand targets
         all_ips = []
@@ -456,9 +466,13 @@ class ProfessionalScanner:
             try:
                 if "/" in target:
                     network = ipaddress.ip_network(target, strict=False)
-                    all_ips.extend(str(ip) for ip in network.hosts())
+                    for ip in network.hosts():
+                        ip_str = str(ip)
+                        if ip_str not in exclude_set:
+                            all_ips.append(ip_str)
                 else:
-                    all_ips.append(target)
+                    if target not in exclude_set:
+                        all_ips.append(target)
             except ValueError:
                 logger.warning(f"Invalid target: {target}")
 
@@ -469,23 +483,30 @@ class ProfessionalScanner:
         found = 0
         total = len(all_ips)
 
-        for ip in all_ips:
-            try:
-                host_result = await self.scan_host(ip, ports, categories)
-                if host_result["open_ports"]:
-                    results.append(host_result)
-                    found += 1
-                    if callback:
-                        callback(host_result)
-            except Exception as e:
-                logger.debug(f"Scan error for {ip}: {e}")
+        sem = asyncio.Semaphore(self.max_concurrency)
 
-            scanned += 1
+        async def scan_single(ip):
+            nonlocal scanned, found
+            async with sem:
+                try:
+                    host_result = await self.scan_host(ip, ports, categories)
+                    if host_result["open_ports"]:
+                        results.append(host_result)
+                        found += 1
+                        if callback:
+                            callback(host_result)
+                except Exception as e:
+                    logger.debug(f"Scan error for {ip}: {e}")
 
-            if progress_callback:
-                progress_callback(scanned, total, found)
-            elif show_progress:
-                self._print_progress(scanned, total, found)
+                scanned += 1
+
+                if progress_callback:
+                    progress_callback(scanned, total, found)
+                elif show_progress:
+                    self._print_progress(scanned, total, found)
+
+        tasks = [scan_single(ip) for ip in all_ips]
+        await asyncio.gather(*tasks)
 
         if show_progress and not progress_callback:
             print()  # New line after progress bar

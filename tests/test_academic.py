@@ -52,7 +52,7 @@ class TestWormCore(unittest.TestCase):
 
     def test_initialization(self):
         """Test worm core initialization"""
-        with patch("worm_core.Config", return_value=self.mock_config):
+        with patch("worm_core.mixin_base.Config", return_value=self.mock_config):
             with patch("worm_core.IntelligentScanner"):
                 with patch("worm_core.PropagationAgent"):
                     from worm_core import WormCore
@@ -65,7 +65,7 @@ class TestWormCore(unittest.TestCase):
 
     def test_kill_switch_activation(self):
         """Test kill switch with correct code"""
-        with patch("worm_core.Config", return_value=self.mock_config):
+        with patch("worm_core.mixin_base.Config", return_value=self.mock_config):
             with patch("worm_core.IntelligentScanner"):
                 with patch("worm_core.PropagationAgent"):
                     from worm_core import WormCore
@@ -78,7 +78,7 @@ class TestWormCore(unittest.TestCase):
 
     def test_kill_switch_invalid_code(self):
         """Test kill switch with wrong code"""
-        with patch("worm_core.Config", return_value=self.mock_config):
+        with patch("worm_core.mixin_base.Config", return_value=self.mock_config):
             with patch("worm_core.IntelligentScanner"):
                 with patch("worm_core.PropagationAgent"):
                     from worm_core import WormCore
@@ -234,7 +234,7 @@ class TestSafetyMechanisms(unittest.TestCase):
             self.skipTest("Worm core module not available")
             return
 
-        with patch("worm_core.Config", return_value=mock_config):
+        with patch("worm_core.mixin_base.Config", return_value=mock_config):
             with patch("worm_core.IntelligentScanner"):
                 with patch("worm_core.PropagationAgent"):
                     worm = WormCore()

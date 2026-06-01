@@ -126,6 +126,11 @@ class StealthEngine:
         if not self.config.evasion.encrypt_traffic:
             return data
 
+        # FIX: Check if crypto is available before using it
+        if not self.crypto:
+            logger.debug("CryptoManager unavailable, skipping traffic encryption")
+            return data
+
         # Encrypt data
         key = self.crypto.generate_symmetric_key()
         encrypted = self.crypto.encrypt_symmetric(data, key)

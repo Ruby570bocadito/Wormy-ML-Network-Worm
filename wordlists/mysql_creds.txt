@@ -1,0 +1,11 @@
+root:root
+root:
+root:password
+root:admin
+root:toor
+root:P@ssw0rd
+mysql:mysql
+admin:admin
+admin:password
+test:test
+debian-sys-maint:root

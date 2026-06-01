@@ -10,6 +10,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python"/>
   <img src="https://img.shields.io/badge/PyTorch-2.0+-EE4C2C?style=for-the-badge&logo=pytorch&logoColor=white" alt="PyTorch"/>
+  <img src="https://img.shields.io/badge/OS-Linux%20%7C%20Windows%20%7C%20macOS-lightgrey?style=for-the-badge" alt="OS"/>
   <img src="https://img.shields.io/badge/version-4.0.0-blue?style=for-the-badge" alt="Version"/>
   <img src="https://img.shields.io/badge/license-MIT-orange?style=for-the-badge" alt="License"/>
   <img src="https://img.shields.io/badge/exploits-44%20modules-blue?style=for-the-badge" alt="Exploits"/>
@@ -524,6 +525,9 @@ Visual network map with color-coded host status, real-time statistics, activity 
 # Unit tests
 make test
 
+# With coverage
+make test-cov
+
 # Docker lab (11 containers)
 docker compose -f docker-compose-lab.yml up -d
 python3 tests/run_worm_vs_lab.py
@@ -532,6 +536,171 @@ python3 tests/run_worm_vs_lab.py
 docker compose -f docker-compose-lab.yml down
 ./scripts/cleanup_engagement.py
 ```
+
+---
+
+## 🛡️ Safety Controls
+
+Wormy has **5 layers of safety** to prevent uncontrolled propagation:
+
+| Control | Description | Default |
+|---------|-------------|---------|
+| **Kill Switch** | `--kill-switch EMERGENCY_STOP_2024` stops all agents instantly | Enabled |
+| **Auto-Destruct** | Self-eliminates after N hours | 2h |
+| **Geofencing** | Only targets private networks (RFC 1918) | Enabled |
+| **Max Infections** | Stops after N hosts compromised | 1000 |
+| **No Persistence** | Survives reboot = false (by default) | Disabled |
+
+```bash
+# Emergency stop
+python3 -m worm_core --kill-switch EMERGENCY_STOP_2024
+
+# Or create kill file
+touch STOP_WORMY_NOW
+```
+
+---
+
+## 📋 Configuration
+
+```yaml
+# configs/config.yaml
+network:
+  target_ranges: ["192.168.100.0/24"]
+  excluded_ips: ["192.168.100.1", "192.168.100.254"]
+  max_threads: 50
+  ports_to_scan: [21, 22, 80, 445, 3306, 5432, 6379, 27017]
+
+c2:
+  c2_server: "127.0.0.1"
+  c2_port: 8443
+  beacon_interval: 60
+  c2_protocol: "https"
+
+safety:
+  kill_switch_enabled: true
+  kill_switch_code: "EMERGENCY_STOP_2024"
+  auto_destruct_time: 2
+  geofence_enabled: true
+  max_runtime_hours: 24
+```
+
+### Profiles
+
+| Profile | Threads | Stealth | Self-Replicate | Use Case |
+|---------|---------|---------|----------------|----------|
+| `default` | 50 | Balanced | No | Normal operation |
+| `stealth` | 10 | Full evasion | No | Red team engagement |
+| `aggressive` | 200 | None | Yes | CTF / lab |
+| `audit` | 30 | Logging | No | Compliance testing |
+| `lab_docker` | 5 | None | No | Docker lab |
+
+---
+
+## 🎯 MITRE ATT&CK Mapping
+
+| Tactic | Technique | Wormy Module |
+|--------|-----------|--------------|
+| **Initial Access** | T1190 Exploit Public-Facing App | Log4j, Struts, WebLogic, ProxyShell |
+| **Initial Access** | T1078 Valid Accounts | Password Engine, Credential Stuffing |
+| **Execution** | T1059 Command Scripting | Jenkins, MSSQL xp_cmdshell |
+| **Persistence** | T1053 Scheduled Task | Cron injection, WMI event subscription |
+| **Persistence** | T1547 Boot/Logon | Registry Run keys, SSH authorized_keys |
+| **Privilege Escalation** | T1068 Exploitation for Priv Esc | Zerologon, PrintNightmare |
+| **Defense Evasion** | T1055 Process Injection | AMSI bypass, ETW silencing, DLL unhooking |
+| **Defense Evasion** | T1027 Obfuscated Files | Polymorphic engine, AST metamorphism |
+| **Credential Access** | T1558 Steal/Forge Kerberos | Kerberoasting, AS-REP Roasting |
+| **Discovery** | T1018 Remote System Discovery | CIDR scanner, LDAP enumeration |
+| **Lateral Movement** | T1021 Remote Services | SSH pivot, SMB Pass-the-Hash |
+| **Lateral Movement** | T1570 Lateral Tool Transfer | P2P gossip mesh, SCP/SFTP |
+| **Command & Control** | T1071 Application Layer Protocol | HTTPS, DoH, ICMP tunneling |
+| **Command & Control** | T1105 Ingress Tool Transfer | OTA brain updates |
+| **Impact** | T1486 Data Encrypted for Impact | (Simulated only) |
+
+---
+
+## 🔄 Engagement Lifecycle
+
+```
+  ┌─────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐
+  │  SETUP  │───▶│  ATTACK  │───▶│  MONITOR │───▶│ CLEANUP  │───▶│  REPORT  │
+  │  ~2min  │    │  Auto    │    │  Real-time│    │  Auto    │    │  Auto    │
+  └─────────┘    └──────────┘    └──────────┘    └──────────┘    └──────────┘
+```
+
+```bash
+# 1. SETUP — prepare everything (dry-run, safe)
+sudo ./scripts/deploy_kali.sh
+
+# 2. ATTACK — launch against authorized target
+sudo ./scripts/deploy_kali.sh --live --target 10.0.1.0/24 --stealth 3
+
+# 3. MONITOR — real-time dashboards
+python3 monitoring/cli_monitor.py          # Terminal
+curl -sk http://localhost:8443/agents      # API
+# Web: http://localhost:5000 + http://localhost:5001
+
+# 4. CLEANUP — remove all traces
+touch STOP_WORMY_NOW                       # Kill switch
+python3 scripts/cleanup_engagement.py      # Auto-cleanup all hosts
+
+# 5. REPORT — generate deliverables
+python3 utils/audit_report.py              # Full audit report
+python3 utils/bloodhound_export.py         # AD data for BloodHound
+```
+
+---
+
+## 🩸 BloodHound Integration
+
+```bash
+# Export AD intelligence collected by Wormy
+python3 utils/bloodhound_export.py \
+  --input data/ad_intel.json \
+  --domain EMPRESA.LOCAL \
+  --out-dir /tmp/bh_data/
+
+# Output:
+#   20240115_computers.json   # Hosts + DC + services + pwned flag
+#   20240115_users.json       # Users + kerberoastable + asrep flags
+#   20240115_groups.json      # Domain Admins, IT Dept, HR...
+```
+
+Import the JSON files into BloodHound and run:
+- "Find All Domain Admins"
+- "Shortest Path to Domain Admin"
+- "Find Kerberoastable Users"
+- "Find AS-REP Roastable Users"
+
+---
+
+## 🆚 Comparison
+
+| Feature | Wormy | Metasploit | Covenant | Sliver |
+|---------|-------|------------|----------|--------|
+| **ML Brain** | ✅ DQN + Thompson | ❌ | ❌ | ❌ |
+| **Auto-Propagation** | ✅ Self-replicating | ❌ | ❌ | ❌ |
+| **44 Exploits** | ✅ Built-in | ✅ Modules | ❌ | ❌ |
+| **AD Attack Chain** | ✅ LDAP + Kerb + AS-REP | ✅ | ❌ | ❌ |
+| **Password Engine** | ✅ Spray + mutation | ❌ | ❌ | ❌ |
+| **Polymorphic** | ✅ AST metamorphism | ❌ | ❌ | ❌ |
+| **OTA Updates** | ✅ Hot-swap models | ❌ | ❌ | ❌ |
+| **Web Dashboards** | ✅ 2 dashboards | ❌ (GUI) | ✅ | ✅ |
+| **ICMP C2** | ✅ | ❌ | ❌ | ❌ |
+| **P2P Mesh** | ✅ | ❌ | ❌ | ✅ |
+| **Open Source** | ✅ MIT | ✅ BSD | ✅ GPL | ✅ GPL |
+
+---
+
+## 📝 Changelog
+
+### v4.0.0 (2026-05-13)
+
+- **12 new exploits**: EternalBlue, Zerologon, PrintNightmare, BlueKeep, WordPress, Apache, CloudFormation, Terraform, GCP IAM, Siemens S7, MQTT, OPC UA
+- **Refactored** 3079-line monolith → 10 mixin modules
+- **Security fixes**: shell injection, SQLi, credential leaks, pickle validation
+- **CI pipeline**: lint, security scan, test jobs
+- **Pre-commit hooks**: black + isort formatting
 
 ---
 

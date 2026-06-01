@@ -101,6 +101,8 @@ def train_agent_curriculum(
 
     os.makedirs(save_dir, exist_ok=True)
 
+    print("Initializing agent (this may take a moment)...", flush=True)
+
     # Initialize agent for largest network
     max_net = max(p[0] for p in phases)
     state_size = max_net * 15  # 15 features per host
@@ -119,9 +121,12 @@ def train_agent_curriculum(
     no_improve_count = 0
 
     # Training loop
+    progress_interval = 5
     while not scheduler.is_complete:
         net_size, max_steps = scheduler.get_environment_params()
-        env = NetworkEnvironment(network_size=net_size, max_steps=max_steps)
+        env = NetworkEnvironment(
+            network_size=net_size, max_steps=max_steps, max_state_size=state_size
+        )
 
         state = env.reset()
         total_reward = 0
@@ -146,6 +151,19 @@ def train_agent_curriculum(
         infections_history.append(info["infected_count"])
         detection_history.append(1 if env.detected else 0)
         epsilon_history.append(agent.epsilon)
+
+        ep = scheduler.completed_episodes
+        total = scheduler.total_episodes
+        pct = ep * 100 // total if total else 0
+        print(".", end="", flush=True)
+        if ep > 0 and ep % progress_interval == 0:
+            avg_r = np.mean(rewards_history[-min(50, len(rewards_history)):])
+            print(
+                f"  [{pct}%] Ep {ep}/{total} | Phase {scheduler.current_phase + 1}/{len(phases)} "
+                f"| Reward: {avg_r:.1f} | Infected: {info['infected_count']}/{net_size} "
+                f"| Epsilon: {agent.epsilon:.3f}    ",
+                flush=True,
+            )
 
         # Soft target update (tau=0.005)
         agent.update_target_model(tau=0.005)
@@ -173,6 +191,7 @@ def train_agent_curriculum(
 
         # Checkpoint
         if scheduler.completed_episodes % checkpoint_interval == 0:
+            print()
             ckpt_path = os.path.join(save_dir, f"checkpoint_{scheduler.completed_episodes}.h5")
             agent.save(ckpt_path)
 
@@ -182,13 +201,16 @@ def train_agent_curriculum(
             det_r = np.mean(detection_history[-window:])
 
             print(
-                f"\n[Checkpoint {scheduler.completed_episodes}] Phase {scheduler.current_phase + 1}/{len(phases)}"
+                f"[Checkpoint {scheduler.completed_episodes}] Phase "
+                f"{scheduler.current_phase + 1}/{len(phases)}"
             )
             print(
-                f"  Net: {net_size} hosts | Avg Reward: {avg_r:.2f} | Avg Infected: {avg_i:.1f}/{net_size}"
+                f"  Net: {net_size} hosts | Avg Reward: {avg_r:.2f} | "
+                f"Avg Infected: {avg_i:.1f}/{net_size}"
             )
             print(
-                f"  Detection: {det_r*100:.1f}% | Epsilon: {agent.epsilon:.3f} | Best: {best_reward:.2f} (ep {best_episode})"
+                f"  Detection: {det_r*100:.1f}% | Epsilon: {agent.epsilon:.3f} | "
+                f"Best: {best_reward:.2f} (ep {best_episode})"
             )
 
         scheduler.advance()

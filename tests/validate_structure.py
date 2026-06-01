@@ -130,7 +130,11 @@ def test_config_structure():
     """Test config structure"""
     print("\n=== Testing Config Module ===")
 
-    with open("config.py", "r") as f:
+    # Config moved to configs/ directory
+    config_path = "configs/config.py"
+    if not os.path.exists(config_path):
+        config_path = "config.py"
+    with open(config_path, "r") as f:
         content = f.read()
 
     checks = [

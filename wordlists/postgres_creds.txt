@@ -1,0 +1,9 @@
+admin:admin123
+postgres:postgres
+postgres:
+admin:admin
+admin:password
+root:root
+test:test
+postgres:password
+postgres:admin

