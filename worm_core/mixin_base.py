@@ -121,6 +121,10 @@ class WormCoreBase:
 
         self.config = Config(config_file) if config_file else Config()
 
+        # Dashboards/control APIs bind to loopback by default; set WORMY_BIND_HOST=0.0.0.0
+        # to explicitly expose them on all interfaces.
+        self.bind_host = os.getenv("WORMY_BIND_HOST", "127.0.0.1")
+
         if profile and profile in CONFIG_PROFILES:
             self._apply_profile(profile)
 
@@ -229,7 +233,7 @@ class WormCoreBase:
         try:
             from monitoring.web_dashboard import WebDashboard
 
-            self.web_dashboard = WebDashboard(worm_core=self, host="0.0.0.0", port=5000)
+            self.web_dashboard = WebDashboard(worm_core=self, host=self.bind_host, port=5000)
             logger.info("Web Dashboard: enabled (http://0.0.0.0:5000)")
         except Exception as e:
             logger.warning(f"Web Dashboard failed to initialize: {e}")
@@ -245,7 +249,7 @@ class WormCoreBase:
             except Exception:
                 pass
             self.armitage_dashboard = ArmitageDashboard(
-                worm_core=self, trainer=trainer, host="0.0.0.0", port=5001
+                worm_core=self, trainer=trainer, host=self.bind_host, port=5001
             )
             logger.info("Armitage Dashboard: enabled (http://0.0.0.0:5001)")
         except Exception as e:
@@ -517,9 +521,9 @@ class WormCoreBase:
         if MULTI_OPERATOR_AVAILABLE:
             try:
                 self.multi_operator = MultiOperatorServer(
-                    host="0.0.0.0",
+                    host=self.bind_host,
                     port=8444,
-                    jwt_secret=os.getenv("WORMY_JWT_SECRET", "wormy_jwt_secret_change_me"),
+                    jwt_secret=os.getenv("WORMY_JWT_SECRET"),
                     db_path="saved/operators.db",
                 )
                 logger.info("Multi-Operator Server: enabled (port 8444)")
