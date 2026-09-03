@@ -8,6 +8,7 @@ import hashlib
 import hmac
 import json
 import os
+import secrets
 import sqlite3
 import sys
 import threading
@@ -102,8 +103,10 @@ class OperatorDB:
                     ip         TEXT
                 );
             """)
-        # Ensure default admin exists
-        self.create_operator("admin", "wormy_admin_2024", "admin")
+        # Ensure default admin exists. No hardcoded password: env var or random.
+        admin_password = os.getenv("WORMY_ADMIN_PASSWORD") or secrets.token_urlsafe(16)
+        self._generated_admin_password = admin_password
+        self.create_operator("admin", admin_password, "admin")
 
     def _hash_pw(self, password: str) -> str:
         return hashlib.pbkdf2_hmac("sha256", password.encode(), b"wormy_salt", 100_000).hex()
@@ -374,8 +377,8 @@ class MultiOperatorServer:
         handler = self._make_handler()
         self._server = HTTPServer((self.host, self.port), handler)
         logger.success(f"Multi-operator C2 API: http://{self.host}:{self.port}")
-        logger.info("  Default admin credentials: admin / wormy_admin_2024")
-        logger.warning("  CHANGE DEFAULT PASSWORD IMMEDIATELY IN PRODUCTION")
+        logger.info(f"  Admin user 'admin' password set via WORMY_ADMIN_PASSWORD (or generated at runtime)")
+        logger.warning("  Set WORMY_ADMIN_PASSWORD and WORMY_JWT_SECRET before exposing this API")
 
         if background:
             self._thread = threading.Thread(target=self._server.serve_forever, daemon=True)

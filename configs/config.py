@@ -126,7 +126,7 @@ class MetasploitConfig:
     host: str = "127.0.0.1"
     port: int = 55553
     user: str = "msf"
-    password: str = "wormy2024"  # Override via MSF_PASSWORD env var
+    password: str = ""  # No hardcoded default: MUST be set via MSF_PASSWORD env var
     auto_start: bool = False
     lhost: str = ""  # Auto-detected if empty
     lport_base: int = 4444
@@ -243,6 +243,28 @@ class Config:
 
         if not self.safety.geofence_enabled:
             warnings.append("⚠️  Geofencing is disabled — worm may spread outside allowed networks")
+
+        if self.safety.geofence_enabled:
+            # Warn when the "geofence" actually covers the whole RFC1918 private space,
+            # i.e. it does not contain propagation to any specific network.
+            rfc1918 = ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"]
+            try:
+                covered = all(
+                    any(
+                        ipaddress.ip_network(net, strict=False).supernet_of(
+                            ipaddress.ip_network(r, strict=False)
+                        )
+                        for net in self.safety.allowed_networks
+                    )
+                    for r in rfc1918
+                )
+                if covered:
+                    warnings.append(
+                        "⚠️  Geofence covers ALL RFC1918 private space — it does not contain "
+                        "propagation to any specific network"
+                    )
+            except ValueError:
+                pass
 
         if self.propagation.max_infections <= 0:
             errors.append("❌ max_infections must be positive")

