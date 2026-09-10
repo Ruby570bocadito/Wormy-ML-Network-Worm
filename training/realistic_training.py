@@ -92,6 +92,34 @@ class RealisticTrainer:
         self.agent = None
         self.is_trained = False
 
+    @staticmethod
+    def _fit_hosts_to_geometry(hosts: List[Dict], target: int) -> List[Dict]:
+        """Pad or trim a scenario to exactly `target` hosts.
+
+        The DQN has a fixed action space (one action per host slot), so every
+        episode must present the same number of slots. Fewer hosts are padded
+        with inert fillers (vulnerability 0 -> success_prob 0, never infected);
+        surplus hosts are dropped.
+        """
+        hosts = list(hosts)[:target]
+        while len(hosts) < target:
+            hosts.append(
+                {
+                    "id": len(hosts),
+                    "ip": f"10.255.0.{len(hosts) + 1}",
+                    "subnet": 2,
+                    "vulnerability": 0,
+                    "difficulty": 10,
+                    "reachable": False,
+                    "ports": [],
+                    "os_guess": "Unknown",
+                    "is_high_value": False,
+                    "credentials": 0,
+                    "hop_distance": 5,
+                }
+            )
+        return hosts
+
     def train(
         self,
         scenarios: List[str] = None,
@@ -114,9 +142,13 @@ class RealisticTrainer:
         if scenarios is None:
             scenarios = self.curriculum_order
 
-        # Initialize agent with fixed sizes matching worm_core
-        state_size = 300  # 20 hosts * 15 features (matching worm_core)
-        action_size = 50
+        # Initialize agent with the SAME geometry as worm_core:
+        # action_size=20 selectable targets, state = 20 * 15 = 300 features.
+        # (Previously action_size=50 with state_size=300: the checkpoint
+        # could never be used at inference and vice versa.)
+        self.target_hosts = 20
+        state_size = self.target_hosts * 15
+        action_size = self.target_hosts
 
         self.agent = PropagationAgent(state_size, action_size, use_dqn=True)
 
@@ -153,8 +185,10 @@ class RealisticTrainer:
             logger.info(f"{'='*60}")
 
             for episode in range(n_episodes):
-                # Generate scenario with variation
+                # Generate scenario with variation, then fit to the fixed
+                # 20-host geometry (pad with inert filler hosts / trim).
                 hosts = scenario.generate()
+                hosts = self._fit_hosts_to_geometry(hosts, self.target_hosts)
                 env = NetworkEnvironment(
                     network_size=len(hosts),
                     max_steps=max_steps,
@@ -173,6 +207,7 @@ class RealisticTrainer:
 
                 total_reward = 0
                 done = False
+                step_count = 0
 
                 while not done:
                     available = env.get_available_actions()
@@ -189,10 +224,24 @@ class RealisticTrainer:
                     next_state = next_state[:state_size]
 
                     self.agent.remember(state, action, reward, next_state, done)
-                    self.agent.replay()
+
+                    # Train every 4 steps instead of every step: replay is
+                    # expensive and per-step training dominated wall time.
+                    step_count += 1
+                    if step_count % 4 == 0 and len(self.agent.memory) >= 64:
+                        self.agent.replay(batch_size=32)
+                        # Soft target update alongside learning (previously
+                        # once per episode -> target lagged far behind).
+                        self.agent.update_target_model(tau=0.005)
 
                     state = next_state
                     total_reward += reward
+
+                # Epsilon decay PER EPISODE. This was missing entirely:
+                # the agent trained with epsilon=1.0 (pure random policy)
+                # forever, so rewards reflected chance and the checkpoint
+                # stored an untrained policy.
+                self.agent.step_epsilon_decay()
 
                 # Track metrics
                 self.training_history["rewards"].append(total_reward)
@@ -202,9 +251,6 @@ class RealisticTrainer:
                 self.training_history["episodes"].append(total_episodes_run)
 
                 total_episodes_run += 1
-
-                # Soft target update
-                self.agent.update_target_model(tau=0.005)
 
                 # Check improvement
                 window = min(50, len(self.training_history["rewards"]))

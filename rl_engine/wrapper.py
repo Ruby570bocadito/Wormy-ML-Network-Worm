@@ -6,14 +6,24 @@ Bridges trained agent with live scan results for target selection.
 from typing import Dict, List, Optional
 
 from .dqn_agent import PropagationAgent
+from .features import FEATURES_PER_HOST, build_state
 
 
 class RealWorldPropagationAgent:
     def __init__(self, agent: PropagationAgent, action_size: int):
+        expected_state = action_size * FEATURES_PER_HOST
+        if getattr(agent, "state_size", expected_state) != expected_state:
+            raise ValueError(
+                f"Agent state_size ({agent.state_size}) does not match "
+                f"action_size * {FEATURES_PER_HOST} ({expected_state}). "
+                "Rebuild the agent or retrain the model: features must be "
+                "identical between training and inference."
+            )
         self.agent = agent
         self.action_size = action_size
         self.scan_results = []
         self.infected_hosts = set()
+        self.failed_hosts: set = set()
 
     def update_state(self, scan_results: List[Dict], infected_hosts: set):
         self.scan_results = scan_results
@@ -23,7 +33,11 @@ class RealWorldPropagationAgent:
         if not self.scan_results:
             return None
 
-        available_targets = [t for t in self.scan_results if t["ip"] not in self.infected_hosts]
+        available_targets = [
+            t
+            for t in self.scan_results
+            if t["ip"] not in self.infected_hosts and t["ip"] not in self.failed_hosts
+        ]
 
         if not available_targets:
             return None
@@ -46,72 +60,23 @@ class RealWorldPropagationAgent:
         return max(available_targets, key=lambda x: x.get("vulnerability_score", 0))
 
     def _build_state(self, targets: List[Dict]) -> List[float]:
-        state = []
-        features_per_host = 15
-        top_ports = [
-            21,
-            22,
-            23,
-            25,
-            53,
-            80,
-            110,
-            135,
-            139,
-            143,
-            443,
-            445,
-            993,
-            995,
-            1433,
-            3306,
-            3389,
-            5432,
-            5900,
-            6379,
-        ]
+        """Build state with the canonical feature builder.
 
-        for target in targets[: self.action_size]:
-            vuln = target.get("vulnerability_score", 50) / 100.0
-            port_count = len(target.get("open_ports", [])) / 20.0
-            is_windows = 1.0 if target.get("os_guess") == "Windows" else 0.0
-            is_linux = 1.0 if target.get("os_guess") in ("Linux", "Unix") else 0.0
-            is_infected = 1.0 if target.get("ip") in self.infected_hosts else 0.0
-            open_ports = target.get("open_ports", [])
-            port_bits = [1.0 if p in open_ports else 0.0 for p in top_ports[:5]]
-            cred_count = min(target.get("credential_count", 0) / 10.0, 1.0)
-            prev_attempts = min(target.get("exploit_attempts", 0) / 5.0, 1.0)
-            prev_success = target.get("exploit_success_rate", 0.5)
-            strategic_value = target.get("strategic_value", 0.5)
-            detection_risk = target.get("detection_risk", 0.3)
-            hop_dist = min(target.get("hop_distance", 1) / 5.0, 1.0)
-
-            host_features = [
-                vuln,
-                port_count,
-                is_windows,
-                is_linux,
-                is_infected,
-                *port_bits,
-                cred_count,
-                prev_attempts,
-                prev_success,
-                strategic_value,
-                detection_risk,
-                hop_dist,
-            ]
-            state.extend(host_features)
-
-        while len(state) < self.action_size * features_per_host:
-            state.append(0.0)
-
-        return state[: self.action_size * features_per_host]
+        IMPORTANT: this uses the exact same feature semantics as
+        rl_engine/environment.py during training, so the Q-network
+        sees inputs with the meaning it was trained on.
+        """
+        return build_state(targets, self.action_size, self.infected_hosts)
 
     def provide_feedback(self, target: Dict, success: bool, reward: float):
         if not self.scan_results:
             return
 
-        available = [t for t in self.scan_results if t["ip"] not in self.infected_hosts]
+        available = [
+            t
+            for t in self.scan_results
+            if t["ip"] not in self.infected_hosts and t["ip"] not in self.failed_hosts
+        ]
         target_idx = None
         for i, t in enumerate(available):
             if t.get("ip") == target.get("ip"):
@@ -121,13 +86,21 @@ class RealWorldPropagationAgent:
         if target_idx is None:
             return
 
+        # Track failures so select_next_target() stops re-picking dead targets
+        if not success and target.get("ip"):
+            self.failed_hosts.add(target["ip"])
+
         state = self._build_state(available)
         # Next state removes the target from available (either infected or failed)
         next_available = [t for t in available if t["ip"] != target.get("ip")]
         next_state = self._build_state(next_available)
-        done = False
+        done = not success
 
         self.agent.remember(state, target_idx, reward, next_state, done)
 
-        if len(self.agent.memory) >= 16:
-            self.agent.replay(batch_size=16)
+        # Train every N feedbacks instead of on every single step:
+        # replay() is expensive (two forward passes + backward) and doing
+        # it per-event dominated the propagation loop latency.
+        self._feedback_count = getattr(self, "_feedback_count", 0) + 1
+        if self._feedback_count % 8 == 0 and len(self.agent.memory) >= 32:
+            self.agent.replay(batch_size=32)

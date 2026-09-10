@@ -625,8 +625,14 @@ class WormCoreBase:
             except Exception as e:
                 logger.warning(f"PFS Crypto failed: {e}")
 
-        state_size = 300
-        action_size = 50
+        # Action space = number of simultaneously selectable targets.
+        # MUST match the training environment network_size (20) so the
+        # Q-network input dimensions are identical at train and run time.
+        # state_size = action_size * FEATURES_PER_HOST (single source of truth).
+        from rl_engine.features import FEATURES_PER_HOST
+
+        action_size = 20
+        state_size = action_size * FEATURES_PER_HOST  # 300
         self.rl_agent = PropagationAgent(state_size, action_size, use_dqn=True)
 
         model_loaded = False

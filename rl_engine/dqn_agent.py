@@ -1,9 +1,19 @@
 """
-RL Engine v2.0 - DQN Agent for network propagation
-Features: Prioritized Experience Replay, gradient clipping,
-reward normalization, adaptive epsilon decay, soft target updates, Huber loss.
+RL Engine v2.1 - Double DQN Agent for network propagation.
+
+Features (all verified implementations, not just claims):
+- Double DQN: action selection with the ONLINE network, evaluation with the
+  TARGET network (van Hasselt et al., 2015) -> reduces Q-value overestimation.
+- Prioritized Experience Replay with importance-sampling weights applied
+  to the loss (not just sampled).
+- Bootstrapped ensemble (Thompson Sampling) with a real optimizer per member.
+- Welford reward normalization computed at `remember()` time (frozen stats,
+  never re-normalized inside replay).
+- Soft target updates (tau), gradient clipping, Huber/SmoothL1 loss.
+- Atomic checkpoint saves (tmp file + os.replace) with dimension validation.
 """
 
+import os
 import random
 from collections import deque
 from typing import List, Optional
@@ -44,6 +54,7 @@ class PropagationAgent:
 
         self.q_network = None
         self.target_network = None
+        self.ensemble_optimizers = []
 
         self._build_model()
 
@@ -113,13 +124,16 @@ class PropagationAgent:
                 self.target_network = None
 
     def normalize_reward(self, reward: float) -> float:
+        """Welford online normalization. Only called from remember():
+        each experience is normalized ONCE when observed; stats are never
+        mutated during replay (re-normalizing the same samples repeatedly
+        made the Q-target scale drift between passes).
+        """
         self.reward_count += 1
         delta = reward - self.reward_mean
         self.reward_mean += delta / self.reward_count
         self.reward_m2 += delta * (reward - self.reward_mean)
-        self.reward_std = max(np.sqrt(self.reward_m2 / self.reward_count), 1e-6)
-        if self.reward_std < 1e-6:
-            self.reward_std = 1.0
+        self.reward_std = max(float(np.sqrt(self.reward_m2 / self.reward_count)), 1e-6)
         return (reward - self.reward_mean) / self.reward_std
 
     def act(self, state: List[float], available_actions: List[int] = None) -> int:
@@ -183,12 +197,14 @@ class PropagationAgent:
         return int(np.argmax(masked_q))
 
     def remember(self, state, action, reward, next_state, done):
-        priority = abs(reward) + 1.0
+        # Normalize ONCE at observation time (see normalize_reward docstring).
+        normalized = self.normalize_reward(reward)
+        priority = abs(normalized) + 1.0
 
         if self.use_per and hasattr(self.memory, "push"):
-            self.memory.push((state, action, reward, next_state, done), priority)
+            self.memory.push((state, action, normalized, next_state, done), priority)
         else:
-            self.memory.append((state, action, reward, next_state, done))
+            self.memory.append((state, action, normalized, next_state, done))
 
     def step_epsilon_decay(self):
         if self.epsilon > self.epsilon_min:
@@ -215,49 +231,66 @@ class PropagationAgent:
         states = np.array([exp[0] for exp in batch])
         next_states = np.array([exp[3] for exp in batch])
         actions = np.array([exp[1] for exp in batch])
-        rewards = np.array([self.normalize_reward(exp[2]) for exp in batch])
+        rewards = np.array([exp[2] for exp in batch])  # already normalized at remember()
         dones = np.array([exp[4] for exp in batch])
 
         if hasattr(self, "use_torch") and self.use_torch:
-            states_tensor = self._torch.FloatTensor(states)
-            next_states_tensor = self._torch.FloatTensor(next_states)
+            torch = self._torch
+            states_tensor = torch.FloatTensor(states)
+            next_states_tensor = torch.FloatTensor(next_states)
+            actions_tensor = torch.LongTensor(actions).unsqueeze(1)
+            dones_tensor = torch.FloatTensor(dones.astype(np.float32))
 
-            with self._torch.no_grad():
-                next_q = self.target_network(next_states_tensor).detach().numpy()
+            # Target network in eval() mode: disables Dropout so targets are
+            # deterministic (with dropout active every target was stochastic).
+            self.target_network.eval()
+            with torch.no_grad():
+                # ---- Double DQN (van Hasselt et al., 2015) ----
+                # Action SELECTION: online network.
+                online_next = self.q_network(next_states_tensor)
+                best_actions = online_next.argmax(dim=1, keepdim=True)
+                # Action EVALUATION: target network.
+                target_next = self.target_network(next_states_tensor)
+                max_next_q = target_next.gather(1, best_actions).squeeze(1)
+                y = torch.FloatTensor(rewards) + self.gamma * max_next_q * (1.0 - dones_tensor)
 
-            current_q = self.q_network(states_tensor).detach().numpy()
+            output = self.q_network(states_tensor)
+            q_taken = output.gather(1, actions_tensor).squeeze(1)
 
-            for i in range(batch_size):
-                if dones[i]:
-                    current_q[i][actions[i]] = rewards[i]
-                else:
-                    current_q[i][actions[i]] = rewards[i] + self.gamma * np.max(next_q[i])
+            # SmoothL1 per element, weighted by PER importance-sampling weights
+            # (previously `weights` were ignored in the torch branch).
+            loss_vec = torch.nn.functional.smooth_l1_loss(q_taken, y, reduction="none")
+            weights_tensor = torch.FloatTensor(np.asarray(weights, dtype=np.float32))
+            loss = (weights_tensor * loss_vec).mean()
 
             self.optimizer.zero_grad()
-            output = self.q_network(states_tensor)
-            loss = self.criterion(output, self._torch.FloatTensor(current_q))
             loss.backward()
-
-            self._torch.nn.utils.clip_grad_norm_(self.q_network.parameters(), self.gradient_clip)
+            torch.nn.utils.clip_grad_norm_(self.q_network.parameters(), self.gradient_clip)
             self.optimizer.step()
+            self.target_network.train()
 
             if self.use_per and hasattr(self.memory, "update_priorities"):
-                td_errors = np.abs(
-                    current_q[range(batch_size), actions]
-                    - (rewards + self.gamma * np.max(next_q, axis=1) * (1 - dones))
-                )
+                td_errors = (q_taken - y).abs().detach().numpy()
                 self.memory.update_priorities(indices, td_errors.tolist())
+
+            # Train the bootstrapped ensemble alongside the main network so
+            # Thompson Sampling draws from networks that actually learn.
+            if getattr(self, "ensemble", None):
+                self.replay_ensemble(batch_size)
 
             return loss.item()
         else:
-            current_q = self.q_network.predict(states, verbose=0)
-            next_q = self.target_network.predict(next_states, verbose=0)
+            # ---- Double DQN, Keras branch ----
+            online_next = self.q_network.predict(next_states, verbose=0)
+            target_next = self.target_network.predict(next_states, verbose=0)
+            best_actions = np.argmax(online_next, axis=1)
+            max_next_q = target_next[np.arange(batch_size), best_actions]
 
+            current_q = self.q_network.predict(states, verbose=0)
             for i in range(batch_size):
-                if dones[i]:
-                    current_q[i][actions[i]] = rewards[i]
-                else:
-                    current_q[i][actions[i]] = rewards[i] + self.gamma * np.max(next_q[i])
+                current_q[i][actions[i]] = rewards[i] + self.gamma * max_next_q[i] * (
+                    1 - dones[i]
+                )
 
             history = self.q_network.fit(
                 states, current_q, sample_weight=weights, epochs=1, verbose=0
@@ -266,14 +299,22 @@ class PropagationAgent:
             if self.use_per and hasattr(self.memory, "update_priorities"):
                 td_errors = np.abs(
                     current_q[range(batch_size), actions]
-                    - (rewards + self.gamma * np.max(next_q, axis=1) * (1 - dones))
+                    - (rewards + self.gamma * max_next_q * (1 - dones))
                 )
                 self.memory.update_priorities(indices, td_errors.tolist())
+
+            if getattr(self, "ensemble", None):
+                self.replay_ensemble(batch_size)
 
             return history.history["loss"][0]
 
     def init_ensemble(self, n_networks: int = 5):
-        """Create bootstrapped ensemble for Thompson Sampling."""
+        """Create bootstrapped ensemble for Thompson Sampling.
+
+        Each member gets its OWN optimizer; previously the members were
+        frozen copies of q_network (loss.backward() with no optimizer.step()),
+        so the ensemble never learned and TS sampled identical networks.
+        """
         self.ensemble = []
         self.ensemble_n = n_networks
         self.ensemble_memories = []
@@ -282,6 +323,9 @@ class PropagationAgent:
                 net = self.q_network.__class__(self.state_size, self.action_size)
                 net.load_state_dict(self.q_network.state_dict())
                 self.ensemble.append(net)
+                self.ensemble_optimizers.append(
+                    self._torch.optim.Adam(net.parameters(), lr=self.learning_rate)
+                )
             else:
                 import tensorflow as tf
                 from tensorflow import keras
@@ -296,14 +340,19 @@ class PropagationAgent:
                     loss=tf.keras.losses.Huber(delta=1.0),
                 )
                 self.ensemble.append(net)
-            self.ensemble_memories.append([])
+            # Bounded bootstrap memory: previously an unbounded list that
+            # grew on every replay (memory leak).
+            self.ensemble_memories.append(deque(maxlen=5000))
 
     def replay_ensemble(self, batch_size: int = 32):
-        """Train ensemble members with bootstrapped samples."""
-        if not hasattr(self, "ensemble") or not self.ensemble:
+        """Train ensemble members with bootstrapped samples.
+
+        Full gradient step per member: zero_grad -> backward -> clip -> step.
+        """
+        if not getattr(self, "ensemble", None) or self.q_network is None:
             return None
         mem_len = len(self.memory)
-        if mem_len < batch_size or self.q_network is None:
+        if mem_len < batch_size:
             return None
 
         losses = []
@@ -312,40 +361,51 @@ class PropagationAgent:
             if len(mem) < batch_size:
                 batch = random.sample(self.memory, batch_size)
             else:
-                batch = random.sample(mem, batch_size)
+                batch = random.sample(list(mem), batch_size)
 
             states = np.array([exp[0] for exp in batch])
             next_states = np.array([exp[3] for exp in batch])
             actions = np.array([exp[1] for exp in batch])
-            rewards = np.array([self.normalize_reward(exp[2]) for exp in batch])
+            rewards = np.array([exp[2] for exp in batch])
             dones = np.array([exp[4] for exp in batch])
 
             if hasattr(self, "use_torch") and self.use_torch:
-                states_tensor = self._torch.FloatTensor(states)
-                next_states_tensor = self._torch.FloatTensor(next_states)
-                with self._torch.no_grad():
-                    next_q = self.target_network(next_states_tensor).detach().numpy()
-                current_q = net(states_tensor).detach().numpy()
-                for j in range(batch_size):
-                    if dones[j]:
-                        current_q[j][actions[j]] = rewards[j]
-                    else:
-                        current_q[j][actions[j]] = rewards[j] + self.gamma * np.max(next_q[j])
-                loss = self.criterion(net(states_tensor), self._torch.FloatTensor(current_q))
+                torch = self._torch
+                states_tensor = torch.FloatTensor(states)
+                next_states_tensor = torch.FloatTensor(next_states)
+                self.target_network.eval()
+                with torch.no_grad():
+                    online_next = self.q_network(next_states_tensor)
+                    best_actions = online_next.argmax(dim=1, keepdim=True)
+                    target_next = self.target_network(next_states_tensor)
+                    max_next_q = target_next.gather(1, best_actions).squeeze(1)
+                    dones_tensor = torch.FloatTensor(dones.astype(np.float32))
+                    y = torch.FloatTensor(rewards) + self.gamma * max_next_q * (1.0 - dones_tensor)
+
+                output = net(states_tensor)
+                q_taken = output.gather(1, torch.LongTensor(actions).unsqueeze(1)).squeeze(1)
+                loss = self.criterion(q_taken, y)
+
+                self.ensemble_optimizers[i].zero_grad()
                 loss.backward()
+                torch.nn.utils.clip_grad_norm_(net.parameters(), self.gradient_clip)
+                self.ensemble_optimizers[i].step()
                 losses.append(loss.item())
             else:
+                online_next = self.q_network.predict(next_states, verbose=0)
+                target_next = self.target_network.predict(next_states, verbose=0)
+                best_actions = np.argmax(online_next, axis=1)
+                max_next_q = target_next[np.arange(len(batch)), best_actions]
+
                 current_q = net.predict(states, verbose=0)
-                next_q = self.target_network.predict(next_states, verbose=0)
-                for j in range(batch_size):
-                    if dones[j]:
-                        current_q[j][actions[j]] = rewards[j]
-                    else:
-                        current_q[j][actions[j]] = rewards[j] + self.gamma * np.max(next_q[j])
+                for j in range(len(batch)):
+                    current_q[j][actions[j]] = rewards[j] + self.gamma * max_next_q[j] * (
+                        1 - dones[j]
+                    )
                 history = net.fit(states, current_q, epochs=1, verbose=0)
                 losses.append(history.history["loss"][0])
 
-            # Bootstrap: add to this ensemble member's memory
+            # Bootstrap: with p=0.8 add this batch to the member's own memory
             for exp in batch:
                 if random.random() < 0.8:
                     self.ensemble_memories[i].append(exp)
@@ -369,41 +429,61 @@ class PropagationAgent:
                 self.target_network.set_weights(soft_weights)
 
     def save(self, path: str):
-        if self.q_network is not None:
-            if hasattr(self, "use_torch") and self.use_torch:
-                self._torch.save(
-                    {
-                        "model_state_dict": self.q_network.state_dict(),
-                        "optimizer_state_dict": self.optimizer.state_dict(),
-                        "epsilon": self.epsilon,
-                        "reward_mean": self.reward_mean,
-                        "reward_std": self.reward_std,
-                        "reward_m2": self.reward_m2,
-                    },
-                    path,
-                )
-            else:
-                self.q_network.save(path)
+        """Atomic checkpoint: write to .tmp then os.replace (no torn files)."""
+        if self.q_network is None:
+            return
+        if hasattr(self, "use_torch") and self.use_torch:
+            payload = {
+                "model_state_dict": self.q_network.state_dict(),
+                "optimizer_state_dict": self.optimizer.state_dict(),
+                "epsilon": self.epsilon,
+                "reward_mean": self.reward_mean,
+                "reward_std": self.reward_std,
+                "reward_m2": self.reward_m2,
+                "state_size": self.state_size,
+                "action_size": self.action_size,
+                "format_version": 2,
+            }
+            tmp_path = f"{path}.tmp"
+            self._torch.save(payload, tmp_path)
+            os.replace(tmp_path, path)
+        else:
+            tmp_path = f"{path}.tmp"
+            self.q_network.save(tmp_path)
+            os.replace(tmp_path, path)
 
     def load(self, path: str):
-        if self.q_network is not None:
-            if hasattr(self, "use_torch") and self.use_torch:
-                checkpoint = self._torch.load(path)
-                self.q_network.load_state_dict(checkpoint["model_state_dict"])
-                self.target_network.load_state_dict(checkpoint["model_state_dict"])
-                if "optimizer_state_dict" in checkpoint:
-                    self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
-                if "epsilon" in checkpoint:
-                    self.epsilon = checkpoint["epsilon"]
-                if "reward_mean" in checkpoint:
-                    self.reward_mean = checkpoint["reward_mean"]
-                if "reward_std" in checkpoint:
-                    self.reward_std = checkpoint["reward_std"]
-                if "reward_m2" in checkpoint:
-                    self.reward_m2 = checkpoint["reward_m2"]
-            else:
-                self.q_network.load_weights(path)
-                self.target_network.set_weights(self.q_network.get_weights())
+        """Load a checkpoint, FAILING LOUDLY on geometry mismatch.
+
+        Previously a mismatched checkpoint silently left the agent with
+        random weights (exception swallowed upstream).
+        """
+        if self.q_network is None:
+            raise RuntimeError("Cannot load model: no network backend available")
+        if hasattr(self, "use_torch") and self.use_torch:
+            checkpoint = self._torch.load(path, map_location="cpu", weights_only=False)
+            saved_state = checkpoint.get("state_size")
+            saved_action = checkpoint.get("action_size")
+            if saved_state is not None and saved_state != self.state_size:
+                raise ValueError(
+                    f"Checkpoint state_size={saved_state} != agent state_size={self.state_size}. "
+                    "The model was trained with a different feature geometry; retrain it."
+                )
+            if saved_action is not None and saved_action != self.action_size:
+                raise ValueError(
+                    f"Checkpoint action_size={saved_action} != agent action_size={self.action_size}."
+                )
+            self.q_network.load_state_dict(checkpoint["model_state_dict"])
+            self.target_network.load_state_dict(checkpoint["model_state_dict"])
+            if "optimizer_state_dict" in checkpoint:
+                self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+            self.epsilon = checkpoint.get("epsilon", self.epsilon)
+            self.reward_mean = checkpoint.get("reward_mean", 0.0)
+            self.reward_std = checkpoint.get("reward_std", 1.0)
+            self.reward_m2 = checkpoint.get("reward_m2", 0.0)
+        else:
+            self.q_network.load_weights(path)
+            self.target_network.set_weights(self.q_network.get_weights())
 
     def get_stats(self) -> dict:
         return {

