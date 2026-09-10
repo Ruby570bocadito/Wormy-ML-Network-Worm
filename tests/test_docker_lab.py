@@ -22,6 +22,11 @@ Services tested (via localhost mapped ports):
   - SNMP           :161    (public community)
 """
 
+# --- pytest: this is a MANUAL lab/verification script, not an automated test ---
+# It touches live networks or runs its own harness. Run it explicitly.
+__test__ = False
+
+
 import json
 import os
 import socket

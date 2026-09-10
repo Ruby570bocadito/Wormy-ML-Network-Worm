@@ -53,8 +53,8 @@ class TestWormCore(unittest.TestCase):
     def test_initialization(self):
         """Test worm core initialization"""
         with patch("worm_core.mixin_base.Config", return_value=self.mock_config):
-            with patch("worm_core.IntelligentScanner"):
-                with patch("worm_core.PropagationAgent"):
+            with patch("worm_core.mixin_base.IntelligentScanner"):
+                with patch("worm_core.mixin_base.PropagationAgent"):
                     from worm_core import WormCore
 
                     worm = WormCore(config_file="configs/config_simulation.yaml")
@@ -64,23 +64,33 @@ class TestWormCore(unittest.TestCase):
                     self.assertEqual(len(worm.infected_hosts), 0)
 
     def test_kill_switch_activation(self):
-        """Test kill switch with correct code"""
+        """Test kill switch with correct code.
+
+        New contract: the kill switch sets kill_switch_activated and the
+        cooperative stop_event, then stops components. It does NOT raise
+        SystemExit (that only killed the calling thread and left the rest
+        of the process running).
+        """
         with patch("worm_core.mixin_base.Config", return_value=self.mock_config):
-            with patch("worm_core.IntelligentScanner"):
-                with patch("worm_core.PropagationAgent"):
+            with patch("worm_core.mixin_base.IntelligentScanner"):
+                with patch("worm_core.mixin_base.PropagationAgent"):
                     from worm_core import WormCore
 
                     worm = WormCore(config_file="configs/config_simulation.yaml")
-                    with self.assertRaises(SystemExit):
-                        worm.activate_kill_switch("TEST123")
+                    worm.activate_kill_switch("TEST123")
 
                     self.assertTrue(worm.kill_switch_activated)
+                    self.assertTrue(worm.stop_event.is_set())
+                    self.assertFalse(
+                        worm.check_safety_constraints(),
+                        "safety constraints must fail while the kill switch is active",
+                    )
 
     def test_kill_switch_invalid_code(self):
         """Test kill switch with wrong code"""
         with patch("worm_core.mixin_base.Config", return_value=self.mock_config):
-            with patch("worm_core.IntelligentScanner"):
-                with patch("worm_core.PropagationAgent"):
+            with patch("worm_core.mixin_base.IntelligentScanner"):
+                with patch("worm_core.mixin_base.PropagationAgent"):
                     from worm_core import WormCore
 
                     worm = WormCore(config_file="configs/config_simulation.yaml")
@@ -235,8 +245,8 @@ class TestSafetyMechanisms(unittest.TestCase):
             return
 
         with patch("worm_core.mixin_base.Config", return_value=mock_config):
-            with patch("worm_core.IntelligentScanner"):
-                with patch("worm_core.PropagationAgent"):
+            with patch("worm_core.mixin_base.IntelligentScanner"):
+                with patch("worm_core.mixin_base.PropagationAgent"):
                     worm = WormCore()
                     worm.infected_hosts = {
                         "192.168.1.1",

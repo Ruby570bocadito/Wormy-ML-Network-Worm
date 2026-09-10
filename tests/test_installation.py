@@ -4,6 +4,11 @@ Developed by Ruby570bocadito (https://github.com/Ruby570bocadito)
 Copyright (c) 2024 Ruby570bocadito. All rights reserved.
 """
 
+# --- pytest: this is a MANUAL lab/verification script, not an automated test ---
+# It touches live networks or runs its own harness. Run it explicitly.
+__test__ = False
+
+
 """
 Installation and Component Test Script
 Verifies all components are working correctly

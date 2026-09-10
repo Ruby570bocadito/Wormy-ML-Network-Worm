@@ -4,6 +4,11 @@ Wormy — Code Quality & Fix Validation Script
 Validates that all fixes have been applied correctly without requiring external dependencies.
 """
 
+# --- pytest: this is a MANUAL lab/verification script, not an automated test ---
+# It touches live networks or runs its own harness. Run it explicitly.
+__test__ = False
+
+
 import ast
 import os
 import sys

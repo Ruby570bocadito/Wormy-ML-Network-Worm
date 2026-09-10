@@ -97,6 +97,7 @@ ignore_missing_imports = true
 minversion = "7.0"
 testpaths = ["tests"]
 python_files = ["test_*.py"]
+addopts = "--timeout=60 --timeout-method=thread"
 markers = [
     "slow: marks tests as slow (network/hanging, excluded from CI)",
     "integration: marks tests that need Docker lab",

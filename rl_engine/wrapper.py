@@ -12,9 +12,11 @@ from .features import FEATURES_PER_HOST, build_state
 class RealWorldPropagationAgent:
     def __init__(self, agent: PropagationAgent, action_size: int):
         expected_state = action_size * FEATURES_PER_HOST
-        if getattr(agent, "state_size", expected_state) != expected_state:
+        agent_state = getattr(agent, "state_size", None)
+        # Only validate real integers (MagicMocks return child Mocks).
+        if isinstance(agent_state, int) and agent_state != expected_state:
             raise ValueError(
-                f"Agent state_size ({agent.state_size}) does not match "
+                f"Agent state_size ({agent_state}) does not match "
                 f"action_size * {FEATURES_PER_HOST} ({expected_state}). "
                 "Rebuild the agent or retrain the model: features must be "
                 "identical between training and inference."

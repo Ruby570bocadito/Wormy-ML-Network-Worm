@@ -4,6 +4,11 @@ Wormy Docker Lab — Full Exploitation Test
 Tests the worm's exploit modules against all Docker lab services.
 """
 
+# --- pytest: this is a MANUAL lab/verification script, not an automated test ---
+# It touches live networks or runs its own harness. Run it explicitly.
+__test__ = False
+
+
 import json
 import os
 import socket

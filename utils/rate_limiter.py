@@ -50,7 +50,9 @@ class SmartRateLimiter:
 
         # Global tracking
         self._global_timestamps = deque(maxlen=1000)
-        self._lock = threading.Lock()
+        # RLock: get_host_stats() holds the lock and calls get_host_delay(),
+        # which also acquires it. With a plain Lock that self-deadlocks.
+        self._lock = threading.RLock()
 
     def should_proceed(self, target_ip: str) -> tuple:
         """

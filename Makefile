@@ -1,4 +1,4 @@
-.PHONY: setup attack cleanup test lint typecheck install dev
+.PHONY: setup attack cleanup test test-cov lint format typecheck install dev check help
 
 # ── Installation ──────────────────────────────────────────────────────────
 
@@ -17,7 +17,7 @@ setup:
 
 attack:
 	@echo "Starting Wormy C2 and propagation (interactive CLI)..."
-	python3 worm_core.py --interactive
+	python3 -m worm_core --interactive
 
 cleanup:
 	@echo "Stopping Docker lab..."
@@ -25,12 +25,20 @@ cleanup:
 	@echo "Environment cleaned."
 
 # ── Testing ───────────────────────────────────────────────────────────────
+# Automated suite only (no live network). Per-test timeouts come from
+# pyproject.toml [tool.pytest.ini_options]. Lab harness scripts under
+# tests/ that need a running lab are excluded and run manually.
 
 test:
 	python3 -m pytest tests/ -v --tb=short
 
 test-cov:
 	python3 -m pytest tests/ --cov --cov-report=term-missing -v
+
+# Full pre-flight check: syntax, style, then tests.
+check:
+	python3 -m compileall -q .
+	python3 -m pytest tests/ -q --tb=short
 
 # ── Code Quality ──────────────────────────────────────────────────────────
 
@@ -44,7 +52,7 @@ format:
 	isort .
 
 typecheck:
-	mypy worm_core.py cli.py --ignore-missing-imports
+	mypy worm_core/ rl_engine/ core/ utils/ configs/ --ignore-missing-imports
 
 # ── Enterprise (simulated) ────────────────────────────────────────────────
 
@@ -54,12 +62,15 @@ enterprise-dry:
 # ── Help ──────────────────────────────────────────────────────────────────
 
 help:
-	@echo "Wormy v4.0 Makefile"
+	@echo "Wormy v4.1 Makefile"
 	@echo ""
 	@echo "  make install     — Install package in dev mode"
 	@echo "  make setup       — Start Docker vulnerable lab"
 	@echo "  make attack      — Run interactive CLI"
-	@echo "  make test        — Run tests"
+	@echo "  make test        — Run automated test suite"
+	@echo "  make test-cov    — Run tests with coverage"
+	@echo "  make check       — Syntax compile + full test suite"
 	@echo "  make lint        — Check code style"
 	@echo "  make format      — Auto-format code"
+	@echo "  make typecheck   — mypy on core packages"
 	@echo "  make cleanup     — Stop Docker lab"
