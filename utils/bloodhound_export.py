@@ -21,8 +21,8 @@ import json
 import os
 import sys
 import uuid
-from datetime import datetime
-from typing import Any, Dict, List, Optional
+from datetime import datetime, timezone
+from typing import Dict, List
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 try:
@@ -36,7 +36,7 @@ except ImportError:
 
 
 # BloodHound timestamps are Unix epoch in seconds
-_now = int(datetime.utcnow().timestamp())
+_now = int(datetime.now(timezone.utc).timestamp())
 
 
 def _sid(prefix: str, rid: int) -> str:
@@ -223,14 +223,14 @@ class BloodHoundExporter:
     def export(self, out_dir: str) -> List[str]:
         """Write all BloodHound JSON files to out_dir."""
         os.makedirs(out_dir, exist_ok=True)
-        ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+        ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
         files = []
         meta = {
             "methods": 46,
             "type": "unknown",
             "count": 0,
             "version": 5,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
         datasets = [

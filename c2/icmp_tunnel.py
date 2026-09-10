@@ -12,7 +12,7 @@ import struct
 import sys
 import threading
 import time
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils.logger import logger

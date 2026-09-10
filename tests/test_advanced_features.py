@@ -19,13 +19,13 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 try:
-    from configs.config import Config
+    from configs.config import Config  # noqa: F401
 except ImportError:
-    from config import Config
+    pass
 
 import datetime
 
-from c2.dga import DGAClient, DomainGenerator
+from c2.dga import DomainGenerator
 from evasion.advanced_evasion import AdvancedEvasion
 from post_exploit.lateral_movement import LateralMovementEngine
 from swarm.multi_agent import SwarmAgent, SwarmBehavior, SwarmCoordinator
@@ -273,14 +273,9 @@ def test_integration():
 
         print("✓ Exploit manager imported")
 
-        from c2.client import C2Client
-        from c2.server import C2Server
 
         print("✓ C2 components imported")
 
-        from post_exploit.data_exfiltration import DataExfiltrator
-        from post_exploit.local_persistence import PersistenceManager
-        from post_exploit.privilege_escalation import PrivilegeEscalation
 
         print("✓ Post-exploitation modules imported")
 

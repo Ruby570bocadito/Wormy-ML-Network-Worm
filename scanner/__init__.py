@@ -14,14 +14,12 @@ import concurrent.futures
 import hashlib
 import hmac
 import os
-import random
 import socket
 import struct
 import time
 from typing import Dict, List, Optional
 
 from utils.logger import logger
-from utils.network_utils import get_local_ip, is_ip_in_range
 
 
 class IntelligentScanner:
@@ -625,7 +623,7 @@ class HostClassifier:
         try:
             import pickle
 
-            from sklearn.ensemble import RandomForestClassifier
+            from sklearn.ensemble import RandomForestClassifier  # noqa: F401
 
             if self.model_path and os.path.exists(self.model_path):
                 sig_path = self.model_path + ".sig"

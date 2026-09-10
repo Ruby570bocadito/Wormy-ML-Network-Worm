@@ -19,15 +19,13 @@ Real techniques:
 
 import ast
 import base64
-import copy
 import hashlib
 import os
 import random
 import string
-import struct
 import sys
 import time
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Set
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils.logger import logger
@@ -298,7 +296,6 @@ class NetworkFingerprintRandomiser:
         Return jittered sleep time in seconds.
         Uses log-normal distribution to mimic human timing.
         """
-        import math
 
         sigma = 0.4
         multiplier = random.lognormvariate(0, sigma)

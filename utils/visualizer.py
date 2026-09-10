@@ -12,14 +12,13 @@ Displays network topology and infection progress
 
 import json
 import os
-import sys
 from datetime import datetime
-from typing import Dict, List, Set
+from typing import Dict
 
 try:
     import matplotlib.pyplot as plt
     import networkx as nx
-    from matplotlib.animation import FuncAnimation
+    from matplotlib.animation import FuncAnimation  # noqa: F401
 
     VISUALIZATION_AVAILABLE = True
 except ImportError:

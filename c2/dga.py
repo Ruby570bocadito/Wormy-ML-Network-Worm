@@ -162,7 +162,6 @@ class DGAClient:
     def _try_domain(self, domain: str) -> bool:
         """Try to connect to a domain"""
         try:
-            import socket
 
             # Try to resolve domain
             # In real implementation, would try to connect

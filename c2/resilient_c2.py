@@ -10,14 +10,12 @@ import os
 import random
 import socket
 import sqlite3
-import struct
 import sys
 import threading
 import time
 import urllib.error
 import urllib.request
-from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional
+from typing import Dict, List, Optional
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils.logger import logger

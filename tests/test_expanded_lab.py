@@ -14,7 +14,6 @@ import os
 import socket
 import struct
 import sys
-import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -357,7 +356,6 @@ def test_kubernetes(target):
     try:
         import urllib.request
         import ssl
-        import base64
         # Try to access API without auth first
         ctx = ssl._create_unverified_context()
         try:

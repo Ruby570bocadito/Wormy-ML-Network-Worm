@@ -13,7 +13,6 @@ More robust and sophisticated infection mechanisms
 import hashlib
 import os
 import sys
-import threading
 import time
 from datetime import datetime
 from typing import Dict, List, Tuple

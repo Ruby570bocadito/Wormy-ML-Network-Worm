@@ -3,14 +3,12 @@ Wormy ML Network Worm - Credential Dashboard
 Web dashboard for viewing and managing discovered credentials.
 """
 
-import json
 import logging
 import os
 import sys
 import threading
-import time
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Dict
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -20,7 +18,7 @@ logging.getLogger("werkzeug").setLevel(logging.ERROR)
 logging.getLogger("flask.app").setLevel(logging.ERROR)
 
 try:
-    from flask import Flask, jsonify, render_template_string, request
+    from flask import Flask, jsonify, render_template_string, request  # noqa: F401
 
     FLASK_AVAILABLE = True
 except ImportError:

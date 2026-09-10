@@ -12,7 +12,6 @@ Tests the worm system without external dependencies
 
 import os
 import sys
-from unittest.mock import MagicMock, Mock, patch
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -24,10 +23,11 @@ print("=" * 60)
 class TestWormCore:
     """Test WormCore functionality"""
 
-    def __init__(self):
-        self.passed = 0
-        self.failed = 0
-        self.tests_run = 0
+    # pytest-compatible counters (class-level)
+    passed = 0
+    failed = 0
+    tests_run = 0
+
 
 
     @staticmethod
@@ -144,10 +144,11 @@ class TestWormCore:
 class TestScanner:
     """Test Scanner module"""
 
-    def __init__(self):
-        self.passed = 0
-        self.failed = 0
-        self.tests_run = 0
+    # pytest-compatible counters (class-level)
+    passed = 0
+    failed = 0
+    tests_run = 0
+
 
     def test_scanner_methods(self):
         """Test scanner methods"""
@@ -221,10 +222,11 @@ class TestScanner:
 class TestRLEngine:
     """Test RL Engine module"""
 
-    def __init__(self):
-        self.passed = 0
-        self.failed = 0
-        self.tests_run = 0
+    # pytest-compatible counters (class-level)
+    passed = 0
+    failed = 0
+    tests_run = 0
+
 
     def test_rl_components(self):
         """Test RL engine components"""
@@ -291,10 +293,11 @@ class TestRLEngine:
 class TestExploits:
     """Test Exploit system"""
 
-    def __init__(self):
-        self.passed = 0
-        self.failed = 0
-        self.tests_run = 0
+    # pytest-compatible counters (class-level)
+    passed = 0
+    failed = 0
+    tests_run = 0
+
 
     def test_exploit_manager(self):
         """Test exploit manager"""
@@ -350,10 +353,11 @@ class TestExploits:
 class TestConfiguration:
     """Test Configuration system"""
 
-    def __init__(self):
-        self.passed = 0
-        self.failed = 0
-        self.tests_run = 0
+    # pytest-compatible counters (class-level)
+    passed = 0
+    failed = 0
+    tests_run = 0
+
 
     def test_config_classes(self):
         """Test config classes"""

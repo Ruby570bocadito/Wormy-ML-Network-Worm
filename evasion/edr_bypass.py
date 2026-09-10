@@ -7,7 +7,7 @@ import os
 import platform
 import struct
 import sys
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 
 import psutil
 

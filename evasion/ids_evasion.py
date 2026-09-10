@@ -18,12 +18,11 @@ Comprehensive evasion techniques to avoid detection by:
 import hashlib
 import os
 import random
-import socket
 import struct
 import sys
 import time
 from datetime import datetime
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 

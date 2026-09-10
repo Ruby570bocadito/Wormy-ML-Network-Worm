@@ -5,12 +5,10 @@ Force the TLS client hello to match known-good browser fingerprints.
 
 import hashlib
 import os
-import socket
 import ssl
-import struct
 import sys
 import urllib.request
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Optional
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils.logger import logger

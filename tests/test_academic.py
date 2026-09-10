@@ -13,16 +13,15 @@ Unit testing demonstrating software engineering practices
 import os
 import sys
 import unittest
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock, patch
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 try:
-    from configs.config import Config
+    from configs.config import Config  # noqa: F401
 except ImportError:
-    from config import Config
+    pass
 
-from rl_engine import PropagationAgent
 
 
 class TestWormCore(unittest.TestCase):

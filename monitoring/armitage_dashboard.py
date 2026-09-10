@@ -10,14 +10,11 @@ Visual network map with host icons, training panel, and real-time control
 Inspired by Armitage's Metasploit GUI
 """
 
-import json
 import logging
 import os
 import sys
 import threading
-import time
-from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Dict
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 

@@ -1,6 +1,5 @@
 """Supply Chain Attack Modules — Dependency confusion, typosquatting, package poisoning"""
 
-import json
 import os
 import re
 import subprocess

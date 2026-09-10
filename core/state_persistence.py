@@ -5,12 +5,11 @@ Provides snapshot, recovery, and checkpoint capabilities for worm state.
 
 import json
 import os
-import shutil
 import threading
 import time
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
 from utils.logger import logger
 

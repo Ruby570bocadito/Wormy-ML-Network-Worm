@@ -14,12 +14,10 @@ import base64
 import hashlib
 import os
 import random
-import sys
-from typing import Optional, Tuple
+from typing import Tuple
 
 from Crypto.Cipher import AES
 from Crypto.Random import get_random_bytes
-from Crypto.Util.Padding import pad, unpad
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding, rsa

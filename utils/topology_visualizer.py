@@ -13,8 +13,7 @@ and propagation paths using graphviz and pyvis.
 
 import os
 import sys
-from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -36,14 +35,14 @@ class TopologyVisualizer:
         self.pyvis_available = False
 
         try:
-            import graphviz
+            import graphviz  # noqa: F401
 
             self.graphviz_available = True
         except ImportError:
             pass
 
         try:
-            from pyvis.network import Network
+            from pyvis.network import Network  # noqa: F401
 
             self.pyvis_available = True
         except ImportError:

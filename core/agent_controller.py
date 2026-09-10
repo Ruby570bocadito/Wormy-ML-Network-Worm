@@ -17,7 +17,6 @@ Improvements over the basic host_monitor.py:
 """
 
 import hashlib
-import json
 import os
 import queue
 import socket
@@ -26,7 +25,7 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -214,7 +213,7 @@ class QuickIntelCollector:
 
     def collect(self, ssh_mgr: SSHSessionManager, ip: str, username: str, password: str) -> Dict:
         """Run all intel commands concurrently."""
-        intel = {"ip": ip, "collected_at": datetime.utcnow().isoformat()}
+        intel = {"ip": ip, "collected_at": datetime.now(timezone.utc).isoformat()}
 
         with ThreadPoolExecutor(max_workers=8) as ex:
             futures = {

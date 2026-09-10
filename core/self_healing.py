@@ -10,14 +10,13 @@ Real automatic detection and repair of worm components
 """
 
 
-import hashlib
 import os
 import socket
 import sys
 import threading
 import time
 from datetime import datetime
-from typing import Dict, List, Tuple
+from typing import Dict, Tuple
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 

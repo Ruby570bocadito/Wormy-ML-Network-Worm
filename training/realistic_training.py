@@ -21,7 +21,7 @@ import os
 import sys
 import time
 from datetime import datetime
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List
 
 import numpy as np
 
@@ -29,8 +29,6 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from rl_engine import NetworkEnvironment, PropagationAgent
 from training.scenarios import (
-    RealisticScenario,
-    get_all_scenarios,
     get_scenario,
     get_scenario_names,
 )

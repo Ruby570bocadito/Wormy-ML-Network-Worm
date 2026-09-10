@@ -19,7 +19,7 @@ import threading
 import time
 from collections import deque
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 

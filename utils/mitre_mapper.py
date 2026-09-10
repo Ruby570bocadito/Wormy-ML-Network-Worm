@@ -3,7 +3,6 @@ Wormy ML Network Worm v3.0 - MITRE ATT&CK Mapper
 Maps Wormy techniques to ATT&CK IDs and exports JSON reports.
 """
 
-import hashlib
 import json
 import os
 import sys

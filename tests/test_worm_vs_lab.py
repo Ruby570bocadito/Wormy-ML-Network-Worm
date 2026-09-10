@@ -9,11 +9,9 @@ Tests the worm's exploit modules against all Docker lab services.
 __test__ = False
 
 
-import json
 import os
 import socket
 import sys
-import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 

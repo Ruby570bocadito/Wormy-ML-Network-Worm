@@ -12,8 +12,6 @@ Network utility functions for scanning and reconnaissance
 import ipaddress
 import random
 import socket
-import struct
-from ipaddress import IPv4Address, IPv4Network
 from typing import Dict, List, Optional, Tuple
 
 try:

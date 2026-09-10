@@ -17,7 +17,7 @@ import time
 from collections import deque
 from datetime import datetime
 
-from flask import Flask, jsonify, render_template_string
+from flask import Flask, jsonify
 
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

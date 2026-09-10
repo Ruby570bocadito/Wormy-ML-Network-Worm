@@ -41,28 +41,28 @@ except ImportError as e:
     print(f"   ✗ numpy - {e}")
 
 try:
-    import sklearn
+    import sklearn  # noqa: F401
 
     print("   ✓ scikit-learn")
 except ImportError as e:
     print(f"   ✗ scikit-learn - {e}")
 
 try:
-    import yaml
+    import yaml  # noqa: F401
 
     print("   ✓ pyyaml")
 except ImportError as e:
     print(f"   ✗ pyyaml - {e}")
 
 try:
-    from cryptography.fernet import Fernet
+    from cryptography.fernet import Fernet  # noqa: F401
 
     print("   ✓ cryptography")
 except ImportError as e:
     print(f"   ✗ cryptography - {e}")
 
 try:
-    import gym
+    import gym  # noqa: F401
 
     print("   ✓ gym")
 except ImportError as e:
@@ -80,14 +80,14 @@ except ImportError:
 # Test 4: Network libraries
 print("\n4. Testing network libraries...")
 try:
-    from scapy.all import IP
+    from scapy.all import IP  # noqa: F401
 
     print("   ✓ scapy")
 except ImportError as e:
     print(f"   ✗ scapy - {e}")
 
 try:
-    import nmap
+    import nmap  # noqa: F401
 
     print("   ✓ python-nmap")
 except ImportError as e:
@@ -110,7 +110,7 @@ except ImportError:
         print(f"   ✗ config - {e}")
 
 try:
-    from utils.logger import logger
+    from utils.logger import logger  # noqa: F401
 
     print("   ✓ utils.logger")
 except ImportError as e:

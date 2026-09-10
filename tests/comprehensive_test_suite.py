@@ -21,22 +21,20 @@ if sys.stdout.encoding.lower() != "utf-8":
     sys.stdout.reconfigure(encoding="utf-8")
 
 import os
-import threading
 import time
-from datetime import datetime
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Optional
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 try:
-    from configs.config import Config
+    from configs.config import Config  # noqa: F401
 except ImportError:
-    from config import Config
+    pass
 
 from utils.logger import logger
 
 
-class TestResult:
+class CheckResult:
     """Represents a test result"""
 
     def __init__(self, name: str, category: str):
@@ -109,7 +107,7 @@ class ComprehensiveTestSuite:
         """Test core components"""
 
         # Test 1: Logger
-        result = TestResult("Logger Initialization", "Core")
+        result = CheckResult("Logger Initialization", "Core")
         start = time.time()
         try:
             from utils.logger import logger
@@ -123,7 +121,7 @@ class ComprehensiveTestSuite:
         print(f"  {result}")
 
         # Test 2: Config
-        result = TestResult("Config Loading", "Core")
+        result = CheckResult("Config Loading", "Core")
         start = time.time()
         try:
             from configs.config import Config
@@ -138,7 +136,7 @@ class ComprehensiveTestSuite:
         print(f"  {result}")
 
         # Test 3: Scanner
-        result = TestResult("Scanner Initialization", "Core")
+        result = CheckResult("Scanner Initialization", "Core")
         start = time.time()
         try:
             from scanner import IntelligentScanner
@@ -172,7 +170,7 @@ class ComprehensiveTestSuite:
         ]
 
         for exploit_name in exploits:
-            result = TestResult(f"Exploit: {exploit_name}", "Exploitation")
+            result = CheckResult(f"Exploit: {exploit_name}", "Exploitation")
             start = time.time()
             try:
                 # Test exploit import
@@ -189,7 +187,7 @@ class ComprehensiveTestSuite:
         """Test enhanced infection engine"""
 
         # Test 1: Engine initialization
-        result = TestResult("Infection Engine Init", "Infection")
+        result = CheckResult("Infection Engine Init", "Infection")
         start = time.time()
         try:
             from infection.enhanced_infection import InfectionEngine
@@ -205,7 +203,7 @@ class ComprehensiveTestSuite:
         print(f"  {result}")
 
         # Test 2: Infection execution
-        result = TestResult("Infection Execution", "Infection")
+        result = CheckResult("Infection Execution", "Infection")
         start = time.time()
         try:
             from infection.enhanced_infection import InfectionEngine
@@ -228,7 +226,7 @@ class ComprehensiveTestSuite:
         print(f"  {result}")
 
         # Test 3: Statistics
-        result = TestResult("Infection Statistics", "Infection")
+        result = CheckResult("Infection Statistics", "Infection")
         start = time.time()
         try:
             stats = engine.get_infection_stats()
@@ -246,7 +244,7 @@ class ComprehensiveTestSuite:
         """Test enhanced multi-agent swarm"""
 
         # Test 1: Agent creation
-        result = TestResult("Agent Creation", "Swarm")
+        result = CheckResult("Agent Creation", "Swarm")
         start = time.time()
         try:
             from swarm.enhanced_swarm import EnhancedSwarmAgent
@@ -262,7 +260,7 @@ class ComprehensiveTestSuite:
         print(f"  {result}")
 
         # Test 2: Coordinator
-        result = TestResult("Swarm Coordinator", "Swarm")
+        result = CheckResult("Swarm Coordinator", "Swarm")
         start = time.time()
         try:
             from swarm.enhanced_swarm import EnhancedSwarmAgent, EnhancedSwarmCoordinator
@@ -284,7 +282,7 @@ class ComprehensiveTestSuite:
         print(f"  {result}")
 
         # Test 3: Knowledge sharing
-        result = TestResult("Knowledge Sharing", "Swarm")
+        result = CheckResult("Knowledge Sharing", "Swarm")
         start = time.time()
         try:
             agent = list(coordinator.agents.values())[0]
@@ -300,7 +298,7 @@ class ComprehensiveTestSuite:
         print(f"  {result}")
 
         # Test 4: Target assignment
-        result = TestResult("Target Assignment", "Swarm")
+        result = CheckResult("Target Assignment", "Swarm")
         start = time.time()
         try:
             targets = coordinator.assign_targets(agent.agent_id, count=3)
@@ -313,7 +311,7 @@ class ComprehensiveTestSuite:
         print(f"  {result}")
 
         # Test 5: Performance scoring
-        result = TestResult("Performance Scoring", "Swarm")
+        result = CheckResult("Performance Scoring", "Swarm")
         start = time.time()
         try:
             agent.metrics["scans_performed"] = 100
@@ -334,7 +332,7 @@ class ComprehensiveTestSuite:
         """Test self-healing module"""
 
         # Test 1: Health check
-        result = TestResult("Health Check", "Self-Healing")
+        result = CheckResult("Health Check", "Self-Healing")
         start = time.time()
         try:
             from core.self_healing import SelfHealing
@@ -353,7 +351,7 @@ class ComprehensiveTestSuite:
         print(f"  {result}")
 
         # Test 2: Auto-repair
-        result = TestResult("Auto-Repair", "Self-Healing")
+        result = CheckResult("Auto-Repair", "Self-Healing")
         start = time.time()
         try:
             repair_results = healer.auto_repair()
@@ -370,7 +368,7 @@ class ComprehensiveTestSuite:
         """Test exploitation chain engine"""
 
         # Test 1: Chain loading
-        result = TestResult("Chain Loading", "Exploitation Chains")
+        result = CheckResult("Chain Loading", "Exploitation Chains")
         start = time.time()
         try:
             from exploits.exploitation_chain import ExploitationChainEngine
@@ -387,7 +385,7 @@ class ComprehensiveTestSuite:
         print(f"  {result}")
 
         # Test 2: Chain selection
-        result = TestResult("Chain Selection", "Exploitation Chains")
+        result = CheckResult("Chain Selection", "Exploitation Chains")
         start = time.time()
         try:
             target = {"ip": "192.168.1.100", "os": "Windows", "open_ports": [445]}
@@ -403,7 +401,7 @@ class ComprehensiveTestSuite:
         print(f"  {result}")
 
         # Test 3: Custom chain
-        result = TestResult("Custom Chain Creation", "Exploitation Chains")
+        result = CheckResult("Custom Chain Creation", "Exploitation Chains")
         start = time.time()
         try:
             steps = [("Step1", True), ("Step2", False), ("Step3", True)]
@@ -421,7 +419,7 @@ class ComprehensiveTestSuite:
         """Test C2 infrastructure"""
 
         # Test 1: DGA
-        result = TestResult("DGA Domain Generation", "C2")
+        result = CheckResult("DGA Domain Generation", "C2")
         start = time.time()
         try:
             from c2.dga import DomainGenerator
@@ -448,7 +446,7 @@ class ComprehensiveTestSuite:
         ]
 
         for name, module_path in modules:
-            result = TestResult(name, "Post-Exploitation")
+            result = CheckResult(name, "Post-Exploitation")
             start = time.time()
             try:
                 __import__(module_path)
@@ -462,7 +460,7 @@ class ComprehensiveTestSuite:
     def test_evasion(self):
         """Test evasion modules"""
 
-        result = TestResult("Advanced Evasion", "Evasion")
+        result = CheckResult("Advanced Evasion", "Evasion")
         start = time.time()
         try:
             from evasion.advanced_evasion import AdvancedEvasion
@@ -484,7 +482,7 @@ class ComprehensiveTestSuite:
         """Test network attack modules"""
 
         # Test 1: WiFi Deauth
-        result = TestResult("WiFi Deauth", "Network Attacks")
+        result = CheckResult("WiFi Deauth", "Network Attacks")
         start = time.time()
         try:
             from attacks.network_attacks import WiFiDeauth
@@ -499,7 +497,7 @@ class ComprehensiveTestSuite:
         print(f"  {result}")
 
         # Test 2: Traffic Saturation
-        result = TestResult("Traffic Saturation", "Network Attacks")
+        result = CheckResult("Traffic Saturation", "Network Attacks")
         start = time.time()
         try:
             from attacks.network_attacks import TrafficSaturation
@@ -516,7 +514,7 @@ class ComprehensiveTestSuite:
     def test_monitoring(self):
         """Test monitoring dashboard"""
 
-        result = TestResult("Monitoring Dashboard", "Monitoring")
+        result = CheckResult("Monitoring Dashboard", "Monitoring")
         start = time.time()
         try:
             from monitoring.dashboard import MonitoringDashboard
@@ -539,7 +537,7 @@ class ComprehensiveTestSuite:
     def test_integration(self):
         """Test component integration"""
 
-        result = TestResult("Full Integration", "Integration")
+        result = CheckResult("Full Integration", "Integration")
         start = time.time()
         try:
             # Import all major components
@@ -566,7 +564,7 @@ class ComprehensiveTestSuite:
         """Stress tests"""
 
         # Test 1: Multiple agents
-        result = TestResult("100 Agents Creation", "Stress")
+        result = CheckResult("100 Agents Creation", "Stress")
         start = time.time()
         try:
             from swarm.enhanced_swarm import EnhancedSwarmAgent, EnhancedSwarmCoordinator
@@ -586,7 +584,7 @@ class ComprehensiveTestSuite:
         print(f"  {result}")
 
         # Test 2: Rapid infections
-        result = TestResult("1000 Rapid Infections", "Stress")
+        result = CheckResult("1000 Rapid Infections", "Stress")
         start = time.time()
         try:
             from infection.enhanced_infection import InfectionEngine
@@ -614,7 +612,7 @@ class ComprehensiveTestSuite:
         """Security validation tests"""
 
         # Test 1: Kill switch
-        result = TestResult("Kill Switch", "Security")
+        result = CheckResult("Kill Switch", "Security")
         start = time.time()
         config = None
         try:
@@ -631,7 +629,7 @@ class ComprehensiveTestSuite:
         print(f"  {result}")
 
         # Test 2: Geofencing
-        result = TestResult("Geofencing", "Security")
+        result = CheckResult("Geofencing", "Security")
         start = time.time()
         try:
             if config is None:

@@ -10,14 +10,12 @@ Manages infected hosts and provides remote control capabilities
 """
 
 
-import json
 import os
 import threading
-import time
 from datetime import datetime
 from typing import Dict, List
 
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, jsonify, request
 
 from utils.logger import logger
 

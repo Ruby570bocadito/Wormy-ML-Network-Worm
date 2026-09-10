@@ -23,15 +23,11 @@ Scenarios:
 import os
 import random
 import sys
-from datetime import datetime
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List
 
-import numpy as np
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from rl_engine import NetworkEnvironment, PropagationAgent
-from utils.logger import logger
 
 
 class RealisticScenario:

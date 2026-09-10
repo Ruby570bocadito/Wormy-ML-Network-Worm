@@ -15,13 +15,12 @@ Instead of deploying the full worm immediately:
 4. Stage 4: All dormant cells activate simultaneously (coordinated attack)
 """
 
-import base64
 import hashlib
 import os
 import sys
 import time
 from datetime import datetime
-from typing import Callable, Dict, List, Optional
+from typing import Dict, List
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 

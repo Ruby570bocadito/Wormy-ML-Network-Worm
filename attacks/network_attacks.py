@@ -321,7 +321,7 @@ class TrafficSaturation:
             logger.debug(f"Thread completed: {requests_sent} requests sent")
 
         try:
-            import requests
+            import requests  # noqa: F401
 
             self.running = True
 

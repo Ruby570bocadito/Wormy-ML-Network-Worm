@@ -15,15 +15,13 @@ Instead of scanning randomly, the worm predicts:
 - If a web server is found → likely a load balancer or reverse proxy
 """
 
-import math
 import os
 import sys
 from collections import defaultdict
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from utils.logger import logger
 
 
 class BayesianNetworkAnalyzer:

@@ -9,7 +9,6 @@ Validates that all fixes have been applied correctly without requiring external 
 __test__ = False
 
 
-import ast
 import os
 import sys
 

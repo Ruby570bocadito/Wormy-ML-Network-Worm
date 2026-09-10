@@ -7,7 +7,6 @@ import base64
 import hashlib
 import json
 import os
-import struct
 import sys
 import threading
 import time

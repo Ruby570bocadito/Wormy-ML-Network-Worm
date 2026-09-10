@@ -18,7 +18,6 @@ Real-time monitoring of all infected hosts:
 
 import hashlib
 import os
-import socket
 import sys
 import threading
 import time

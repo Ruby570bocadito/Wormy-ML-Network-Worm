@@ -6,9 +6,8 @@ detection risk, and network conditions.
 
 import threading
 import time
-from collections import defaultdict
-from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
+from dataclasses import dataclass
+from typing import Dict, List, Optional
 
 from utils.logger import logger
 

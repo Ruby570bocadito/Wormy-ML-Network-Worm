@@ -8,9 +8,8 @@ import base64
 import hashlib
 import json
 import os
-import struct
 import time
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional
 
 # ── dependency check ─────────────────────────────────────────────────────────
 try:

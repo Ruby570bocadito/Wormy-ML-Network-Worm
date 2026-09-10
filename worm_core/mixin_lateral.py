@@ -9,7 +9,6 @@ recorded every lateral movement twice.
 from typing import Dict, List
 
 from .module_imports import logger
-from .standalone import get_local_ip
 
 
 class WormCoreLateral:

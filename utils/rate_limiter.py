@@ -13,7 +13,7 @@ Adaptive rate limiting for scanning and exploitation
 import threading
 import time
 from collections import defaultdict, deque
-from typing import Dict, Optional
+from typing import Dict
 
 
 class SmartRateLimiter:

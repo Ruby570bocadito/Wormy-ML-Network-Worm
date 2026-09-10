@@ -31,7 +31,6 @@ from typing import List, Optional
 
 from rich.console import Console
 from rich.panel import Panel
-from rich.syntax import Syntax
 from rich.table import Table
 
 from ._version import __version__

@@ -12,7 +12,6 @@ High-performance parallel scanning using asyncio
 
 import asyncio
 import ipaddress
-import socket
 import time
 from typing import Callable, Dict, List, Optional
 

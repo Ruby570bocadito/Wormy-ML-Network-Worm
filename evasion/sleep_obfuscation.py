@@ -8,9 +8,7 @@ import hashlib
 import os
 import platform
 import sys
-import threading
 import time
-from typing import Optional
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils.logger import logger

@@ -22,14 +22,12 @@ import hashlib
 import json
 import os
 import platform
-import shutil
-import signal
 import subprocess
 import sys
 import threading
 import time
-from datetime import datetime
-from typing import Callable, Dict, List, Optional, Tuple
+from datetime import datetime, timezone
+from typing import Callable, Dict, List, Optional
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils.logger import logger
@@ -596,7 +594,7 @@ class AdvancedSelfHealingEngine:
         return {
             "overall_health": overall,
             "components": components,
-            "last_check": datetime.utcnow().isoformat(),
+            "last_check": datetime.now(timezone.utc).isoformat(),
             "repairs_performed": self._repair_count,
         }
 

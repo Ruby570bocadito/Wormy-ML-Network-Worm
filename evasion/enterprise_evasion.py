@@ -19,16 +19,13 @@ Real techniques used in professional red team engagements:
 """
 
 import base64
-import hashlib
 import os
 import platform
 import random
 import struct
-import subprocess
 import sys
-import threading
 import time
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils.logger import logger

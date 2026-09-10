@@ -12,7 +12,6 @@ Comprehensive logging with encryption, rotation, and audit trail
 
 import json
 import logging
-import os
 import sys
 import traceback
 from datetime import datetime

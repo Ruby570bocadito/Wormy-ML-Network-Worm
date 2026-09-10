@@ -21,10 +21,8 @@ Features:
 import ipaddress
 import os
 import socket
-import struct
 import sys
 import threading
-import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Dict, List, Optional, Tuple
 

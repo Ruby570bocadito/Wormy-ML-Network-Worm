@@ -19,20 +19,19 @@ This replaces the linear flow with a feedback loop:
 Recon → Predict → Exploit → Learn → Heal → Mimic → Mutate → Sleep → Repeat
 """
 
-import json
 import os
 import sys
 import time
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from core.distributed_redundancy import DistributedRedundancy, HeartbeatProtocol
+from core.distributed_redundancy import DistributedRedundancy
 from core.dormant_cells import DormantCellManager
 
 # Import all APT-level components
-from core.predictive_recon import BayesianNetworkAnalyzer, PredictiveScanner
+from core.predictive_recon import PredictiveScanner
 from evasion.semantic_polymorphism import SemanticPolymorphicEngine
 from evasion.traffic_mimicry import TrafficMimicryEngine
 from exploits.adaptive_exploit_selector import AdaptiveExploitSelector

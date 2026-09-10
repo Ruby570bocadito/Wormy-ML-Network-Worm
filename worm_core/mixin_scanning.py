@@ -1,15 +1,9 @@
 import asyncio
-import os
-from datetime import datetime
 from typing import Dict, List, Optional
 
 from .module_imports import (
-    CLIMonitor,
-    HostClassifier,
-    WormActivityBridge,
     logger,
 )
-from .standalone import get_local_ip
 
 
 class WormCoreScanning:

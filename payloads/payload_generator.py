@@ -14,7 +14,7 @@ import base64
 import os
 import random
 import sys
-from typing import Dict, Optional
+from typing import Dict
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 

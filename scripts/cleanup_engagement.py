@@ -24,7 +24,7 @@ import shutil
 import subprocess
 import sys
 import threading
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -345,7 +345,7 @@ def main():
 
     worm_dir = args.worm_dir or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     mode = "DRY RUN" if args.dry_run else "LIVE"
-    ts = datetime.utcnow().isoformat()
+    ts = datetime.now(timezone.utc).isoformat()
 
     print(f"\n{'='*60}")
     print(f"  WORMY v3.0 — POST-ENGAGEMENT CLEANUP")
@@ -406,7 +406,7 @@ def main():
 
     # ── Audit trail ──────────────────────────────────────────────────────────
     audit_path = os.path.join(
-        worm_dir, f"cleanup_audit_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.json"
+        worm_dir, f"cleanup_audit_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.json"
     )
     if not args.dry_run:
         try:
