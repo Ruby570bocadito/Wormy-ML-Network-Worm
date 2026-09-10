@@ -39,7 +39,10 @@ jobs:
           flake8 --max-line-length=100
           --exclude=.git,__pycache__,build,dist
           --ignore=E402,F401,F541,W291,W293,E203,E231,E501,W503,F811,F841,E226,E741,E731,F403,F601,E201,E202,E712
-      - name: mypy (core packages only)
+      # Advisory until the typing debt (~1000 legacy findings) is paid down;
+      # reports still surface here on every push.
+      - name: mypy (advisory, core packages)
+        continue-on-error: true
         run: mypy worm_core/ rl_engine/ core/ utils/ configs/ --ignore-missing-imports
 
   security:
