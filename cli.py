@@ -1,5 +1,5 @@
 """
-Wormy ML Network Worm v4.0 — Modern Interactive CLI
+Wormy ML Network Worm v4.2 — Modern Interactive CLI
 """
 
 import cmd

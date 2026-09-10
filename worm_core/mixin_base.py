@@ -158,7 +158,7 @@ class WormCoreBase:
             self.cli_monitor.start_background(refresh_interval=1.5)
 
         logger.info("=" * 60)
-        logger.info("WORMY ML NETWORK WORM v3.0")
+        logger.info("WORMY ML NETWORK WORM v4.2")
         logger.info("=" * 60)
         if profile:
             logger.info(f"Profile: {profile}")

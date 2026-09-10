@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "wormy"
-version = "4.0.0"
+version = "4.1.0"
 description = "ML-Driven Autonomous Network Propagation Platform"
 authors = [
     {name = "Ruby570bocadito", email = "ruby570bocadito@github.com"},
@@ -74,7 +74,7 @@ include = [
     "worm_core", "worm_core.*",
     "attacks", "c2", "configs", "core", "evasion",
     "exploits", "exploits.*",
-    "infection", "kernel", "ml_models", "monitoring",
+    "infection", "ml_models", "monitoring",
     "payloads", "post_exploit", "rl_engine", "scanner",
     "swarm", "training", "utils",
 ]

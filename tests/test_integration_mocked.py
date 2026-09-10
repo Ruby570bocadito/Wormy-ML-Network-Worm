@@ -29,18 +29,30 @@ class TestWormCore:
         self.failed = 0
         self.tests_run = 0
 
+
+    @staticmethod
+    def _package_sources() -> str:
+        """Concatenated source of the worm_core package (post-v4.0 layout)."""
+        import glob
+        import os
+
+        base = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "worm_core")
+        chunks = []
+        for fpath in sorted(glob.glob(os.path.join(base, "*.py"))):
+            with open(fpath, "r") as fh:
+                chunks.append(fh.read())
+        return "\n".join(chunks)
+
     def test_worm_core_imports(self):
         """Test that worm_core can be analyzed"""
         print("\n=== Test: WormCore Import Analysis ===")
         self.tests_run += 1
 
-        with open("worm_core.py", "r") as f:
-            content = f.read()
+        content = self._package_sources()
 
         required_imports = [
-            "from configs.config import Config",
-            "from utils.logger import logger",
-            "from utils.network_utils import get_local_ip",
+            "from .module_imports import (",
+            "from .standalone import get_local_ip",
             "from scanner import IntelligentScanner",
             "from rl_engine import PropagationAgent",
         ]
@@ -65,8 +77,7 @@ class TestWormCore:
         print("\n=== Test: WormCore Class Structure ===")
         self.tests_run += 1
 
-        with open("worm_core.py", "r") as f:
-            content = f.read()
+        content = self._package_sources()
 
         required = [
             "class WormCore",
@@ -103,8 +114,7 @@ class TestWormCore:
         print("\n=== Test: Safety Constraints ===")
         self.tests_run += 1
 
-        with open("worm_core.py", "r") as f:
-            content = f.read()
+        content = self._package_sources()
 
         safety_features = [
             "kill_switch_activated",

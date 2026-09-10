@@ -1,2 +1,2 @@
 #!/usr/bin/env bash
-cd "$(dirname "$0")" && exec python3 worm_core.py "$@"
+cd "$(dirname "$0")" && exec python3 -m worm_core "$@"

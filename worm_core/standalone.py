@@ -18,7 +18,7 @@ def get_local_ip():
 def main():
     import argparse
 
-    parser = argparse.ArgumentParser(description="Wormy ML Network Worm v3.0")
+    parser = argparse.ArgumentParser(description="Wormy ML Network Worm v4.2")
     parser.add_argument("--config", type=str, help="Configuration file")
     parser.add_argument("--scan-only", action="store_true", help="Scan only")
     parser.add_argument("--kill-switch", type=str, help="Kill switch code")

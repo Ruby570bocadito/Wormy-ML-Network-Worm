@@ -66,9 +66,11 @@ network:
 propagation:
   max_infections: 100
   mutation_enabled: true
-  persistence_enabled: true
+  # A lab run must NOT install persistence or self-replicate: the lab exists
+  # to observe propagation, not to leave artifacts behind.
+  persistence_enabled: false
   propagation_delay: 0.5
-  self_replicate: true
+  self_replicate: false
 safety:
   allowed_networks:
   - 192.168.100.0/24

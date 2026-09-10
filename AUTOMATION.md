@@ -1,4 +1,4 @@
-# Wormy v3.0 — Guía de Automatización Completa
+# Wormy v4.2 — Guía de Automatización Completa
 
 > **⚠️ Solo para sistemas propios o con autorización escrita firmada.**
 
@@ -60,7 +60,7 @@ Lo que hace automáticamente en ~2 minutos:
 | 1 | Detecta tu IP real (`ip route get 8.8.8.8`) |
 | 2 | Instala paquetes de sistema (nmap, golang, libssl, freetds) |
 | 3 | Instala Python: impacket, scapy, ldap3, pymssql, paramiko, bloodhound... |
-| 4 | Compila y lanza el C2 Go server (o fallback Python HTTPS) |
+| 4 | Lanza el C2 Python HTTPS integrado (el servidor C2 en Go de `stager/` era un skeleton no compilable y fue retirado del repo) |
 | 5 | Parchea `configs/config.yaml` con tu IP como C2 |
 | 6 | Valida que todos los módulos del worm importan correctamente |
 | 7 | Pre-flight: verifica C2 health, DoH, ping al target |

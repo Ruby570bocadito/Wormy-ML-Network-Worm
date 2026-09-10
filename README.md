@@ -11,12 +11,12 @@
   <img src="https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python"/>
   <img src="https://img.shields.io/badge/PyTorch-2.0+-EE4C2C?style=for-the-badge&logo=pytorch&logoColor=white" alt="PyTorch"/>
   <img src="https://img.shields.io/badge/OS-Linux%20%7C%20Windows%20%7C%20macOS-lightgrey?style=for-the-badge" alt="OS"/>
-  <img src="https://img.shields.io/badge/version-4.0.0-blue?style=for-the-badge" alt="Version"/>
+  <img src="https://img.shields.io/badge/version-4.2.0-blue?style=for-the-badge" alt="Version"/>
   <img src="https://img.shields.io/badge/license-MIT-orange?style=for-the-badge" alt="License"/>
   <img src="https://img.shields.io/badge/exploits-44%20modules-blue?style=for-the-badge" alt="Exploits"/>
   <img src="https://img.shields.io/badge/evasion-AMSI%20%7C%20ETW%20%7C%20DLL-purple?style=for-the-badge" alt="Evasion"/>
   <img src="https://img.shields.io/badge/AD-Kerberoast%20%7C%20AS--REP%20Roast-darkred?style=for-the-badge" alt="AD"/>
-  <img src="https://img.shields.io/badge/tests-35%2F39%20PASS-brightgreen?style=for-the-badge" alt="Tests"/>
+  <img src="https://img.shields.io/badge/tests-239%20passing-brightgreen?style=for-the-badge" alt="Tests"/>
 </p>
 
 <p align="center">
@@ -80,7 +80,7 @@
 | **Password Engine** | Spray + mutation (35 variants) + credential stuffing | Credentials |
 | **Polymorphic Engine** | AST metamorphism, semantic NOP injection, hash verification | Evasion |
 | **Web Dashboards** | Armitage-style (:5001) + professional (:5000) | Monitoring |
-| **Docker Lab** | 11-container vulnerable network for safe testing | Testing |
+| **Docker Lab** | 15-service vulnerable network for safe testing | Testing |
 | **MITRE ATT&CK** | Automatic technique mapping and reporting | Reporting |
 | **Kill Switch** | Remote propagation termination with auth code | Safety |
 
@@ -112,7 +112,7 @@ python3 -m worm_core --scan-only
 ### Docker Lab (Safe Testing)
 
 ```bash
-# Start 11-container vulnerable network
+# Start 15-service vulnerable network
 docker compose -f docker-compose-lab.yml up -d
 
 # Run worm against lab
@@ -145,7 +145,7 @@ sudo ./scripts/deploy_kali.sh --live --target 10.0.1.0/24
 $ python3 -m worm_core --dry-run --interactive
 
   ╔══════════════════════════════════════════════════╗
-  ║         Wormy v4.0 — ML Network Worm             ║
+  ║         Wormy v4.2 — ML Network Worm             ║
   ║         Ruby570bocadito (c) 2024                 ║
   ╚══════════════════════════════════════════════════╝
 
@@ -279,15 +279,15 @@ wormy/
 │   ├── multi_protocol_c2.py    # HTTPS/DoH/ICMP/P2P
 │   ├── pfs_crypto.py           # X25519 + AES-256-GCM
 │   └── resilient_c2.py         # DoH + Domain Fronting
-├── rl_engine/                  # DQN + Thompson Sampling
+├── rl_engine/                  # Double DQN + PER + TS ensemble (features.py)
 ├── core/                       # Wave propagation, agent controller
 ├── monitoring/                 # Web + Armitage dashboards
 ├── swarm/                      # Multi-agent coordinator
 ├── payloads/                   # Payload generation
 ├── ml_models/                  # Trained models
 ├── training/                   # RL training pipeline
-├── tests/                      # 35/39 passing
-├── docker-compose-lab.yml      # Vulnerable lab (11 containers)
+├── tests/                      # 239 pytest-passing automated suite
+├── docker-compose-lab.yml      # Vulnerable lab (15 services, localhost-only)
 └── configs/                    # YAML configurations
 ```
 
@@ -412,10 +412,19 @@ reward = asset_value * stealth_bonus * technique_multiplier
 
 ### RL Engine
 
-- Double DQN with prioritized replay memory
-- Gradient clipping + soft target updates (tau=0.005)
-- Automatic model save/load with fallback to training
-- OTA model updates via C2 without restart
+- **Double DQN** (van Hasselt et al., 2015): action selection with the online
+  network, evaluation with the target network — verified implementation
+- **Prioritized Experience Replay** with importance-sampling weights applied
+  to the loss (Welford-normalized rewards frozen at observation time)
+- Bootstrapped **Thompson Sampling ensemble**: 5 Q-networks with independent
+  optimizers and bounded bootstrap memories
+- Gradient clipping + soft target updates (tau=0.005), target network in
+  `eval()` mode during target computation
+- Atomic model checkpoints (`tmp` + `os.replace`) with geometry validation on
+  load — a mismatched checkpoint fails loudly instead of running random weights
+- Single canonical feature builder (`rl_engine/features.py`) shared by the
+  training environment and the inference wrapper, guaranteeing identical
+  feature semantics end to end
 
 ---
 
@@ -693,6 +702,15 @@ Import the JSON files into BloodHound and run:
 ---
 
 ## 📝 Changelog
+
+### v4.2.0 (2026-09-10)
+
+- **Made it actually run**: fixed the IndentationError that broke the main package and the invalid `pyproject.toml` build backend that broke `pip install` / CI
+- **ML made real**: proper Double DQN, PER IS-weights applied to the loss, trainable Thompson-Sampling ensemble, epsilon decay, unified feature builder for training/inference, atomic checkpoints with geometry validation
+- **Safety controls enforced** (they were cosmetic): central stop event on every exploit path, target-IP geofencing, atomic max-infections, fully-gated dry-run
+- **Test suite**: 239 passing / 7 skipped / 0 failed, plus a compile-everything smoke test in CI
+- **Docker lab**: localhost-only port bindings, healthchecks, working SSH target
+- Full details in [CHANGELOG.md](CHANGELOG.md)
 
 ### v4.0.0 (2026-05-13)
 

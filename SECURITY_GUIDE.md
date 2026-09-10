@@ -1,291 +1,133 @@
-# 🛡️ Seguridad y Control del Worm
+# Safety & Control Guide
 
-## ⚠️ ¿Qué Pasa Si Infecta Toda Tu Red?
-
-### Respuesta Corta: **NADA GRAVE** ✅
-
-El worm tiene múltiples capas de seguridad para evitar daños.
-
----
-
-## 🛡️ Mecanismos de Seguridad Activos
-
-### 1. ⏱️ Auto-Destruct (2 horas)
-```yaml
-auto_destruct_time: 2
-```
-- El worm se **elimina automáticamente** después de 2 horas
-- No deja rastros
-- No requiere intervención manual
-
-### 2. 🛑 Kill Switch
-```bash
-python worm_core.py --kill-switch EMERGENCY_STOP_SIMULATION
-```
-- Detiene **INMEDIATAMENTE** el worm
-- Funciona desde cualquier terminal
-- Envía señal de parada a todos los hosts infectados
-
-### 3. 🔒 Geofencing
-```yaml
-allowed_networks:
-  - 192.168.0.0/16
-  - 10.0.0.0/8
-  - 172.16.0.0/12
-```
-- **Solo redes locales/privadas**
-- No puede salir a Internet
-- No puede infectar redes externas
-
-### 4. 📊 Límite de Infecciones
-```yaml
-max_infections: 1000
-```
-- Máximo 1000 hosts (configurable)
-- Se detiene al alcanzar el límite
-- Previene propagación infinita
-
-### 5. 🚫 Sin Persistencia (por defecto)
-```yaml
-persistence_enabled: true  # Pero NO se ejecuta en simulación
-```
-- No modifica registro de Windows
-- No crea servicios
-- No se inicia automáticamente
-- **Un reinicio lo elimina**
+> **Who this is for:** operators running Wormy inside an isolated,
+> authorized lab (Docker lab, CTF range, or a written-authorization
+> engagement). If you do not have explicit permission for every host you
+> intend to touch, **stop here** — running this tool against systems you do
+> not own or are not authorized to test is illegal in most jurisdictions.
 
 ---
 
-## 🎯 ¿Qué Hace el Worm en Hosts Infectados?
+## Safety controls (and what they actually do)
 
-### ✅ Lo Que SÍ Hace:
-1. **Registra** la infección en logs
-2. **Reporta** al C2 server (si está activo)
-3. **Escanea** desde ese host para propagarse
-4. **Intenta** infectar otros hosts vecinos
-5. **Aprende** con RL agent (mejora sus decisiones)
+| Control | Mechanism | Enforced where |
+|---------|-----------|----------------|
+| **Kill switch** | `python3 -m worm_core --kill-switch <code>` sets `kill_switch_activated` + a process-wide `threading.Event` that is checked on **every** path into `exploit_target()` (main loop, wave threads, lateral movement, manual CLI commands) | `worm_core/mixin_base.py`, `worm_core/mixin_exploitation.py` |
+| **Signal file** | Creating a file named `STOP_WORMY_NOW` in the repo root stops the propagation loop | checked in the propagation loop |
+| **Geofencing** | Every **target IP** is validated against `safety.allowed_networks` before any packet is sent. Default allows RFC1918 ranges only; your local subnet is *not* auto-whitelisted anymore — configure it explicitly | `WormCoreBase.is_target_allowed()` |
+| **Max infections** | Atomic (`check_and_add_infected`) admission under the data lock — concurrent wave threads cannot overshoot the cap | `worm_core/mixin_base.py` |
+| **Auto-destruct** | Stops the run after `safety.auto_destruct_time` hours (disabled by default: `0`) | `check_safety_constraints()` |
+| **Dry run** | `--dry-run` / `--scan-only` perform discovery and ML decisions only: no AD roasting traffic, no decoy/fuzzing traffic, no persistence installation, no exploit payloads | gates at the top of `exploit_target()`, `scan_network()`, `propagate()` |
+| **Runtime cap** | `safety.max_runtime_hours` hard-stops long-running propagations | `check_safety_constraints()` |
 
-### ❌ Lo Que NO Hace (en simulación):
-1. ❌ **NO instala persistencia** (no sobrevive reinicio)
-2. ❌ **NO exfiltra datos** (a menos que lo actives manualmente)
-3. ❌ **NO modifica archivos** del sistema
-4. ❌ **NO instala backdoors** permanentes
-5. ❌ **NO causa daño** al sistema operativo
-6. ❌ **NO roba contraseñas** (solo las prueba)
-7. ❌ **NO encripta archivos** (no es ransomware)
-
----
-
-## 🛑 Cómo Detener el Worm AHORA
-
-### Método 1: Kill Switch (Recomendado) ⭐
-```bash
-# Abre nueva terminal
-cd c:\Users\rafag\Desktop\ML
-python worm_core.py --kill-switch EMERGENCY_STOP_SIMULATION
-```
-
-**Resultado**: Detiene el worm en **TODOS** los hosts infectados
-
-### Método 2: Ctrl+C
-```
-Presiona Ctrl+C en la terminal donde corre el worm
-```
-
-**Resultado**: Detiene el proceso principal
-
-### Método 3: Cerrar Terminal
-```
-Cierra la ventana de PowerShell
-```
-
-**Resultado**: Termina el proceso
-
-### Método 4: Task Manager
-```
-1. Abre Task Manager (Ctrl+Shift+Esc)
-2. Busca "python.exe"
-3. Terminar proceso
-```
-
----
-
-## 🧹 Cómo Limpiar Hosts Infectados
-
-### Limpieza Automática
-```bash
-cleanup_worm.bat
-```
-
-Este script:
-1. ✅ Activa kill switch
-2. ✅ Elimina logs
-3. ✅ Elimina datos exfiltrados
-4. ✅ Limpia archivos temporales
-
-### Limpieza Manual
-
-#### En Windows:
-```powershell
-# 1. Verificar procesos
-tasklist | findstr python
-
-# 2. Matar procesos
-taskkill /F /IM python.exe
-
-# 3. Eliminar archivos temporales
-del /q C:\Users\*\AppData\Local\Temp\worm_*
-```
-
-#### En Linux:
-```bash
-# 1. Verificar procesos
-ps aux | grep worm
-
-# 2. Matar procesos
-pkill -f worm_core.py
-
-# 3. Eliminar archivos temporales
-rm -rf /tmp/worm_*
-```
-
-### Reiniciar Hosts (Más Simple)
-```bash
-# El worm NO tiene persistencia
-# Un simple reinicio lo elimina completamente
-shutdown /r /t 0
-```
-
----
-
-## 📊 Verificar Estado de Infección
-
-### Ver Hosts Infectados
-```bash
-# Ver logs
-type logs\worm_*.log | findstr "SUCCESS"
-
-# Ver lista de infectados
-type logs\infected_hosts.log
-```
-
-### Dashboard C2 (Si está activo)
-```
-http://localhost:8443
-```
-
-Muestra:
-- Hosts infectados
-- Beacons recibidos
-- Comandos enviados
-- Estadísticas en tiempo real
-
-### Monitoreo en Tiempo Real
-```bash
-monitor_simulation.bat
-```
-
----
-
-## ⚠️ Niveles de Preocupación
-
-### 🟢 BAJO (Tu Caso)
-- ✅ Red local/laboratorio
-- ✅ Fines educativos
-- ✅ Tienes control total
-- ✅ Mecanismos de seguridad activos
-
-**Acción**: Déjalo correr y aprende, o detenlo cuando quieras
-
-### 🟡 MEDIO
-- ⚠️ Red compartida (familia/compañeros)
-- ⚠️ No avisaste a otros usuarios
-- ⚠️ Sistemas importantes en la red
-
-**Acción**: Detén el worm y avisa a los usuarios
-
-### 🔴 ALTO
-- ❌ Red corporativa sin autorización
-- ❌ Sistemas de producción
-- ❌ Datos sensibles en riesgo
-
-**Acción**: DETÉN INMEDIATAMENTE y contacta al administrador
-
----
-
-## 🎓 Buenas Prácticas
-
-### Antes de Ejecutar:
-1. ✅ Usa red aislada/laboratorio
-2. ✅ Avisa a otros usuarios
-3. ✅ Haz backup de datos importantes
-4. ✅ Ten el kill switch a mano
-
-### Durante Ejecución:
-1. ✅ Monitorea logs
-2. ✅ Verifica dashboard C2
-3. ✅ Observa comportamiento
-4. ✅ Aprende de los resultados
-
-### Después de Ejecutar:
-1. ✅ Activa kill switch
-2. ✅ Limpia logs
-3. ✅ Reinicia hosts (opcional)
-4. ✅ Documenta aprendizajes
-
----
-
-## 🚨 Procedimiento de Emergencia
-
-Si algo sale mal:
+### Emergency stop
 
 ```bash
-# 1. DETENER INMEDIATAMENTE
-python worm_core.py --kill-switch EMERGENCY_STOP_SIMULATION
+# 1. Stop the propagation loop
+python3 -m worm_core --kill-switch EMERGENCY_STOP_2024
 
-# 2. LIMPIAR TODO
-cleanup_worm.bat
+# 2. Or drop a signal file
+touch STOP_WORMY_NOW
 
-# 3. VERIFICAR
-tasklist | findstr python
-
-# 4. REINICIAR HOSTS
-shutdown /r /t 0
+# 3. Verify nothing is listening anymore
+ss -tlnp | grep -E "5000|5001|8443" || echo "clean"
 ```
 
----
-
-## 📝 Resumen
-
-### ¿Qué pasa si infecta toda tu red?
-
-**Respuesta**: Nada grave porque:
-
-1. ✅ Se auto-destruye en 2 horas
-2. ✅ Puedes detenerlo con kill switch
-3. ✅ No tiene persistencia (reinicio lo elimina)
-4. ✅ Solo infecta red local (geofencing)
-5. ✅ No causa daño al sistema
-6. ✅ Es para aprendizaje, no es malware real
-
-### ¿Deberías preocuparte?
-
-**NO**, si:
-- Estás en tu red personal
-- Es para aprendizaje
-- Tienes control de los sistemas
-
-**SÍ**, si:
-- No tienes autorización
-- Es red corporativa
-- Hay datos sensibles
-
-### ¿Qué hacer?
-
-**Opción 1**: Déjalo correr y aprende (seguro)  
-**Opción 2**: Detenlo con kill switch  
-**Opción 3**: Ejecuta `cleanup_worm.bat`
+The kill-switch code is configured per profile in `configs/config.yaml`
+(`safety.kill_switch_code`). Note it in your engagement notes **before**
+starting a run — and prefer the signal file in shared environments, since a
+command-line switch ends up in shell history and process listings.
 
 ---
 
-*El worm está diseñado para ser SEGURO y CONTROLABLE* 🛡️
+## What the worm does on a compromised host (honest list)
+
+Wormy is a **red-team automation framework**, not a benign simulator. When an
+exploit succeeds against a lab or authorized target it can, depending on the
+enabled modules:
+
+1. Record the infection (logs, knowledge graph, dashboards)
+2. Register the host with the agent controller (SSH task channel)
+3. Attempt credential discovery (brute force / spraying — this is real
+   authentication traffic)
+4. Collect AD intelligence (LDAP enumeration, Kerberoast / AS-REP hashes)
+5. Attempt lateral movement and propagation using harvested credentials
+6. Install persistence **only if** `propagation.self_replicate` /
+   persistence modules are explicitly enabled — persistence is **off** in the
+   default and lab profiles
+
+It does **not** ship destructive payloads: no file encryption, no destructive
+wipe routines, no ransomware logic.
+
+### Residual risk you must accept before running
+
+- Successful exploits execute **real exploitation code** against real
+  services. Fragile targets can crash even with a "clean" exploit.
+- Credential attacks generate authentication failures that can lock out
+  accounts (`enterprise_password_engine` is lockout-aware, but only if you
+  keep the spray windows configured).
+- Captured credentials and hashes are written to local logs/reports. Encrypt
+  your working directory and delete reports after the engagement.
+
+---
+
+## Lab hygiene
+
+```bash
+# Start the isolated lab (all ports bound to 127.0.0.1 on the host)
+docker compose -f docker-compose-lab.yml up -d
+
+# Run the worm against the lab range only
+python3 -m worm_core --profile lab_docker --target 192.168.100.0/24
+
+# Full cleanup
+docker compose -f docker-compose-lab.yml down -v
+python3 scripts/cleanup_engagement.py
+```
+
+The lab's host-side port bindings are `127.0.0.1`-only: the vulnerable
+services are reachable from your LAN **only** through the worm's process,
+never directly.
+
+---
+
+## Before / during / after an engagement
+
+**Before**
+
+1. Written authorization for every host/range (or your own lab)
+2. Isolated network segment or the Docker lab
+3. Note the kill-switch code and the signal-file location
+4. Snapshot/backup anything you cannot afford to break
+
+**During**
+
+1. Watch the dashboards (`:5000` / `:5001`) and the log stream
+2. Verify that discovered hosts stay inside `allowed_networks`
+3. Stop immediately if you see out-of-scope IPs in the target list
+
+**After**
+
+1. Kill switch + signal file
+2. `scripts/cleanup_engagement.py` for automated cleanup
+3. Review and then delete credential reports; keep only the engagement
+   findings you need for the write-up
+4. Reboot or revert lab hosts that received persistence
+
+---
+
+## Incident procedure
+
+If anything behaves unexpectedly (out-of-scope hosts, crash loops, runaway
+traffic):
+
+```bash
+touch STOP_WORMY_NOW                 # stop the loop
+python3 -m worm_core --kill-switch EMERGENCY_STOP_2024
+pkill -f "python3 -m worm_core"      # last resort, kills the process
+docker compose -f docker-compose-lab.yml down -v
+```
+
+Then investigate before re-running: check `reports/` and the logs for what
+the worm targeted, and correct `allowed_networks` / `target_ranges` so it
+cannot happen again.
