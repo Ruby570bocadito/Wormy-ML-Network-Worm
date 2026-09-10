@@ -63,6 +63,7 @@ examples:
 
 # ─────────────────────────── helpers ────────────────────────────
 
+
 def _find_repo_root() -> Optional[str]:
     """Locate the project root (where the compose files live).
 
@@ -126,7 +127,11 @@ def _authorization_gate(args) -> bool:
 
 
 def _pre_flight_banner(worm, args) -> None:
-    mode = "DRY-RUN (simulation)" if args.dry_run else ("SCAN-ONLY" if args.scan_only else "LIVE (authorized)")
+    mode = (
+        "DRY-RUN (simulation)"
+        if args.dry_run
+        else ("SCAN-ONLY" if args.scan_only else "LIVE (authorized)")
+    )
     ranges = ", ".join(getattr(worm.config.network, "target_ranges", []) or ["<config>"])
     console.print(
         Panel(
@@ -140,6 +145,7 @@ def _pre_flight_banner(worm, args) -> None:
 
 
 # ─────────────────────────── run ────────────────────────────────
+
 
 def cmd_run(args) -> int:
     if not _authorization_gate(args):
@@ -218,6 +224,7 @@ def cmd_run(args) -> int:
 
 
 # ─────────────────────────── scan ───────────────────────────────
+
 
 def cmd_scan(args) -> int:
     from . import WormCore
@@ -307,7 +314,11 @@ def cmd_lab(args) -> int:
             _docker(["down", "-v", "--remove-orphans"], root, expanded)
             return _docker(["up", "-d", "--build", "--force-recreate"], root, expanded)
         if args.action == "status":
-            return _docker(["ps", "--format", "table {{.Name}}\t{{.Service}}\t{{.Status}}\t{{.Ports}}"], root, expanded)
+            return _docker(
+                ["ps", "--format", "table {{.Name}}\t{{.Service}}\t{{.Status}}\t{{.Ports}}"],
+                root,
+                expanded,
+            )
 
     t = Table(title="Lab services (bound to 127.0.0.1)", border_style="bright_blue")
     t.add_column("Service", style="cyan")
@@ -321,6 +332,7 @@ def cmd_lab(args) -> int:
 
 # ─────────────────────────── train ──────────────────────────────
 
+
 def cmd_train(args) -> int:
     kinds = ["rl", "classifier", "evasion"] if args.kind == "all" else [args.kind]
 
@@ -333,8 +345,11 @@ def cmd_train(args) -> int:
                 cmd.append("--status")
             return subprocess.call(cmd)
         cmd = [
-            sys.executable, "-m", "training.realistic_training",
-            "--save-dir", args.save_dir,
+            sys.executable,
+            "-m",
+            "training.realistic_training",
+            "--save-dir",
+            args.save_dir,
         ]
         if args.scenarios:
             cmd += ["--scenarios"] + args.scenarios
@@ -356,19 +371,23 @@ def cmd_train(args) -> int:
             trained.append(kind)
         except Exception as e:  # noqa: BLE001 — report and continue with other models
             err_console.print(f"[red]{kind} training failed:[/] {e}")
-    console.print(f"\n[green]Trained:[/] {', '.join(trained)}" if trained else "[yellow]Nothing trained.[/]")
+    console.print(
+        f"\n[green]Trained:[/] {', '.join(trained)}" if trained else "[yellow]Nothing trained.[/]"
+    )
     return EXIT_OK if trained else EXIT_ERROR
 
 
 # ─────────────────────────── doctor ─────────────────────────────
+
 
 def cmd_doctor(args) -> int:
     checks: List[tuple] = []  # (critical, name, ok, detail, hint)
 
     # Python version
     ok = sys.version_info >= (3, 10)
-    checks.append((True, "Python >= 3.10", ok, platform.python_version(),
-                   "upgrade to Python 3.10+"))
+    checks.append(
+        (True, "Python >= 3.10", ok, platform.python_version(), "upgrade to Python 3.10+")
+    )
 
     # Core dependencies
     for mod, name in (
@@ -384,16 +403,30 @@ def cmd_doctor(args) -> int:
         import importlib.util
 
         spec = importlib.util.find_spec(mod)
-        checks.append((False, name, spec is not None,
-                       "installed" if spec else "missing", f"pip install {mod}"))
+        checks.append(
+            (
+                False,
+                name,
+                spec is not None,
+                "installed" if spec else "missing",
+                f"pip install {mod}",
+            )
+        )
 
     # torch
     try:
         import torch
 
         checks.append((False, "torch (RL engine)", True, torch.__version__, ""))
-        checks.append((False, "CUDA (optional)", torch.cuda.is_available(),
-                       "available" if torch.cuda.is_available() else "CPU only", ""))
+        checks.append(
+            (
+                False,
+                "CUDA (optional)",
+                torch.cuda.is_available(),
+                "available" if torch.cuda.is_available() else "CPU only",
+                "",
+            )
+        )
     except Exception as e:  # noqa: BLE001
         checks.append((False, "torch (RL engine)", False, str(e)[:60], "pip install torch"))
 
@@ -401,28 +434,51 @@ def cmd_doctor(args) -> int:
     try:
         from rl_engine.features import FEATURES_PER_HOST
 
-        checks.append((True, "Feature geometry (15/host)", FEATURES_PER_HOST == 15,
-                       f"{FEATURES_PER_HOST} features/host", "reinstall rl_engine"))
+        checks.append(
+            (
+                True,
+                "Feature geometry (15/host)",
+                FEATURES_PER_HOST == 15,
+                f"{FEATURES_PER_HOST} features/host",
+                "reinstall rl_engine",
+            )
+        )
     except Exception as e:  # noqa: BLE001
         checks.append((True, "Feature geometry (15/host)", False, str(e)[:60], "check rl_engine"))
 
     # Docker
     docker_ok = shutil.which("docker") is not None
-    checks.append((False, "Docker CLI", docker_ok,
-                   shutil.which("docker") or "not found", "install docker"))
+    checks.append(
+        (False, "Docker CLI", docker_ok, shutil.which("docker") or "not found", "install docker")
+    )
     if docker_ok:
         try:
-            out = subprocess.run(["docker", "compose", "version"], capture_output=True, text=True, timeout=20)
-            checks.append((False, "Docker compose v2", out.returncode == EXIT_OK,
-                           (out.stdout or "unavailable").strip().splitlines()[0][:60],
-                           "install docker-compose-plugin"))
+            out = subprocess.run(
+                ["docker", "compose", "version"], capture_output=True, text=True, timeout=20
+            )
+            checks.append(
+                (
+                    False,
+                    "Docker compose v2",
+                    out.returncode == EXIT_OK,
+                    (out.stdout or "unavailable").strip().splitlines()[0][:60],
+                    "install docker-compose-plugin",
+                )
+            )
         except Exception:  # noqa: BLE001
             checks.append((False, "Docker compose v2", False, "call failed", ""))
 
     # Lab compose file
     root = _find_repo_root()
-    checks.append((False, "Lab compose file", root is not None,
-                   root or "not found", "run from project root or set WORMY_LAB_DIR"))
+    checks.append(
+        (
+            False,
+            "Lab compose file",
+            root is not None,
+            root or "not found",
+            "run from project root or set WORMY_LAB_DIR",
+        )
+    )
 
     # Default config loads & validates
     try:
@@ -457,8 +513,13 @@ def cmd_doctor(args) -> int:
         mark, style = ("✓", "green") if ok else ("✗", "red")
         if not ok and critical:
             failed_critical += 1
-        t.add_row(f"[{style}]{mark}[/]", name,
-                  "[green]ok[/]" if ok else "[red]FAIL[/]", detail, hint if not ok else "")
+        t.add_row(
+            f"[{style}]{mark}[/]",
+            name,
+            "[green]ok[/]" if ok else "[red]FAIL[/]",
+            detail,
+            hint if not ok else "",
+        )
     console.print(t)
 
     if failed_critical:
@@ -469,6 +530,7 @@ def cmd_doctor(args) -> int:
 
 
 # ─────────────────────────── shell ──────────────────────────────
+
 
 def cmd_shell(args) -> int:
     from . import WormCore
@@ -498,19 +560,27 @@ def cmd_shell(args) -> int:
 
 # ─────────────────────────── version ────────────────────────────
 
+
 def cmd_version(args) -> int:
     if args.json:
-        print(json.dumps({
-            "wormy": __version__,
-            "python": platform.python_version(),
-            "platform": platform.platform(),
-        }))
+        print(
+            json.dumps(
+                {
+                    "wormy": __version__,
+                    "python": platform.python_version(),
+                    "platform": platform.platform(),
+                }
+            )
+        )
     else:
-        print(f"{PROGRAM} {__version__} (python {platform.python_version()} on {platform.system().lower()})")
+        print(
+            f"{PROGRAM} {__version__} (python {platform.python_version()} on {platform.system().lower()})"
+        )
     return EXIT_OK
 
 
 # ─────────────────────────── parser ─────────────────────────────
+
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
@@ -526,15 +596,26 @@ def build_parser() -> argparse.ArgumentParser:
     def common(p, with_profile=True):
         p.add_argument("--config", type=str, help="path to a YAML config file")
         if with_profile:
-            p.add_argument("--profile", type=str,
-                           choices=["stealth", "aggressive", "audit", "lab_docker"],
-                           help="configuration profile")
-        p.add_argument("--target", nargs="+", metavar="CIDR",
-                       help="override config target ranges (e.g. 10.0.0.0/24)")
+            p.add_argument(
+                "--profile",
+                type=str,
+                choices=["stealth", "aggressive", "audit", "lab_docker"],
+                help="configuration profile",
+            )
+        p.add_argument(
+            "--target",
+            nargs="+",
+            metavar="CIDR",
+            help="override config target ranges (e.g. 10.0.0.0/24)",
+        )
 
     # run
-    p = sub.add_parser("run", help="launch the propagation engine",
-                       epilog=EPILOG_EXAMPLES, formatter_class=argparse.RawDescriptionHelpFormatter)
+    p = sub.add_parser(
+        "run",
+        help="launch the propagation engine",
+        epilog=EPILOG_EXAMPLES,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     common(p)
     p.add_argument("--dry-run", action="store_true", help="simulate; no real exploits are executed")
     p.add_argument("--scan-only", action="store_true", help="reconnaissance only, then exit")
@@ -543,33 +624,62 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--no-geofence", action="store_true", help="disable geofence check (labs only)")
     p.add_argument("--interactive", "-i", action="store_true", help="enter the REPL after startup")
     p.add_argument("--web", action="store_true", help="start the web dashboard in the background")
-    p.add_argument("--web-port", type=int, default=5000, metavar="PORT", help="dashboard port (default 5000)")
-    p.add_argument("--yes-i-am-authorized", action="store_true",
-                   help=f"confirm written authorization for live mode (or set {AUTH_ENV_VAR}=1)")
+    p.add_argument(
+        "--web-port", type=int, default=5000, metavar="PORT", help="dashboard port (default 5000)"
+    )
+    p.add_argument(
+        "--yes-i-am-authorized",
+        action="store_true",
+        help=f"confirm written authorization for live mode (or set {AUTH_ENV_VAR}=1)",
+    )
     p.set_defaults(func=cmd_run)
 
     # scan
-    p = sub.add_parser("scan", help="reconnaissance only (no exploitation)",
-                       epilog=EPILOG_EXAMPLES, formatter_class=argparse.RawDescriptionHelpFormatter)
+    p = sub.add_parser(
+        "scan",
+        help="reconnaissance only (no exploitation)",
+        epilog=EPILOG_EXAMPLES,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     common(p)
-    p.add_argument("--basic", action="store_true", help="use the basic scanner instead of the professional one")
+    p.add_argument(
+        "--basic", action="store_true", help="use the basic scanner instead of the professional one"
+    )
     p.add_argument("--json", action="store_true", help="print results as JSON to stdout")
     p.add_argument("--output", "-o", metavar="FILE", help="write results to a JSON file")
     p.set_defaults(func=cmd_scan)
 
     # lab
-    p = sub.add_parser("lab", help="manage the Docker vulnerability lab",
-                       epilog=EPILOG_EXAMPLES, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("action", choices=["up", "down", "status", "rebuild", "urls"],
-                   help="lab action (urls: print service cheat-sheet)")
-    p.add_argument("--expanded", action="store_true", help="use the expanded 15-service compose file")
+    p = sub.add_parser(
+        "lab",
+        help="manage the Docker vulnerability lab",
+        epilog=EPILOG_EXAMPLES,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    p.add_argument(
+        "action",
+        choices=["up", "down", "status", "rebuild", "urls"],
+        help="lab action (urls: print service cheat-sheet)",
+    )
+    p.add_argument(
+        "--expanded", action="store_true", help="use the expanded 15-service compose file"
+    )
     p.set_defaults(func=cmd_lab)
 
     # train
-    p = sub.add_parser("train", help="train ML models",
-                       epilog=EPILOG_EXAMPLES, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("kind", nargs="?", default="all", choices=["rl", "classifier", "evasion", "all"],
-                   help="model to train (default: all)")
+    p = sub.add_parser(
+        "train",
+        help="train ML models",
+        epilog=EPILOG_EXAMPLES,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    p.add_argument(
+        "kind",
+        nargs="?",
+        default="all",
+        choices=["rl", "classifier", "evasion", "all"],
+        help="model to train (default: all)",
+    )
     p.add_argument("--scenarios", nargs="+", help="RL scenario names (curriculum order by default)")
     p.add_argument("--episodes", type=int, help="episodes per RL scenario")
     p.add_argument("--save-dir", default="saved/rl_agent", help="RL checkpoint directory")
@@ -578,13 +688,21 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(func=cmd_train)
 
     # doctor
-    p = sub.add_parser("doctor", help="environment health check",
-                       epilog=EPILOG_EXAMPLES, formatter_class=argparse.RawDescriptionHelpFormatter)
+    p = sub.add_parser(
+        "doctor",
+        help="environment health check",
+        epilog=EPILOG_EXAMPLES,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     p.set_defaults(func=cmd_doctor)
 
     # shell
-    p = sub.add_parser("shell", help="interactive REPL with live status",
-                       epilog=EPILOG_EXAMPLES, formatter_class=argparse.RawDescriptionHelpFormatter)
+    p = sub.add_parser(
+        "shell",
+        help="interactive REPL with live status",
+        epilog=EPILOG_EXAMPLES,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     common(p)
     p.add_argument("--dry-run", action="store_true", help="simulate; no real exploits are executed")
     p.set_defaults(func=cmd_shell)

