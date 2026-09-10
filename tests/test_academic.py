@@ -23,7 +23,6 @@ except ImportError:
     pass
 
 
-
 class TestWormCore(unittest.TestCase):
     """Test cases for WormCore class"""
 

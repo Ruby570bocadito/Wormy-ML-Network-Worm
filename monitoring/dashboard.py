@@ -450,7 +450,7 @@ class MonitoringDashboard:
 
 # Global dashboard instance
 _dashboard = None
-_dashboard_lock = __import__('threading').Lock()
+_dashboard_lock = __import__("threading").Lock()
 
 
 def get_dashboard(port=8080):

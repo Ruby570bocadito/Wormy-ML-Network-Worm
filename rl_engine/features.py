@@ -100,12 +100,16 @@ def build_host_features(
     is_linux = 1.0 if ("linux" in os_guess or "unix" in os_guess) else 0.0
 
     host_type = str(host.get("host_type", "")).lower()
-    is_high_value = 1.0 if (
-        host.get("is_high_value", False)
-        or host_type in HIGH_VALUE_TYPES
-        or host.get("asset_value", 0) >= 60
-        or vuln >= 0.85
-    ) else 0.0
+    is_high_value = (
+        1.0
+        if (
+            host.get("is_high_value", False)
+            or host_type in HIGH_VALUE_TYPES
+            or host.get("asset_value", 0) >= 60
+            or vuln >= 0.85
+        )
+        else 0.0
+    )
 
     credentials = _norm(
         host.get("credential_count", host.get("credentials", 0)),

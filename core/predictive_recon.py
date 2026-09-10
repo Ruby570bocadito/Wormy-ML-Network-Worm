@@ -23,7 +23,6 @@ from typing import Dict, List, Tuple
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
-
 class BayesianNetworkAnalyzer:
     """
     Bayesian analysis of network topology to predict target locations

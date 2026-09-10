@@ -157,7 +157,7 @@ def train_agent_curriculum(
         pct = ep * 100 // total if total else 0
         print(".", end="", flush=True)
         if ep > 0 and ep % progress_interval == 0:
-            avg_r = np.mean(rewards_history[-min(50, len(rewards_history)):])
+            avg_r = np.mean(rewards_history[-min(50, len(rewards_history)) :])
             print(
                 f"  [{pct}%] Ep {ep}/{total} | Phase {scheduler.current_phase + 1}/{len(phases)} "
                 f"| Reward: {avg_r:.1f} | Infected: {info['infected_count']}/{net_size} "

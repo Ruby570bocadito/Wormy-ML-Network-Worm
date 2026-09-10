@@ -21,6 +21,7 @@ RESET = "\033[0m"
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+
 def check_file_contains(filepath, pattern, description):
     """Check if a file contains a specific pattern"""
     full_path = os.path.join(BASE_DIR, filepath)
@@ -148,25 +149,37 @@ def main():
     # ── Fix 4: os.system() → subprocess ──
     print(f"{YELLOW}[4] os.system() replaced with subprocess{RESET}")
     total_checks += 1
-    if check_file_contains("attacks/supply_chain.py", "subprocess.run", "subprocess.run used instead of os.system"):
+    if check_file_contains(
+        "attacks/supply_chain.py", "subprocess.run", "subprocess.run used instead of os.system"
+    ):
         passed_checks += 1
     print()
 
     # ── Fix 5: Lab credentials ──
     print(f"{YELLOW}[5] Docker lab credentials in credential_manager{RESET}")
     total_checks += 3
-    if check_file_contains("exploits/credential_manager.py", '"sa", "SqlPassword123!"', "MSSQL lab creds"):
+    if check_file_contains(
+        "exploits/credential_manager.py", '"sa", "SqlPassword123!"', "MSSQL lab creds"
+    ):
         passed_checks += 1
-    if check_file_contains("exploits/credential_manager.py", '"admin", "admin123"', "PostgreSQL lab creds"):
+    if check_file_contains(
+        "exploits/credential_manager.py", '"admin", "admin123"', "PostgreSQL lab creds"
+    ):
         passed_checks += 1
-    if check_file_contains("exploits/credential_manager.py", '"guest", "guest"', "RabbitMQ lab creds"):
+    if check_file_contains(
+        "exploits/credential_manager.py", '"guest", "guest"', "RabbitMQ lab creds"
+    ):
         passed_checks += 1
     print()
 
     # ── Fix 6: MSSQL credential order ──
     print(f"{YELLOW}[6] MSSQL exploit credential priority{RESET}")
     total_checks += 1
-    if check_file_contains("exploits/modules/mssql_exploit.py", '("sa", "SqlPassword123!")', "SqlPassword123! first in list"):
+    if check_file_contains(
+        "exploits/modules/mssql_exploit.py",
+        '("sa", "SqlPassword123!")',
+        "SqlPassword123! first in list",
+    ):
         passed_checks += 1
     print()
 
@@ -182,7 +195,13 @@ def main():
 
     # ── Statistics ──
     print(f"{YELLOW}[8] Code statistics{RESET}")
-    exploit_modules = len([f for f in os.listdir(os.path.join(BASE_DIR, "exploits/modules")) if f.endswith(".py") and f != "__init__.py"])
+    exploit_modules = len(
+        [
+            f
+            for f in os.listdir(os.path.join(BASE_DIR, "exploits/modules"))
+            if f.endswith(".py") and f != "__init__.py"
+        ]
+    )
     print(f"  Exploit modules: {exploit_modules}")
 
     total_lines = 0

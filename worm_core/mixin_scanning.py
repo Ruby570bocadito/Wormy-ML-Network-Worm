@@ -48,7 +48,9 @@ class WormCoreScanning:
                 loop.close()
 
             if not results and self.enterprise_scanner:
-                logger.info("Pro scanner returned 0 hosts -- falling back to Enterprise TCP Scanner")
+                logger.info(
+                    "Pro scanner returned 0 hosts -- falling back to Enterprise TCP Scanner"
+                )
                 results = []
                 for cidr in self.config.network.target_ranges:
                     found = self.enterprise_scanner.scan_range(cidr)

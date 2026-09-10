@@ -335,7 +335,9 @@ class IDSEvasionEngine:
 
         return data
 
-    def domain_fronting(self, data: bytes, front_domain: str = None, actual_domain: str = None) -> Dict:
+    def domain_fronting(
+        self, data: bytes, front_domain: str = None, actual_domain: str = None
+    ) -> Dict:
         """
         Use domain fronting to hide C2 traffic
 

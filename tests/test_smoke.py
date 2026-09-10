@@ -90,9 +90,7 @@ def test_state_builder_alignment(sample_host, sample_env_host):
     from rl_engine.features import build_host_features
 
     assert state[:FEATURES_PER_HOST] == build_host_features(sample_host)
-    assert state[FEATURES_PER_HOST : 2 * FEATURES_PER_HOST] == build_host_features(
-        sample_env_host
-    )
+    assert state[FEATURES_PER_HOST : 2 * FEATURES_PER_HOST] == build_host_features(sample_env_host)
     # Slots 2-4 are zero-padded
     assert all(v == 0.0 for v in state[2 * FEATURES_PER_HOST :])
 

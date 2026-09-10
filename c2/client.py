@@ -28,7 +28,9 @@ class C2Client:
     Sends beacons and receives commands from C2 server
     """
 
-    def __init__(self, c2_server: str, c2_port: int, api_key: str = None, beacon_interval: int = 60):
+    def __init__(
+        self, c2_server: str, c2_port: int, api_key: str = None, beacon_interval: int = 60
+    ):
         self.c2_server = c2_server
         self.c2_port = c2_port
         self.api_key = api_key or os.getenv("WORMY_C2_API_KEY", "")

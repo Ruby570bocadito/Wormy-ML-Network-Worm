@@ -288,9 +288,7 @@ class PropagationAgent:
 
             current_q = self.q_network.predict(states, verbose=0)
             for i in range(batch_size):
-                current_q[i][actions[i]] = rewards[i] + self.gamma * max_next_q[i] * (
-                    1 - dones[i]
-                )
+                current_q[i][actions[i]] = rewards[i] + self.gamma * max_next_q[i] * (1 - dones[i])
 
             history = self.q_network.fit(
                 states, current_q, sample_weight=weights, epochs=1, verbose=0

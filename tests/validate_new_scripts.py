@@ -1,4 +1,3 @@
-
 # --- pytest: this is a MANUAL lab/verification script, not an automated test ---
 # It touches live networks or runs its own harness. Run it explicitly.
 __test__ = False

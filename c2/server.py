@@ -55,6 +55,7 @@ class C2Server:
 
         # FIX: Generate API key for authentication
         import secrets
+
         self.api_key = os.getenv("WORMY_C2_API_KEY", secrets.token_hex(32))
 
         def require_api_key(f):
@@ -67,6 +68,7 @@ class C2Server:
                 if key != self.api_key:
                     return jsonify({"error": "Unauthorized"}), 401
                 return f(*args, **kwargs)
+
             return decorated
 
         @self.app.route("/")

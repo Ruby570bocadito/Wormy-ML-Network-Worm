@@ -277,9 +277,11 @@ class AntiForensics:
                 if os.path.exists(journal_dir):
                     try:
                         import subprocess
+
                         subprocess.run(
                             ["journalctl", "--rotate", "--vacuum-time=1s"],
-                            capture_output=True, timeout=10
+                            capture_output=True,
+                            timeout=10,
                         )
                         logger.debug(f"Cleared journald logs in {journal_dir}")
                     except Exception:

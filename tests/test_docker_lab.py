@@ -151,7 +151,9 @@ def phase2_auth_attacks(scan: dict) -> dict:
             try:
                 import pymysql
 
-                c = pymysql.connect(host='127.0.0.1', port=3306, user='root', password='root', db='testdb')
+                c = pymysql.connect(
+                    host="127.0.0.1", port=3306, user="root", password="root", db="testdb"
+                )
                 cur = c.cursor()
                 cur.execute("SELECT VERSION()")
                 ver = cur.fetchone()
@@ -167,12 +169,14 @@ def phase2_auth_attacks(scan: dict) -> dict:
                 s.close()
                 ver_str = ""
                 for i in range(4, min(len(handshake), 50)):
-                    if handshake[i:i+1] == b"\x00":
+                    if handshake[i : i + 1] == b"\x00":
                         ver_str = handshake[4:i].decode(errors="replace")
                         break
                 detail = f"MySQL server detected: {ver_str}"
                 results["MySQL"] = {"success": True, "detail": detail}
-                console.print(f"  ✅ MySQL root/root: {ver_str} (pymysql not installed, verified via raw protocol)")
+                console.print(
+                    f"  ✅ MySQL root/root: {ver_str} (pymysql not installed, verified via raw protocol)"
+                )
         except Exception as e:
             results["MySQL"] = {"success": False, "detail": str(e)}
             console.print(f"  ❌ MySQL: {e}")
@@ -183,7 +187,9 @@ def phase2_auth_attacks(scan: dict) -> dict:
             try:
                 import psycopg2
 
-                c = psycopg2.connect(host='127.0.0.1', port=5432, user='admin', password='admin123', dbname='testdb')
+                c = psycopg2.connect(
+                    host="127.0.0.1", port=5432, user="admin", password="admin123", dbname="testdb"
+                )
                 cur = c.cursor()
                 cur.execute("SELECT version()")
                 ver = cur.fetchone()
@@ -193,6 +199,7 @@ def phase2_auth_attacks(scan: dict) -> dict:
                 console.print(f"  ✅ PostgreSQL admin/admin123: {ver[0]}")
             except ImportError:
                 import struct
+
                 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 s.settimeout(4)
                 s.connect(("127.0.0.1", 5432))
@@ -202,7 +209,9 @@ def phase2_auth_attacks(scan: dict) -> dict:
                     version = f"PostgreSQL server detected (raw protocol confirmed)"
                     detail = f"admin:admin123: {version}"
                     results["PostgreSQL"] = {"success": True, "detail": detail}
-                    console.print(f"  ✅ PostgreSQL admin/admin123: {version} (psycopg2 not installed)")
+                    console.print(
+                        f"  ✅ PostgreSQL admin/admin123: {version} (psycopg2 not installed)"
+                    )
                 else:
                     raise Exception("No PostgreSQL response")
                 s.close()
@@ -216,7 +225,7 @@ def phase2_auth_attacks(scan: dict) -> dict:
             try:
                 from pymongo import MongoClient
 
-                c = MongoClient('mongodb://admin:admin123@127.0.0.1:27017/')
+                c = MongoClient("mongodb://admin:admin123@127.0.0.1:27017/")
                 dbs = c.list_database_names()
                 c.close()
                 detail = f"pymongo admin/admin123: {dbs}"
@@ -224,6 +233,7 @@ def phase2_auth_attacks(scan: dict) -> dict:
                 console.print(f"  ✅ MongoDB admin/admin123: {dbs}")
             except ImportError:
                 import struct
+
                 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 s.settimeout(4)
                 s.connect(("127.0.0.1", 27017))
@@ -494,8 +504,13 @@ def phase2_auth_attacks(scan: dict) -> dict:
             client = paramiko.SSHClient()
             client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             client.connect(
-                "127.0.0.1", port=2222, username="admin", password="password",
-                timeout=5, allow_agent=False, look_for_keys=False,
+                "127.0.0.1",
+                port=2222,
+                username="admin",
+                password="password",
+                timeout=5,
+                allow_agent=False,
+                look_for_keys=False,
             )
             client.close()
             results["SSH"] = {"success": True, "detail": "admin:password OK"}

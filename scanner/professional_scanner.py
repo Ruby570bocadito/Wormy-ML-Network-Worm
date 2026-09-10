@@ -223,7 +223,7 @@ class ProfessionalScanner:
         self.service_detector = ServiceDetector()
 
         # Common ports by category
-        self.    port_categories = {
+        self.port_categories = {
             "essential": [22, 80, 443],
             "windows": [135, 139, 445, 3389, 5985, 5986],
             "linux": [22, 631, 2049, 111],

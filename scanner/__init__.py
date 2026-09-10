@@ -632,14 +632,18 @@ class HostClassifier:
                         raw_data = f.read()
                     with open(sig_path, "rb") as sf:
                         expected_sig = sf.read().strip()
-                    computed_sig = hmac.new(
-                        b"wormy_model_integrity_key", raw_data, hashlib.sha256
-                    ).hexdigest().encode()
+                    computed_sig = (
+                        hmac.new(b"wormy_model_integrity_key", raw_data, hashlib.sha256)
+                        .hexdigest()
+                        .encode()
+                    )
                     if not hmac.compare_digest(computed_sig, expected_sig):
                         raise ValueError("Model integrity check failed — possible tampering")
                     self.model = pickle.loads(raw_data)
                 else:
-                    logger.warning(f"No signature for {self.model_path}, loading without verification")
+                    logger.warning(
+                        f"No signature for {self.model_path}, loading without verification"
+                    )
                     with open(self.model_path, "rb") as f:
                         self.model = pickle.load(f)
                 if not hasattr(self.model, "predict"):
@@ -659,9 +663,7 @@ class HostClassifier:
                 sig_path = self.model_path + ".sig"
                 with open(self.model_path, "rb") as f:
                     raw_data = f.read()
-                sig = hmac.new(
-                    b"wormy_model_integrity_key", raw_data, hashlib.sha256
-                ).hexdigest()
+                sig = hmac.new(b"wormy_model_integrity_key", raw_data, hashlib.sha256).hexdigest()
                 with open(sig_path, "wb") as sf:
                     sf.write(sig.encode())
 

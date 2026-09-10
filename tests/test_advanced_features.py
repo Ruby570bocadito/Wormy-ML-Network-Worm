@@ -273,9 +273,7 @@ def test_integration():
 
         print("✓ Exploit manager imported")
 
-
         print("✓ C2 components imported")
-
 
         print("✓ Post-exploitation modules imported")
 

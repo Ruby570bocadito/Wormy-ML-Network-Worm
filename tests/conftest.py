@@ -23,7 +23,7 @@ collect_ignore_glob = [
     "comprehensive_test_suite.py",
     "test_docker_lab.py",
     "test_installation.py",
-    "test_v2_modules.py",       # runs its harness (sys.exit) at import
+    "test_v2_modules.py",  # runs its harness (sys.exit) at import
     "test_enterprise_modules.py",
     "run_worm_vs_lab.py",
 ]

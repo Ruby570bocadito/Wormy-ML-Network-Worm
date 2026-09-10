@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List
 
 import yaml
+
 from utils.logger import logger
 
 
@@ -28,7 +29,28 @@ class NetworkConfig:
     scan_timeout: int = 5
     max_threads: int = 50
     ports_to_scan: List[int] = field(
-        default_factory=lambda: [21, 22, 23, 80, 135, 139, 443, 445, 3389, 5985, 2222, 8080, 8443, 6379, 5672, 27017, 5432, 3306, 1433, 9200]
+        default_factory=lambda: [
+            21,
+            22,
+            23,
+            80,
+            135,
+            139,
+            443,
+            445,
+            3389,
+            5985,
+            2222,
+            8080,
+            8443,
+            6379,
+            5672,
+            27017,
+            5432,
+            3306,
+            1433,
+            9200,
+        ]
     )
 
 
@@ -111,7 +133,12 @@ class SafetyConfig:
     auto_destruct_time: int = 0  # 0 = disabled, otherwise hours
     geofence_enabled: bool = True
     allowed_networks: List[str] = field(
-        default_factory=lambda: ["192.168.100.0/24", "192.168.0.0/16", "10.0.0.0/8", "172.16.0.0/12"]
+        default_factory=lambda: [
+            "192.168.100.0/24",
+            "192.168.0.0/16",
+            "10.0.0.0/8",
+            "172.16.0.0/12",
+        ]
     )
     max_runtime_hours: int = 24
     enable_logging: bool = True

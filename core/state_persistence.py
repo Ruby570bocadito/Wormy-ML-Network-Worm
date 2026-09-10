@@ -127,8 +127,7 @@ class StatePersistenceManager:
                         for ip, node in kg.nodes.items()
                     },
                     "edges": [
-                        {"from": e.source, "to": e.target, "type": e.edge_type}
-                        for e in kg.edges
+                        {"from": e.source, "to": e.target, "type": e.edge_type} for e in kg.edges
                     ],
                 }
 

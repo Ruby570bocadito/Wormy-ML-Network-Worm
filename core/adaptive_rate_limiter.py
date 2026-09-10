@@ -91,7 +91,7 @@ class AdaptiveRateLimiter:
                 delay *= self._stealth_multiplier()
 
             # Apply network risk multiplier
-            delay *= (1.0 + self._network_risk)
+            delay *= 1.0 + self._network_risk
 
             # Clamp to bounds
             delay = max(self.min_delay, min(delay, self.max_delay))
@@ -132,9 +132,7 @@ class AdaptiveRateLimiter:
             # Update average response time
             if response_time > 0:
                 n = state.action_count
-                state.avg_response_time = (
-                    (state.avg_response_time * (n - 1) + response_time) / n
-                )
+                state.avg_response_time = (state.avg_response_time * (n - 1) + response_time) / n
 
             # Track global actions
             self._global_action_times.append(now)
@@ -184,12 +182,8 @@ class AdaptiveRateLimiter:
         with self._lock:
             total_actions = sum(s.action_count for s in self._targets.values())
             total_failures = sum(s.failure_count for s in self._targets.values())
-            locked_out = sum(
-                1 for s in self._targets.values() if s.lockout_until > time.time()
-            )
-            high_risk = sum(
-                1 for s in self._targets.values() if s.detection_risk > 0.7
-            )
+            locked_out = sum(1 for s in self._targets.values() if s.lockout_until > time.time())
+            high_risk = sum(1 for s in self._targets.values() if s.detection_risk > 0.7)
 
             return {
                 "total_targets": len(self._targets),
@@ -268,9 +262,7 @@ class AdaptiveRateLimiter:
     def _cleanup_global_times(self) -> None:
         """Remove action times older than 1 minute"""
         cutoff = time.time() - 60.0
-        self._global_action_times = [
-            t for t in self._global_action_times if t > cutoff
-        ]
+        self._global_action_times = [t for t in self._global_action_times if t > cutoff]
 
     def _get_current_apm(self) -> float:
         """Get current actions per minute"""

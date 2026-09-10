@@ -75,14 +75,18 @@ class EvasionModel:
                             raw_data = f.read()
                         with open(sig_path, "rb") as sf:
                             expected_sig = sf.read().strip()
-                        computed_sig = hmac.new(
-                            b"wormy_model_integrity_key", raw_data, hashlib.sha256
-                        ).hexdigest().encode()
+                        computed_sig = (
+                            hmac.new(b"wormy_model_integrity_key", raw_data, hashlib.sha256)
+                            .hexdigest()
+                            .encode()
+                        )
                         if not hmac.compare_digest(computed_sig, expected_sig):
                             raise ValueError("Model integrity check failed — possible tampering")
                         self.model = pickle.loads(raw_data)
                     else:
-                        logger.warning(f"No signature file for {self.model_path}, loading without verification")
+                        logger.warning(
+                            f"No signature file for {self.model_path}, loading without verification"
+                        )
                         with open(self.model_path, "rb") as f:
                             self.model = pickle.load(f)
                     if not hasattr(self.model, "predict"):
@@ -106,7 +110,16 @@ class EvasionModel:
         X = np.random.rand(n, len(FEATURE_NAMES))
 
         # FIX: Make binary features actually binary (0 or 1)
-        binary_indices = [4, 5, 6, 7, 8, 9, 10, 11]  # is_windows, is_linux, is_dc, has_edr, has_ids, has_av, is_honeypot, is_work_hours
+        binary_indices = [
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+        ]  # is_windows, is_linux, is_dc, has_edr, has_ids, has_av, is_honeypot, is_work_hours
         for idx in binary_indices:
             if idx < X.shape[1]:
                 X[:, idx] = np.random.randint(0, 2, size=n).astype(float)
@@ -115,23 +128,23 @@ class EvasionModel:
         for i in range(n):
             # FIX: Use realistic feature weights for risk calculation
             risk = (
-                X[i, 0] * 0.1 +  # scan_rate
-                (1.0 - X[i, 1]) * 0.15 +  # stealth_delay (low = risky)
-                X[i, 2] * 0.05 +  # ports_scanned
-                X[i, 3] * 0.1 +  # targets_parallel
-                X[i, 4] * 0.1 +  # is_windows_target
-                X[i, 5] * 0.05 +  # is_linux_target
-                X[i, 6] * 0.15 +  # is_dc_target
-                X[i, 7] * 0.2 +  # has_edr
-                X[i, 8] * 0.15 +  # has_ids
-                X[i, 9] * 0.2 +  # is_honeypot
-                X[i, 10] * 0.05 +  # hour_of_day
-                X[i, 11] * 0.1 +  # is_work_hours
-                X[i, 12] * 0.05 +  # day_of_week
-                (1.0 - X[i, 13]) * 0.1 +  # success_rate_last_10 (low = risky)
-                (1.0 - X[i, 14]) * 0.1 +  # polymorphic_level (low = risky)
-                X[i, 15] * 0.05 +  # protocol_count
-                (1.0 - X[i, 16]) * 0.1  # credential_age_hours (low = risky)
+                X[i, 0] * 0.1  # scan_rate
+                + (1.0 - X[i, 1]) * 0.15  # stealth_delay (low = risky)
+                + X[i, 2] * 0.05  # ports_scanned
+                + X[i, 3] * 0.1  # targets_parallel
+                + X[i, 4] * 0.1  # is_windows_target
+                + X[i, 5] * 0.05  # is_linux_target
+                + X[i, 6] * 0.15  # is_dc_target
+                + X[i, 7] * 0.2  # has_edr
+                + X[i, 8] * 0.15  # has_ids
+                + X[i, 9] * 0.2  # is_honeypot
+                + X[i, 10] * 0.05  # hour_of_day
+                + X[i, 11] * 0.1  # is_work_hours
+                + X[i, 12] * 0.05  # day_of_week
+                + (1.0 - X[i, 13]) * 0.1  # success_rate_last_10 (low = risky)
+                + (1.0 - X[i, 14]) * 0.1  # polymorphic_level (low = risky)
+                + X[i, 15] * 0.05  # protocol_count
+                + (1.0 - X[i, 16]) * 0.1  # credential_age_hours (low = risky)
             )
             noise = np.random.rand() * 0.15
             if risk + noise > 0.75:
@@ -152,9 +165,7 @@ class EvasionModel:
             sig_path = self.model_path + ".sig"
             with open(self.model_path, "rb") as f:
                 raw_data = f.read()
-            sig = hmac.new(
-                b"wormy_model_integrity_key", raw_data, hashlib.sha256
-            ).hexdigest()
+            sig = hmac.new(b"wormy_model_integrity_key", raw_data, hashlib.sha256).hexdigest()
             with open(sig_path, "wb") as sf:
                 sf.write(sig.encode())
         return model

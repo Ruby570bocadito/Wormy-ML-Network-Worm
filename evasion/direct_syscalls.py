@@ -22,6 +22,7 @@ if _IS_WINDOWS:
 else:
     # Create dummy module to prevent AttributeError
     import types
+
     ctypes = types.SimpleNamespace()
     ctypes.wintypes = types.SimpleNamespace()
     mmap = types.SimpleNamespace()

