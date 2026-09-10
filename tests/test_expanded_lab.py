@@ -364,7 +364,7 @@ def test_kubernetes(target):
             with urllib.request.urlopen(f"https://{target['ip']}:{target['port']}/api", context=ctx, timeout=3) as resp:
                 if resp.status == 200:
                     return True, "K8s API accessible (unauthenticated)"
-        except:
+        except Exception:
             pass
         # If unauthenticated access fails, check if API is at least responding
         try:
@@ -388,7 +388,7 @@ def test_gitlab(target):
             with urllib.request.urlopen(f"http://{target['ip']}:{target['port']}/api/v4/version", timeout=3) as resp:
                 data = json.loads(resp.read())
                 return True, f"GitLab {data.get('version','?')}"
-        except:
+        except Exception:
             pass
         # Try with root password via session
         try:
@@ -398,7 +398,7 @@ def test_gitlab(target):
                 resp_data = json.loads(resp.read())
                 if 'private_token' in resp_data:
                     return True, f"GitLab authenticated (token: {resp_data['private_token'][:8]}...)"
-        except:
+        except Exception:
             pass
         # Check if GitLab web interface is accessible
         req = urllib.request.Request(f"http://{target['ip']}:{target['port']}/")
