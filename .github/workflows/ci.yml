@@ -93,6 +93,7 @@ jobs:
           tests/test_integration_e2e.py tests/test_integration.py
           tests/test_new_modules.py tests/test_persistence.py
           tests/test_c2_modules.py tests/test_cli.py
+          tests/test_training_cli.py
           --tb=short -v --cov=worm_core --cov=configs --cov=scanner --cov=utils
           --cov=rl_engine
           --cov-report=term --cov-report=xml --cov-fail-under=30

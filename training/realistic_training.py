@@ -16,12 +16,12 @@ Trains the RL agent on realistic network scenarios with:
 """
 
 
+import argparse
 import json
 import os
 import sys
 import time
-from datetime import datetime
-from typing import Dict, List
+from datetime import datetime, timezone
 
 import numpy as np
 
@@ -91,7 +91,7 @@ class RealisticTrainer:
         self.is_trained = False
 
     @staticmethod
-    def _fit_hosts_to_geometry(hosts: List[Dict], target: int) -> List[Dict]:
+    def _fit_hosts_to_geometry(hosts: list[dict], target: int) -> list[dict]:
         """Pad or trim a scenario to exactly `target` hosts.
 
         The DQN has a fixed action space (one action per host slot), so every
@@ -120,11 +120,11 @@ class RealisticTrainer:
 
     def train(
         self,
-        scenarios: List[str] = None,
-        total_episodes: int = None,
+        scenarios: list[str] | None = None,
+        total_episodes: int | None = None,
         early_stop_patience: int = 200,
         checkpoint_interval: int = 100,
-    ) -> Dict:
+    ) -> dict:
         """
         Train the RL agent on realistic scenarios
 
@@ -155,7 +155,7 @@ class RealisticTrainer:
             try:
                 self.agent.load(self.best_model_path)
                 logger.info(f"Loaded existing model from {self.best_model_path}")
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - resilience over strictness on load
                 logger.warning(f"Failed to load existing model: {e}")
 
         logger.info("=" * 60)
@@ -261,7 +261,7 @@ class RealisticTrainer:
                     # Save best model
                     try:
                         self.agent.save(self.best_model_path)
-                    except Exception as e:
+                    except Exception as e:  # noqa: BLE001 — checkpoint save is best-effort
                         logger.debug(f"Failed to save best model: {e}")
                 else:
                     no_improve_count += 1
@@ -290,7 +290,7 @@ class RealisticTrainer:
                     ckpt_path = os.path.join(self.save_dir, f"checkpoint_{total_episodes_run}.h5")
                     try:
                         self.agent.save(ckpt_path)
-                    except Exception as e:
+                    except Exception as e:  # noqa: BLE001 — checkpoint save is best-effort
                         logger.debug(f"Failed to save checkpoint: {e}")
 
                 # Progress logging
@@ -308,7 +308,7 @@ class RealisticTrainer:
         # Save final model
         try:
             self.agent.save(self.final_model_path)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — final save is best-effort
             logger.warning(f"Failed to save final model: {e}")
 
         # Save training metadata
@@ -319,7 +319,7 @@ class RealisticTrainer:
             "final_epsilon": float(self.agent.epsilon),
             "scenarios_trained": scenarios,
             "elapsed_seconds": elapsed,
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "history_summary": {
                 "avg_reward_last_100": (
                     float(np.mean(self.training_history["rewards"][-100:]))
@@ -353,7 +353,7 @@ class RealisticTrainer:
 
         return metadata
 
-    def load_model(self, path: str = None) -> bool:
+    def load_model(self, path: str | None = None) -> bool:
         """Load a trained model"""
         if path is None:
             path = self.best_model_path
@@ -365,8 +365,6 @@ class RealisticTrainer:
         try:
             # Determine state/action size from metadata
             if os.path.exists(self.metadata_path):
-                with open(self.metadata_path) as f:
-                    meta = json.load(f)
                 # We need to infer sizes - use defaults
                 state_size = 300
                 action_size = 50
@@ -380,7 +378,7 @@ class RealisticTrainer:
             self.is_trained = True
             logger.info(f"Model loaded from {path}")
             return True
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — load failures must not crash callers
             logger.error(f"Failed to load model: {e}")
             return False
 
@@ -388,7 +386,7 @@ class RealisticTrainer:
         """Check if training is needed (no model exists)"""
         return not os.path.exists(self.best_model_path)
 
-    def get_training_status(self) -> Dict:
+    def get_training_status(self) -> dict:
         """Get training status"""
         if os.path.exists(self.metadata_path):
             with open(self.metadata_path) as f:
@@ -429,7 +427,7 @@ def auto_train_if_needed(save_dir: str = "saved/rl_agent") -> bool:
     )
     logger.info("Training may take several minutes...")
 
-    metadata = trainer.train(
+    trainer.train(
         early_stop_patience=300,
         checkpoint_interval=100,
     )
@@ -437,9 +435,8 @@ def auto_train_if_needed(save_dir: str = "saved/rl_agent") -> bool:
     return True
 
 
-if __name__ == "__main__":
-    import argparse
-
+def main_cli() -> None:
+    """CLI entry point (kept thin so tests can exercise the wiring)."""
     parser = argparse.ArgumentParser(description="Realistic RL Training")
     parser.add_argument(
         "--scenarios",
@@ -478,4 +475,26 @@ if __name__ == "__main__":
             print(f"  Trained at: {status['timestamp']}")
         sys.exit(0)
 
+    # Explicit CLI requests train directly. Previously --episodes,
+    # --scenarios and --early-stop were parsed but silently ignored
+    # (auto_train_if_needed always ran the full default curriculum).
+    if args.episodes is not None or args.scenarios is not None:
+        trainer = RealisticTrainer(args.save_dir)
+        trainer.train(
+            scenarios=args.scenarios,
+            total_episodes=args.episodes,
+            early_stop_patience=args.early_stop,
+            checkpoint_interval=100,
+        )
+        status = trainer.get_training_status()
+        print(
+            f"Done. episodes={status['total_episodes']} "
+            f"best_reward={status['best_reward']:.2f} -> {args.save_dir}"
+        )
+        sys.exit(0)
+
     auto_train_if_needed(args.save_dir)
+
+
+if __name__ == "__main__":
+    main_cli()
