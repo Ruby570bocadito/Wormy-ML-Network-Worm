@@ -14,7 +14,6 @@ import logging
 import os
 import sys
 import threading
-from typing import Dict
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -32,6 +31,9 @@ except ImportError:
     FLASK_AVAILABLE = False
 
 
+DEFAULT_HOST = os.environ.get("WORMY_ARMITAGE_HOST", "127.0.0.1")  # control plane stays local
+
+
 class ArmitageDashboard:
     """
     Armitage-style Dashboard
@@ -46,10 +48,10 @@ class ArmitageDashboard:
     - Simple, clean interface
     """
 
-    def __init__(self, worm_core=None, trainer=None, host: str = "0.0.0.0", port: int = 5001):
+    def __init__(self, worm_core=None, trainer=None, host: str = None, port: int = 5001):
         self.worm = worm_core
         self.trainer = trainer
-        self.host = host
+        self.host = host or DEFAULT_HOST
         self.port = port
         self._thread = None
 
@@ -59,7 +61,7 @@ class ArmitageDashboard:
 
         self.app = Flask(__name__)
         self._setup_routes()
-        logger.info(f"Armitage Dashboard initialized on {host}:{port}")
+        logger.info(f"Armitage Dashboard initialized on {self.host}:{port}")
 
     def _setup_routes(self):
         @self.app.route("/")
@@ -116,7 +118,7 @@ class ArmitageDashboard:
                 threading.Thread(target=self.worm.scan_network, daemon=True).start()
             return jsonify({"status": "scanning"})
 
-    def _get_map_data(self) -> Dict:
+    def _get_map_data(self) -> dict:
         hosts = []
         if self.worm:
             for host in self.worm.scan_results:
@@ -185,7 +187,7 @@ class ArmitageDashboard:
 
         return {"hosts": hosts, "edges": edges, "stats": stats}
 
-    def _get_training_data(self) -> Dict:
+    def _get_training_data(self) -> dict:
         if not self.trainer:
             return {"available": False}
 

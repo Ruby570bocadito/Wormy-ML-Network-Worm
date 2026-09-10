@@ -27,7 +27,6 @@ import platform
 import shutil
 import subprocess
 import sys
-from typing import List, Optional
 
 from rich.console import Console
 from rich.panel import Panel
@@ -63,13 +62,13 @@ examples:
 # ─────────────────────────── helpers ────────────────────────────
 
 
-def _find_repo_root() -> Optional[str]:
+def _find_repo_root() -> str | None:
     """Locate the project root (where the compose files live).
 
     Resolution order: $WORMY_LAB_DIR → cwd → parent of the package
     (source checkout). Returns None when nothing matches.
     """
-    candidates: List[str] = []
+    candidates: list[str] = []
     env = os.environ.get("WORMY_LAB_DIR")
     if env:
         candidates.append(env)
@@ -81,7 +80,7 @@ def _find_repo_root() -> Optional[str]:
     return None
 
 
-def _validate_targets(targets: List[str]) -> Optional[str]:
+def _validate_targets(targets: list[str]) -> str | None:
     """Return an error string when any target is not a valid CIDR/IP."""
     import ipaddress
 
@@ -93,7 +92,7 @@ def _validate_targets(targets: List[str]) -> Optional[str]:
     return None
 
 
-def _apply_target_override(worm, targets: List[str]) -> None:
+def _apply_target_override(worm, targets: list[str]) -> None:
     worm.config.network.target_ranges = list(targets)
     from .module_imports import logger
 
@@ -152,20 +151,20 @@ def cmd_run(args) -> int:
 
     from . import WormCore  # heavy import kept lazy for fast CLI startup
 
+    if args.target:
+        err = _validate_targets(args.target)
+        if err:
+            err_console.print(f"[red]{err}[/]")
+            return EXIT_USAGE
+
     worm = WormCore(
         config_file=args.config,
         use_cli_monitor=not args.no_monitor and not args.interactive,
         profile=args.profile,
         dry_run=args.dry_run,
         interactive=args.interactive,
+        target_ranges=args.target,
     )
-
-    if args.target:
-        err = _validate_targets(args.target)
-        if err:
-            err_console.print(f"[red]{err}[/]")
-            return EXIT_USAGE
-        _apply_target_override(worm, args.target)
 
     if args.no_geofence:
         worm.config.safety.geofence_enabled = False
@@ -273,7 +272,7 @@ def _lab_compose(root: str, expanded: bool = False) -> str:
     return os.path.join(root, EXPANDED_COMPOSE_FILE if expanded else LAB_COMPOSE_FILE)
 
 
-def _docker(args: List[str], root: str, expanded: bool = False) -> int:
+def _docker(args: list[str], root: str, expanded: bool = False) -> int:
     compose = _lab_compose(root, expanded)
     if not shutil.which("docker"):
         err_console.print("[red]docker CLI not found.[/] Install Docker and retry.")
@@ -380,7 +379,7 @@ def cmd_train(args) -> int:
 
 
 def cmd_doctor(args) -> int:
-    checks: List[tuple] = []  # (critical, name, ok, detail, hint)
+    checks: list[tuple] = []  # (critical, name, ok, detail, hint)
 
     # Python version
     ok = sys.version_info >= (3, 10)
@@ -739,7 +738,7 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main(argv: Optional[List[str]] = None) -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     if getattr(args, "func", None) is None:

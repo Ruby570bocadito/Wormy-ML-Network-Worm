@@ -109,6 +109,7 @@ class WormCoreBase:
         profile: str = None,
         dry_run: bool = False,
         interactive: bool = False,
+        target_ranges: list = None,
     ):
         self.dry_run = dry_run
         self.interactive = interactive
@@ -117,6 +118,10 @@ class WormCoreBase:
             logger.info("[DRY RUN] No real exploits will be executed")
 
         self.config = Config(config_file) if config_file else Config()
+        if target_ranges:
+            # CLI override lands BEFORE the startup banner so the printed
+            # ranges always match what will actually be scanned.
+            self.config.network.target_ranges = list(target_ranges)
 
         if profile and profile in CONFIG_PROFILES:
             self._apply_profile(profile)
@@ -258,11 +263,9 @@ class WormCoreBase:
                 trainer = RealisticTrainer(self.config.ml.rl_agent_path.replace(".h5", ""))
             except Exception:
                 pass
-            self.armitage_dashboard = ArmitageDashboard(
-                worm_core=self, trainer=trainer, host="0.0.0.0", port=5001
-            )
+            self.armitage_dashboard = ArmitageDashboard(worm_core=self, trainer=trainer, port=5001)
             self._stoppable_components.append(self.armitage_dashboard)
-            logger.info("Armitage Dashboard: enabled (http://0.0.0.0:5001)")
+            logger.info(f"Armitage Dashboard: enabled (http://{self.armitage_dashboard.host}:5001)")
         except Exception as e:
             logger.warning(f"Armitage Dashboard failed to initialize: {e}")
 

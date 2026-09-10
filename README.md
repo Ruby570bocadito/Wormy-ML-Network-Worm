@@ -71,6 +71,9 @@ wormy run --dry-run --target 127.0.0.0/24
 
 # 4) Watch it think in the interactive REPL
 wormy shell --dry-run
+
+# or the 10-second version, no lab needed:
+make demo
 ```
 
 Live mode (authorized engagements only):
@@ -250,6 +253,7 @@ packaging verification. Integration tests that need the Docker lab are marked
 
 | Doc | Contents |
 |---|---|
+| [docs/DEMO.md](docs/DEMO.md) | safe end-to-end demo walkthrough (`make demo`) |
 | [docs/USAGE.md](docs/USAGE.md) | every command and flag, walkthroughs, recipes |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | components, data flow, RL internals, feature contract |
 | [docs/SAFETY.md](docs/SAFETY.md) | safety controls, threat model, authorization model |
