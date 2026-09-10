@@ -1,3 +1,15 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Wormy Lab — 15 vulnerable services on an isolated 192.168.100.0/24 network
+#
+# SAFETY: every host-side port is bound to 127.0.0.1, so none of these weak-
+# credential services are reachable from your LAN. The worm reaches targets
+# through the internal Docker network (docker compose exec / test-runner),
+# never through these bindings.
+#
+# Start:  docker compose -f docker-compose-lab.yml up -d
+# Verify: docker compose -f docker-compose-lab.yml ps
+# Stop:   docker compose -f docker-compose-lab.yml down
+# ─────────────────────────────────────────────────────────────────────────────
 services:
   # ── DATABASE SERVICES ────────────────────────────────────────────────────
   redis:
@@ -7,8 +19,13 @@ services:
       lab_network:
         ipv4_address: 192.168.100.10
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     command: redis-server --requirepass "redis123" --protected-mode no
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "redis123", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
 
   redis-noauth:
     image: redis:7-alpine
@@ -17,8 +34,13 @@ services:
       lab_network:
         ipv4_address: 192.168.100.11
     ports:
-      - "6380:6379"
+      - "127.0.0.1:6380:6379"
     command: redis-server --protected-mode no
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
 
   mysql:
     image: mysql:5.7
@@ -27,10 +49,15 @@ services:
       lab_network:
         ipv4_address: 192.168.100.12
     ports:
-      - "3306:3306"
+      - "127.0.0.1:3306:3306"
     environment:
       MYSQL_ROOT_PASSWORD: "root"
       MYSQL_DATABASE: "testdb"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-proot"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   postgresql:
     image: postgres:14
@@ -39,11 +66,16 @@ services:
       lab_network:
         ipv4_address: 192.168.100.13
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     environment:
       POSTGRES_USER: "admin"
       POSTGRES_PASSWORD: "admin123"
       POSTGRES_DB: "testdb"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   mongodb:
     image: mongo:6
@@ -52,10 +84,15 @@ services:
       lab_network:
         ipv4_address: 192.168.100.14
     ports:
-      - "27017:27017"
+      - "127.0.0.1:27017:27017"
     environment:
       MONGO_INITDB_ROOT_USERNAME: "admin"
       MONGO_INITDB_ROOT_PASSWORD: "admin123"
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
 
   mssql:
     image: mcr.microsoft.com/mssql/server:2019-latest
@@ -64,12 +101,12 @@ services:
       lab_network:
         ipv4_address: 192.168.100.15
     ports:
-      - "1433:1433"
+      - "127.0.0.1:1433:1433"
     environment:
       ACCEPT_EULA: "Y"
       SA_PASSWORD: "SqlPassword123!"
 
-  # ── MESSAGING ─────────────────────────────────────────────────────────────
+  # ── MESSAGING ────────────────────────────────────────────────────────────
   rabbitmq:
     image: rabbitmq:3-management
     container_name: lab_rabbitmq
@@ -77,8 +114,8 @@ services:
       lab_network:
         ipv4_address: 192.168.100.20
     ports:
-      - "5672:5672"
-      - "15672:15672"
+      - "127.0.0.1:5672:5672"
+      - "127.0.0.1:15672:15672"
 
   # ── HTTP SERVICES (Tomcat + CI + Web Apps) ───────────────────────────────
   tomcat:
@@ -88,7 +125,7 @@ services:
       lab_network:
         ipv4_address: 192.168.100.31
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     environment:
       TOMCAT_USERNAME: "admin"
       TOMCAT_PASSWORD: "admin"
@@ -101,7 +138,7 @@ services:
       lab_network:
         ipv4_address: 192.168.100.32
     ports:
-      - "8081:8080"
+      - "127.0.0.1:8081:8080"
 
   dvwa:
     image: vulnerables/web-dvwa:latest
@@ -110,7 +147,7 @@ services:
       lab_network:
         ipv4_address: 192.168.100.40
     ports:
-      - "8082:80"
+      - "127.0.0.1:8082:80"
 
   juice-shop:
     image: bkimminich/juice-shop:latest
@@ -119,7 +156,7 @@ services:
       lab_network:
         ipv4_address: 192.168.100.50
     ports:
-      - "8083:3000"
+      - "127.0.0.1:8083:3000"
 
   elasticsearch:
     image: elasticsearch:7.17.0
@@ -128,7 +165,7 @@ services:
       lab_network:
         ipv4_address: 192.168.100.60
     ports:
-      - "9200:9200"
+      - "127.0.0.1:9200:9200"
     environment:
       discovery.type: single-node
       xpack.security.enabled: "false"
@@ -142,8 +179,8 @@ services:
       lab_network:
         ipv4_address: 192.168.100.70
     ports:
-      - "21:21"
-      - "30000-30009:30000-30009"
+      - "127.0.0.1:21:21"
+      - "127.0.0.1:30000-30009:30000-30009"
     environment:
       FTP_USER_NAME: "ftpuser"
       FTP_USER_PASS: "ftpuser"
@@ -157,10 +194,13 @@ services:
       lab_network:
         ipv4_address: 192.168.100.71
     ports:
-      - "2222:2222"
+      - "127.0.0.1:2222:2222"
     environment:
       PUID: "1000"
       PGID: "1000"
+      # REQUIRED: without PASSWORD_ACCESS=true the image only accepts pubkey
+      # auth and the documented admin/password target does not exist.
+      PASSWORD_ACCESS: "true"
       USER_PASSWORD: "password"
       USER_NAME: "admin"
       SUDO_ACCESS: "true"
@@ -172,7 +212,7 @@ services:
       lab_network:
         ipv4_address: 192.168.100.72
     ports:
-      - "8023:23"
+      - "127.0.0.1:8023:23"
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
@@ -186,12 +226,12 @@ services:
       lab_network:
         ipv4_address: 192.168.100.73
     ports:
-      - "161:161/udp"
+      - "127.0.0.1:161:161/udp"
     environment:
       SNMP_COMMUNITY: "public"
       SNMP_LOCATION: "Wormy Lab DC"
 
-  # ── METASPLOITABLE (multi-service legacy target) ──────────────────────────
+  # ── METASPLOITABLE (multi-service legacy target) ─────────────────────────
   metasploitable:
     image: tleemcjr/metasploitable2:latest
     container_name: lab_metasploitable
@@ -199,15 +239,15 @@ services:
       lab_network:
         ipv4_address: 192.168.100.100
     ports:
-      - "2323:23"
-      - "2121:21"
-      - "2223:22"
-      - "8084:80"
-      - "33061:3306"
-      - "54321:5432"
-      - "5900:5900"
-      - "6667:6667"
-      - "8180:8180"
+      - "127.0.0.1:2323:23"
+      - "127.0.0.1:2121:21"
+      - "127.0.0.1:2223:22"
+      - "127.0.0.1:8084:80"
+      - "127.0.0.1:33061:3306"
+      - "127.0.0.1:54321:5432"
+      - "127.0.0.1:5900:5900"
+      - "127.0.0.1:6667:6667"
+      - "127.0.0.1:8180:8180"
 
 networks:
   lab_network:

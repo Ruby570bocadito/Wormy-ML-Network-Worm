@@ -279,7 +279,7 @@ services:
       lab_network:
         ipv4_address: 192.168.100.80
     ports:
-      - "2375:2375"
+      - "127.0.0.1:2375:2375"
     command: sh -c "apk add --no-cache socat && socat TCP-LISTEN:2375,fork UNIX-CONNECT:/var/run/docker.sock"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
@@ -341,7 +341,7 @@ services:
       - "8084:80"
       - "33061:3306"
       - "54321:5432"
-      - "5901:5900"
+      - "5902:5900"
       - "6667:6667"
       - "8180:8180"
     tty: true

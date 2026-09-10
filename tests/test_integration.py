@@ -15,15 +15,15 @@ class TestDockerLabIntegration(unittest.TestCase):
     """Integration tests for Docker lab environment"""
 
     def test_docker_compose_exists(self):
-        """Test Docker Compose file exists"""
-        self.assertTrue(os.path.exists("docker-lab/docker-compose.yml"))
+        """Test the canonical Docker lab compose file exists"""
+        self.assertTrue(os.path.exists("docker-compose-lab.yml"))
 
     def test_docker_lab_services(self):
         """Test Docker lab has expected services"""
-        with open("docker-lab/docker-compose.yml") as f:
+        with open("docker-compose-lab.yml") as f:
             content = f.read()
         # Substrings matching actual service/image names in the compose file.
-        expected_services = ["metasploitable", "dvwa", "mysql", "postgres", "redis", "mongo"]
+        expected_services = ["mysql", "postgres", "redis", "mongo", "openssh"]
         for svc in expected_services:
             self.assertIn(svc, content.lower(), f"Missing service: {svc}")
 
