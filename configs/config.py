@@ -145,8 +145,15 @@ class Config:
         self.safety = SafetyConfig()
         self.metasploit = MetasploitConfig()
 
-        # Load from file if provided
-        if config_file and os.path.exists(config_file):
+        # Load from file if provided. FAIL HARD if the user passed --config
+        # and the file does not exist: silently running with defaults made a
+        # typo fall back to targeting the default lab range.
+        if config_file:
+            if not os.path.exists(config_file):
+                raise FileNotFoundError(
+                    f"Config file not found: {config_file}. "
+                    "Refusing to continue with default configuration."
+                )
             self.load_from_file(config_file, profile)
 
         # Override Metasploit password from env var

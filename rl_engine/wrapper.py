@@ -25,9 +25,11 @@ class RealWorldPropagationAgent:
         self.infected_hosts = set()
         self.failed_hosts: set = set()
 
-    def update_state(self, scan_results: List[Dict], infected_hosts: set):
+    def update_state(self, scan_results: List[Dict], infected_hosts: set, failed_hosts: set = None):
         self.scan_results = scan_results
         self.infected_hosts = infected_hosts
+        if failed_hosts is not None:
+            self.failed_hosts = failed_hosts
 
     def select_next_target(self, use_thompson: bool = False) -> Optional[Dict]:
         if not self.scan_results:

