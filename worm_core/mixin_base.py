@@ -101,6 +101,7 @@ from .module_imports import (
     WORM_FILE_PATH,
     logger,
 )
+from ._version import __version__
 from .standalone import get_local_ip
 
 
@@ -158,7 +159,7 @@ class WormCoreBase:
             self.cli_monitor.start_background(refresh_interval=1.5)
 
         logger.info("=" * 60)
-        logger.info("WORMY ML NETWORK WORM v4.2")
+        logger.info(f"WORMY ML NETWORK WORM v{__version__}")
         logger.info("=" * 60)
         if profile:
             logger.info(f"Profile: {profile}")

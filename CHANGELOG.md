@@ -1,5 +1,52 @@
 # Changelog
 
+## v4.3.0 (2026-09-10)
+
+The "professional surface" release: a real CLI, a redesigned dashboard,
+honest documentation — plus another round of correctness fixes.
+
+### Added
+- **Professional CLI** (`worm_core/cli.py`): `wormy` subcommands — `run`,
+  `scan`, `lab`, `train`, `doctor`, `shell`, `version` — with rich-formatted
+  help, `--json` machine-readable output, documented exit codes
+  (0/1/2/130) and lazy imports for fast startup
+- **Authorization gate**: live runs refuse to start without
+  `--yes-i-am-authorized` or `WORMY_AUTHORIZED=1` (exit 2 + red banner)
+- `wormy doctor`: environment health check (deps, torch/CUDA, docker,
+  config validity, RL feature geometry, writable dirs)
+- `wormy lab`: Docker lab lifecycle (`up/down/status/rebuild/urls`) with
+  service cheat-sheet; compose file resolved via `WORMY_LAB_DIR`
+- `lab_docker` profile (previously referenced by `run_lab.sh` but missing —
+  the profile was silently ignored)
+- Web dashboard **SVG network topology** (the topology API existed but was
+  never rendered) with lateral-movement edges
+- Web dashboard safety endpoints: `POST /api/stop` (cooperative stop) and
+  `POST /api/kill-switch` (code required)
+- Documentation set: `docs/ARCHITECTURE.md`, `docs/USAGE.md`,
+  `docs/SAFETY.md`, `docs/AUTOMATION.md` (English), rewritten `README.md`
+  and `docs/API.md`
+
+### Fixed
+- `wormy --interactive` was broken from a pip install: the REPL lived in a
+  root-level `cli.py` that setuptools never packaged → moved into the
+  package as `worm_core/shell.py`
+- `run_lab.sh` invoked the deleted `worm_core.py` shim → `python3 -m worm_core`
+- Web dashboard bound to `0.0.0.0` by default (control plane exposed to the
+  LAN) → `127.0.0.1` via `WORMY_DASHBOARD_HOST` override
+- `/api/command` was a fake stub that always answered `queued` → now
+  executes through the agent controller, disabled unless
+  `WORMY_DASHBOARD_COMMANDS=1` (HTTP 403 otherwise)
+- Dashboard API returned HTTP 500 when worm attributes were missing →
+  defensive providers degrade gracefully
+- Logs were written to stdout, polluting machine-readable output → stderr
+- Inconsistent version strings (banner "v4.0", logs "v4.2") → single
+  `worm_core/_version.py` source of truth
+
+### Changed
+- README rewritten: concise, badge-driven, honest, links to `docs/`
+- Chat-dump files removed (`FIXES_APPLIED.md`); Spanish `AUTOMATION.md`
+  translated and moved to `docs/AUTOMATION.md`
+
 ## v4.2.0 (2026-09-10)
 
 The "make it actually work and tell the truth" release. Full audit: every

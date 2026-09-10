@@ -1,23 +1,28 @@
-# Wormy ML Network Worm v3.0 - API Documentation
+# Web Dashboard REST API
 
-## REST API Endpoints
+The Flask web dashboard (`monitoring/web_dashboard.py`) serves both the UI and
+this JSON API.
 
-All endpoints are served by both the Armitage Dashboard (port 5001) and Web Dashboard (port 5000).
-
-### Base URLs
-- **Armitage Dashboard**: `http://localhost:5001`
-- **Web Dashboard**: `http://localhost:5000`
+- **Base URL**: `http://127.0.0.1:5000` (localhost by default; override with
+  `WORMY_DASHBOARD_HOST` if you really know what you are doing)
+- All read endpoints are **read-only**.
+- Safety endpoints (`/api/stop`, `/api/kill-switch`) are always available.
+- Command execution (`/api/command`) is **disabled** unless the dashboard was
+  started with `WORMY_DASHBOARD_COMMANDS=1`.
 
 ---
 
-### GET /api/status
+## Monitoring
 
-Returns current worm propagation status.
+### `GET /api/status`
 
-**Response:**
+Engine status snapshot.
+
 ```json
 {
+  "version": "4.3.0",
   "running": true,
+  "dry_run": true,
   "infected_hosts": 5,
   "failed_targets": 2,
   "total_discovered": 10,
@@ -28,184 +33,143 @@ Returns current worm propagation status.
   "credentials": 12,
   "c2_beacons": 25,
   "polymorphic_mutations": 50,
-  "start_time": "2024-04-04T14:00:00"
+  "start_time": "2026-09-10T14:22:31",
+  "targets": ["127.0.0.0/24"]
 }
 ```
 
----
+### `GET /api/hosts`
 
-### GET /api/hosts
+Per-host state from the host monitor. Empty list when the monitor is disabled.
 
-Returns list of all monitored hosts with detailed information.
-
-**Response:**
 ```json
 [
   {
-    "ip": "192.168.1.100",
-    "os": "Windows",
+    "ip": "10.0.0.5",
+    "os": "Linux",
     "status": "infected",
-    "health": 85.0,
-    "detection_risk": 15.0,
-    "cpu": 12.5,
-    "memory": 45.2,
-    "payload_variant": "v1",
-    "infected_at": "2024-04-04T14:05:00",
-    "last_beacon": "2024-04-04T14:30:00",
-    "activities": 15,
+    "health": 92.0,
+    "detection_risk": 14.0,
+    "cpu": 31.0,
+    "memory": 48.0,
+    "payload_variant": "beacon-v3",
+    "infected_at": "2026-09-10T14:24:02",
+    "last_beacon": "2026-09-10T14:30:11",
+    "activities": 22,
     "credentials_found": 3,
-    "lateral_movements": 2
+    "lateral_movements": 1
   }
 ]
 ```
 
----
+### `GET /api/vulnerabilities`
 
-### GET /api/activity?limit=50
+Flattened vulnerability findings across all scanned hosts.
 
-Returns activity feed with optional limit.
-
-**Query Parameters:**
-- `limit` (int, default: 50) - Number of activities to return
-
-**Response:**
 ```json
 [
   {
-    "timestamp": "2024-04-04T14:30:00",
-    "type": "infection",
-    "host_ip": "192.168.1.100",
-    "details": "Infected via SSH_BruteForce"
-  }
-]
-```
-
----
-
-### GET /api/vulnerabilities
-
-Returns all discovered vulnerabilities.
-
-**Response:**
-```json
-[
-  {
-    "host": "192.168.1.100",
-    "cve": "CVE-2017-0144",
-    "name": "EternalBlue",
+    "host": "10.0.0.5",
+    "cve": "CVE-2021-44228",
+    "name": "Apache Log4j RCE",
     "severity": "CRITICAL",
-    "cvss": 9.8,
-    "description": "SMBv1 remote code execution"
+    "cvss": 10.0,
+    "description": "Log4Shell JNDI lookup RCE"
   }
 ]
 ```
 
----
+### `GET /api/credentials`
 
-### GET /api/credentials
+Discovered credentials.
 
-Returns discovered credentials.
-
-**Response:**
 ```json
-[
-  {
-    "username": "admin",
-    "password": "P@ssw0rd",
-    "source": "discovered"
-  }
-]
+[{"username": "root", "password": "labpass123", "source": "discovered"}]
 ```
 
----
+### `GET /api/topology`
 
-### GET /api/topology
+Nodes (scanned hosts) and edges (lateral movements).
 
-Returns network topology data for visualization.
-
-**Response:**
 ```json
 {
   "nodes": [
-    {"id": "192.168.1.100", "label": "192.168.1.100", "status": "infected", "os": "Windows", "ports": [445, 3389]}
+    {"id": "10.0.0.5", "label": "10.0.0.5", "status": "infected",
+     "os": "Linux", "ports": [22, 8080]}
   ],
   "edges": [
-    {"from": "192.168.1.100", "to": "192.168.1.101", "label": "ssh_pivot", "success": true}
+    {"from": "10.0.0.5", "to": "10.0.0.6", "label": "ssh_reuse", "success": true}
   ]
 }
 ```
 
----
+### `GET /api/activity?limit=50`
 
-### GET /api/stats
+Activity feed, newest first. `limit` is clamped to `[1, 500]`.
 
-Returns full statistics including evasion and host monitor data.
+### `GET /api/stats`
 
-**Response:**
-```json
-{
-  "scans": 5,
-  "infections": 10,
-  "failed_exploits": 3,
-  "total_hosts_discovered": 25,
-  "host_monitor": {
-    "total_hosts": 10,
-    "infected": 8,
-    "dormant": 1,
-    "detected": 1,
-    "lost": 0
-  },
-  "evasion": {
-    "traffic_encrypted": 50,
-    "packets_fragmented": 25,
-    "signatures_avoided": 15,
-    "decoys_generated": 100,
-    "protocol_mimicked": 30,
-    "domain_fronted": 10,
-    "current_risk_level": 0.15
-  }
-}
-```
+Raw statistics dict (superset of `/api/status` counters), including host
+monitor and evasion subsystem statistics when available.
 
 ---
 
-### POST /api/command
+## Safety (always available)
 
-Send a command to an infected host.
+### `POST /api/stop`
 
-**Request Body:**
+Cooperative stop — the same `stop_event` the CLI uses. The engine finishes the
+current boundary and halts.
+
 ```json
-{
-  "host_ip": "192.168.1.100",
-  "command": "whoami"
-}
+{"ok": true, "status": "stop_requested"}
 ```
 
-**Response:**
+`503` when no engine is attached, `500` on failure.
+
+### `POST /api/kill-switch`
+
+Full kill switch. Requires the configured code.
+
 ```json
-{
-  "status": "queued",
-  "host": "192.168.1.100",
-  "command": "whoami"
-}
+{"code": "EMERGENCY_STOP_2024"}
 ```
+
+`400` when the code is missing, `400` on wrong code (error in payload).
 
 ---
 
-## Error Responses
+## Command execution (opt-in)
 
-All endpoints may return error responses:
+### `POST /api/command`
+
+Executes a command on a compromised host **through its registered agent**.
+Disabled unless `WORMY_DASHBOARD_COMMANDS=1` — otherwise:
 
 ```json
-{
-  "error": "WormCore not available"
-}
+{"ok": false, "error": "command execution is disabled; start the dashboard with WORMY_DASHBOARD_COMMANDS=1 to enable it"}
 ```
+
+(HTTP 403)
+
+When enabled:
+
+```json
+{"host_ip": "10.0.0.5", "command": "id"}
+```
+
+```json
+{"ok": true, "host": "10.0.0.5", "agent": "10.0.0.5:root", "rc": 0, "output": "uid=0(root)"}
+```
+
+`404` when no agent is registered for the IP, `503` when the agent controller
+is unavailable.
 
 ---
 
-## Rate Limiting
+## Error handling
 
-- No rate limiting is enforced by the API itself
-- The underlying worm engine has its own rate limiting per host
-- Recommended: poll `/api/status` every 5 seconds for real-time updates
+Errors return a JSON body with an `error` key and an appropriate HTTP status
+(`400` bad request, `403` disabled/forbidden, `404` unknown, `500` internal,
+`503` unavailable). The UI surfaces these via toast notifications instead of
+breaking the dashboard.
