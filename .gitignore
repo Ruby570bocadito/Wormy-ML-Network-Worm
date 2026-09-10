@@ -62,3 +62,7 @@ dmypy.json
 *.sqlite3
 instance/
 site/
+
+# Runtime state (agent registry, lab artifacts) — never commit live state
+data/agents.json
+docker-lab/volumes/
