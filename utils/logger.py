@@ -78,8 +78,9 @@ class WormLogger:
             )
         )
 
-        # Console handler with colors
-        ch = logging.StreamHandler(sys.stdout)
+        # Console handler with colors — stderr so stdout stays clean for
+        # machine-readable output (e.g. `wormy scan --json | jq`).
+        ch = logging.StreamHandler(sys.stderr)
         ch.setLevel(logging.INFO)
         ch.setFormatter(ColoredFormatter("%(levelname)s - %(message)s"))
 

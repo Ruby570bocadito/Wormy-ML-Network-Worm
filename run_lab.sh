@@ -44,7 +44,7 @@ run_worm() {
         --network "$(docker compose -f "$LAB_COMPOSE" ps -q redis 2>/dev/null | xargs docker inspect -f '{{range $net, $v := .NetworkSettings.Networks}}{{$net}}{{end}}' 2>/dev/null || echo "wormy-ml-network-worm-main_lab_network")" \
         -v "$LAB_DIR/logs:/opt/wormy/logs" \
         wormy:latest \
-        python3 worm_core.py --config config_lab.yaml --profile lab_docker 2>&1 | tee "$logfile"
+        python3 -m worm_core --config config_lab.yaml --profile lab_docker 2>&1 | tee "$logfile"
 
     echo "[+] Run #${iteration} complete (log: $logfile)"
 }

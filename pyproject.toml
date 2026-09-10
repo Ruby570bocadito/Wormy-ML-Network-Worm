@@ -67,7 +67,7 @@ test = [
 ]
 
 [project.scripts]
-wormy = "worm_core.standalone:main"
+wormy = "worm_core.cli:main"
 
 [tool.setuptools.packages.find]
 include = [

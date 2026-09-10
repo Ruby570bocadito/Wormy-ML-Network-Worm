@@ -34,4 +34,18 @@ CONFIG_PROFILES = {
         "enable_logging": True,
         "log_encryption": True,
     },
+    # Profile used by run_lab.sh / `wormy lab` workflows. Tuned for the
+    # disposable Docker lab: fast but rate-limited, capped infections,
+    # no evasion overhead (targets are intentionally vulnerable).
+    "lab_docker": {
+        "propagation_delay": 1.0,
+        "max_infections": 15,
+        "stealth_mode": False,
+        "randomize_timing": False,
+        "max_scan_rate": 100,
+        "detect_ids": False,
+        "detect_honeypots": False,
+        "max_runtime_hours": 1,
+        "use_pretrained": False,
+    },
 }
