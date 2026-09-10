@@ -31,7 +31,8 @@ built for TFG-level research, labs and controlled engagements.
 - Run it **only** against networks you own or have **written authorization** to test.
 - Live mode is gated: `wormy run` refuses to exploit unless you pass
   `--yes-i-am-authorized` (or set `WORMY_AUTHORIZED=1`).
-- The default mode of operation is `--dry-run`: full pipeline, zero real exploits.
+- `--dry-run` gives you the full pipeline with zero real exploits —
+  simulation only, safe to demo anywhere.
 - The authors take no responsibility for misuse. See [docs/SAFETY.md](docs/SAFETY.md).
 
 ## What is Wormy?
