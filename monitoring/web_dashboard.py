@@ -121,6 +121,8 @@ class WebDashboard:
         def api_stop():
             if self.worm is None:
                 return jsonify({"ok": False, "error": "engine not available"}), 503
+            if getattr(self.worm, "demo", False):
+                return jsonify({"ok": False, "error": "demo mode — nothing to stop"}), 400
             try:
                 self.worm.stop()
                 logger.info("Stop requested from web dashboard")
@@ -132,6 +134,8 @@ class WebDashboard:
         def api_kill_switch():
             if self.worm is None:
                 return jsonify({"ok": False, "error": "engine not available"}), 503
+            if getattr(self.worm, "demo", False):
+                return jsonify({"ok": False, "error": "demo mode — kill switch n/a"}), 400
             code = (request.json or {}).get("code", "")
             if not code:
                 return jsonify({"ok": False, "error": "kill switch code required"}), 400
@@ -194,6 +198,7 @@ class WebDashboard:
         bf_ok = stats.get("brute_force_successes", 0)
         return {
             "version": __version__,
+            "demo": bool(getattr(self.worm, "demo", False)),
             "running": self.worm.running,
             "dry_run": getattr(self.worm, "dry_run", False),
             "infected_hosts": len(self.worm.infected_hosts),
@@ -410,6 +415,7 @@ dialog::backdrop{background:#000a}
   <div class="brand">
     <div class="logo">W</div><h1>Wormy <span id="ver" class="chip chip-ver" style="margin-left:6px">—</span></h1>
     <span id="mode-chip" class="chip chip-dry">DRY-RUN</span>
+    <span id="demo-chip" class="chip" style="display:none;color:var(--purple);border-color:#a78bfa66;background:#a78bfa15">DEMO DATA</span>
     <span id="status-badge" class="chip chip-stop">IDLE</span>
   </div>
   <div class="topbar-right">
@@ -516,6 +522,7 @@ function refreshStatus(){
     const m = document.getElementById('mode-chip');
     m.textContent = d.dry_run ? 'DRY-RUN' : 'LIVE';
     m.className = 'chip ' + (d.dry_run ? 'chip-dry' : 'chip-live');
+    if(d.demo){ document.getElementById('demo-chip').style.display = ''; }
     document.getElementById('k-infected').textContent = d.infected_hosts ?? 0;
     document.getElementById('k-discovered').textContent = d.total_discovered ?? 0;
     document.getElementById('k-failed').textContent = d.failed_targets ?? 0;
@@ -680,3 +687,37 @@ window.onload = () => {
         self._thread.start()
         logger.info(f"Web Dashboard running in background on {self.host}:{self.port}")
         return self._thread
+
+
+def _main():
+    """Standalone launcher: `python -m monitoring.web_dashboard [--demo]`."""
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Wormy web dashboard")
+    parser.add_argument("--host", default=None, help="bind address (default: 127.0.0.1)")
+    parser.add_argument("--port", type=int, default=5000, help="port (default: 5000)")
+    parser.add_argument(
+        "--demo",
+        action="store_true",
+        help="serve synthetic demo data (no engine, no network activity)",
+    )
+    args = parser.parse_args()
+
+    worm = None
+    if args.demo:
+        from monitoring.demo_data import DemoWorm
+
+        worm = DemoWorm()
+        print("[demo] serving synthetic engagement data — no engine, no network activity")
+
+    dash = WebDashboard(worm_core=worm, host=args.host, port=args.port)
+    if dash.app is None:
+        raise SystemExit("Flask is not installed: pip install flask")
+    try:
+        dash.run()
+    except KeyboardInterrupt:
+        dash.shutdown()
+
+
+if __name__ == "__main__":
+    _main()

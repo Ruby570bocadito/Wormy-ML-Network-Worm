@@ -508,23 +508,48 @@ def cmd_doctor(args) -> int:
     t.add_column("Detail", max_width=48)
     t.add_column("Hint", style="dim", max_width=32)
     failed_critical = 0
+    failed_optional = 0
     for critical, name, ok, detail, hint in checks:
-        mark, style = ("✓", "green") if ok else ("✗", "red")
+        if ok:
+            mark, style = "✓", "green"
+        elif critical:
+            mark, style = "✗", "red"
+        else:
+            mark, style = "!", "yellow"
         if not ok and critical:
             failed_critical += 1
+        elif not ok:
+            failed_optional += 1
+        if ok:
+            status_txt = "[green]ok[/]"
+        elif critical:
+            status_txt = "[red]FAIL[/]"
+        else:
+            status_txt = "[yellow]warn[/]"
         t.add_row(
             f"[{style}]{mark}[/]",
             name,
-            "[green]ok[/]" if ok else "[red]FAIL[/]",
+            status_txt,
             detail,
             hint if not ok else "",
         )
     console.print(t)
 
+    ok_count = len(checks) - failed_critical - failed_optional
     if failed_critical:
-        err_console.print(f"[red]{failed_critical} critical check(s) failed.[/]")
+        err_console.print(
+            f"[red]{failed_critical} critical check(s) failed "
+            f"({ok_count}/{len(checks)} passed).[/]"
+        )
         return EXIT_ERROR
-    console.print("[green]Environment ready.[/]")
+    if failed_optional:
+        console.print(
+            f"[yellow]Environment usable with warnings:[/] "
+            f"{failed_optional} optional check(s) failed "
+            f"({ok_count}/{len(checks)} passed). See hints above."
+        )
+        return EXIT_OK
+    console.print(f"[green]Environment ready.[/] ({ok_count}/{len(checks)} checks passed)")
     return EXIT_OK
 
 

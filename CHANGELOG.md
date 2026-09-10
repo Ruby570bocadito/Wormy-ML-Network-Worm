@@ -1,5 +1,30 @@
 # Changelog
 
+## v4.3.1 (2026-09-10)
+
+Polish release: demo mode for the dashboard, honest doctor semantics and a
+deep bug-hunt round.
+
+### Added
+- **Dashboard demo mode**: `python -m monitoring.web_dashboard --demo`
+  serves a clearly-labelled synthetic engagement (no engine, no network
+  activity) so the UI can be evaluated and screenshotted safely; standalone
+  `__main__` entrypoint with `--host/--port`; "DEMO DATA" chip in the UI
+- README screenshots (dashboard + CLI) captured from the demo mode
+- `wormy doctor` distinguishes **critical** failures (red `FAIL`) from
+  **optional** capabilities like torch/Docker (yellow `warn`) and reports an
+  honest pass/fail count
+
+### Fixed
+- Deep bug-hunt round: replaced all deprecated `datetime.utcnow()` calls
+  (7 modules), removed 320+ unused imports, guarded the `telnetlib` import
+  (removed in Python 3.13)
+- `tests/test_integration_mocked.py`: legacy harness classes had `__init__`
+  constructors, so pytest silently collected **zero** tests from the file —
+  now 11 real tests run
+- Doctor summary no longer claims "Environment ready" when optional checks
+  failed
+
 ## v4.3.0 (2026-09-10)
 
 The "professional surface" release: a real CLI, a redesigned dashboard,

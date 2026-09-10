@@ -28,15 +28,15 @@ class TestWormCore:
     failed = 0
     tests_run = 0
 
-
-
     @staticmethod
     def _package_sources() -> str:
         """Concatenated source of the worm_core package (post-v4.0 layout)."""
         import glob
         import os
 
-        base = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "worm_core")
+        base = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "worm_core"
+        )
         chunks = []
         for fpath in sorted(glob.glob(os.path.join(base, "*.py"))):
             with open(fpath, "r") as fh:
@@ -149,7 +149,6 @@ class TestScanner:
     failed = 0
     tests_run = 0
 
-
     def test_scanner_methods(self):
         """Test scanner methods"""
         print("\n=== Test: Scanner Methods ===")
@@ -227,7 +226,6 @@ class TestRLEngine:
     failed = 0
     tests_run = 0
 
-
     def test_rl_components(self):
         """Test RL engine components"""
         print("\n=== Test: RL Engine Components ===")
@@ -298,7 +296,6 @@ class TestExploits:
     failed = 0
     tests_run = 0
 
-
     def test_exploit_manager(self):
         """Test exploit manager"""
         print("\n=== Test: Exploit Manager ===")
@@ -357,7 +354,6 @@ class TestConfiguration:
     passed = 0
     failed = 0
     tests_run = 0
-
 
     def test_config_classes(self):
         """Test config classes"""

@@ -163,6 +163,9 @@ Walkthrough against the lab:
 ```bash
 wormy run --dry-run --web
 # open http://127.0.0.1:5000
+
+# or explore the UI without any engine (synthetic, clearly-labelled data):
+python -m monitoring.web_dashboard --demo --port 5000
 ```
 
 - **KPIs** — infected, discovered, failed, vulnerabilities, chains, lateral

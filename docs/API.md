@@ -173,3 +173,11 @@ Errors return a JSON body with an `error` key and an appropriate HTTP status
 (`400` bad request, `403` disabled/forbidden, `404` unknown, `500` internal,
 `503` unavailable). The UI surfaces these via toast notifications instead of
 breaking the dashboard.
+
+## Demo mode
+
+`python -m monitoring.web_dashboard --demo` serves the same API backed by a
+synthetic engagement (`monitoring/demo_data.py`). In demo mode the safety
+endpoints (`/api/stop`, `/api/kill-switch`) answer `400` with an explanatory
+message and every status payload carries `"demo": true`; the UI shows a
+**DEMO DATA** chip. No engine is started and no network activity occurs.

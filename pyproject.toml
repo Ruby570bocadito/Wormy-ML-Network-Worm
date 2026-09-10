@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "wormy"
-version = "4.3.0"
+version = "4.3.1"
 description = "ML-Driven Autonomous Network Propagation Platform"
 authors = [
     {name = "Ruby570bocadito", email = "ruby570bocadito@github.com"},

@@ -10,10 +10,14 @@ authorization gate, hard infection caps and a kill switch.
 
 [![CI](https://github.com/Ruby570bocadito/Wormy-ML-Network-Worm/actions/workflows/ci.yml/badge.svg)](https://github.com/Ruby570bocadito/Wormy-ML-Network-Worm/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
-[![Tests](https://img.shields.io/badge/tests-239%20passing-brightgreen)](#testing--ci)
+[![Tests](https://img.shields.io/badge/tests-250%20passing-brightgreen)](#testing--ci)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 `wormy doctor` · `wormy lab up` · `wormy run --dry-run` · `wormy shell`
+
+<img src="docs/images/dashboard-overview.png" alt="Wormy operations dashboard — KPIs, propagation timeline, severity distribution and network topology" width="100%">
+
+*Operations dashboard in demo mode — KPIs, propagation timeline, vulnerability severity and live network topology.*
 
 </div>
 
@@ -80,6 +84,14 @@ wormy run --profile stealth --yes-i-am-authorized
 `--json` output, predictable exit codes: `0` ok · `1` error · `2` usage · `130`
 interrupted).
 
+<img src="docs/images/cli-help.png" alt="wormy --help" width="100%">
+
+The built-in `doctor` verifies the environment before you do anything else —
+critical problems are red, optional capabilities (torch, Docker) are yellow
+warnings with a fix hint:
+
+<img src="docs/images/cli-doctor.png" alt="wormy doctor environment check" width="100%">
+
 | Command | What it does |
 |---|---|
 | `wormy run` | Full propagation pipeline. Flags: `--dry-run`, `--scan-only`, `--profile {stealth,aggressive,audit,lab_docker}`, `--target CIDR…`, `--web`, `--interactive`, `--kill-switch CODE`, `--yes-i-am-authorized` |
@@ -112,7 +124,12 @@ REPL session against the lab:
 ## Web dashboard
 
 Start the engine with `wormy run --web` (or `wormy run --dry-run --web`) and open
-**http://127.0.0.1:5000**.
+**http://127.0.0.1:5000**. You can also try the UI **without any engine** using
+synthetic demo data:
+
+```bash
+python -m monitoring.web_dashboard --demo   # clearly-labelled demo engagement
+```
 
 - Live KPIs, propagation timeline, severity distribution (Chart.js, degrades
   gracefully offline)
@@ -123,6 +140,10 @@ Start the engine with `wormy run --web` (or `wormy run --dry-run --web`) and ope
 - **Emergency stop** button — cooperative stop, same code path as the CLI
 - Binds to `127.0.0.1` by default; command execution over HTTP is **disabled**
   unless `WORMY_DASHBOARD_COMMANDS=1`
+
+<img src="docs/images/dashboard-tables.png" alt="Dashboard hosts, vulnerabilities and live activity feed" width="100%">
+
+*Host inventory, vulnerability findings and the live activity feed.*
 
 REST API reference: [docs/API.md](docs/API.md).
 
@@ -215,7 +236,7 @@ Detailed threat model and controls: [docs/SAFETY.md](docs/SAFETY.md).
 ## Testing & CI
 
 ```bash
-make test            # 239 unit tests (pytest)
+make test            # 250 unit tests (pytest)
 make test-cov        # with coverage
 wormy doctor         # environment check
 ```
