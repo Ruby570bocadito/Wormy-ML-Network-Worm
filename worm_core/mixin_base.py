@@ -242,9 +242,12 @@ class WormCoreBase:
         try:
             from monitoring.web_dashboard import WebDashboard
 
-            self.web_dashboard = WebDashboard(worm_core=self, host="0.0.0.0", port=5000)
+            # Host defaults to 127.0.0.1 inside WebDashboard (override with
+            # WORMY_DASHBOARD_HOST). Never bind the control plane to 0.0.0.0
+            # by accident.
+            self.web_dashboard = WebDashboard(worm_core=self, port=5000)
             self._stoppable_components.append(self.web_dashboard)
-            logger.info("Web Dashboard: enabled (http://0.0.0.0:5000)")
+            logger.info(f"Web Dashboard: enabled (http://{self.web_dashboard.host}:5000)")
         except Exception as e:
             logger.warning(f"Web Dashboard failed to initialize: {e}")
 
