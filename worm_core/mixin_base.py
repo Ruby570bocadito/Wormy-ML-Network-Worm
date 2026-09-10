@@ -410,7 +410,9 @@ class WormCoreBase:
         self.adaptive_cycle = None
         if ADAPTIVE_CYCLE_AVAILABLE:
             try:
-                local_ip = get_local_ip()
+                # dry-run must not resolve the outbound interface (keeps
+                # reports loopback-only and avoids any outbound traffic)
+                local_ip = "127.0.0.1" if self.dry_run else get_local_ip()
                 self.adaptive_cycle = AdaptiveCycle(
                     host_ip=local_ip,
                     host_id="wormy_main",
@@ -432,7 +434,7 @@ class WormCoreBase:
         self.distributed_redundancy = None
         if DISTRIBUTED_REDUNDANCY_AVAILABLE:
             try:
-                local_ip = get_local_ip()
+                local_ip = "127.0.0.1" if self.dry_run else get_local_ip()
                 self.distributed_redundancy = DistributedRedundancy(
                     host_ip=local_ip, host_id="wormy_main"
                 )

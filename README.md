@@ -82,6 +82,20 @@ Live mode (authorized engagements only):
 wormy run --profile stealth --yes-i-am-authorized
 ```
 
+## See it in action
+
+**CLI** — `doctor` → live scan against 6 loopback services → full `--dry-run`
+pipeline (scan → exploit simulation → knowledge graph → audit reports).
+Real output, replayed verbatim:
+
+![CLI demo](docs/images/demo-cli.gif)
+
+**Web dashboard** — demo engagement (`--demo`, clearly-labelled synthetic data):
+KPIs, propagation timeline, vulnerability severity, topology and per-host drill-down:
+
+![Dashboard demo](docs/images/demo-dashboard.gif)
+
+
 ## The CLI
 
 `wormy` is a subcommand-driven CLI (rich-formatted help, machine-readable
