@@ -63,15 +63,17 @@ wormy doctor
 # 1) Start the vulnerable lab (15 services, bound to 127.0.0.1)
 wormy lab up
 
-# 2) Reconnaissance only — no exploitation, JSON-exportable
+# 2) Reconnaissance only — no exploitation, JSON/CSV-exportable
 wormy scan --target 127.0.0.0/24 --output scan.json
+wormy scan --target 127.0.0.0/24 --csv hosts.csv   # spreadsheet-ready
 
 # 3) Full pipeline in simulation mode — safe by design
 wormy run --dry-run --target 127.0.0.0/24
 
 # 4) Inspect what the engine produced and what it will use
 wormy report show                     # latest engagement, rendered
-wormy report compare                 # deltas vs. the previous engagement
+wormy report compare --metrics infected,success_rate   # focus on 2 KPIs
+wormy report prune --keep 20 --dry-run # retention preview (audit trail)
 wormy config show --profile stealth   # effective configuration
 
 # 5) Watch it think in the interactive REPL
@@ -118,13 +120,13 @@ warnings with a fix hint:
 | Command | What it does |
 |---|---|
 | `wormy run` | Full propagation pipeline. Flags: `--dry-run`, `--scan-only`, `--profile {stealth,aggressive,audit,lab_docker}`, `--target CIDR…`, `--max-infections N`, `--max-runtime H`, `--web`, `--interactive`, `--kill-switch CODE`, `--yes-i-am-authorized` |
-| `wormy scan` | Reconnaissance only. `--basic`, `--json`, `--output FILE` |
-| `wormy report` | Engagement reports: `list` (inventory + KPIs), `show [ID]` (terminal rendering), `html [ID]` (self-contained HTML export), `compare [ID1] [ID2]` (side-by-side deltas, older = baseline). `--json`, `--reports-dir` |
+| `wormy scan` | Reconnaissance only. `--basic`, `--json`, `--output FILE`, `--csv FILE` (one row per host, `-` = stdout) |
+| `wormy report` | Engagement reports: `list` (inventory + KPIs), `show [ID]` (terminal rendering), `html [ID]` (self-contained HTML export), `compare [ID1] [ID2]` (side-by-side deltas, older = baseline, `--metrics` to focus on chosen KPIs), `prune` (retention: keep the newest N, previewed + confirmed, `--keep N`, `--yes`, `--dry-run`). `--json`, `--reports-dir` |
 | `wormy config` | Inspect the effective configuration: `show --profile stealth` renders what the engine will use, with profile overrides marked. `--json` |
 | `wormy lab` | Docker lab manager: `up`, `down`, `status`, `rebuild`, `urls` (`--expanded` for the 15-service compose) |
 | `wormy train` | Train ML models: `rl` (curriculum), `classifier`, `evasion`, `all`; `--list-scenarios`, `--status` |
 | `wormy doctor` | Environment health check: deps, torch/CUDA, docker, config validity, feature geometry, writable dirs |
-| `wormy shell` | Interactive REPL: `scan`, `targets`, `exploit <ip>`, `creds`, `run`, `stop`, `report [new\|list\|show\|compare\|html]`, … Supports `--dry-run` and the same cap flags as `run` (`--max-infections`, `--max-runtime`) |
+| `wormy shell` | Interactive REPL: `scan`, `targets`, `exploit <ip>`, `creds`, `run`, `stop`, `report [new\|list\|show\|compare\|html\|prune]`, … Supports `--dry-run` and the same cap flags as `run` (`--max-infections`, `--max-runtime`) |
 | `wormy version` | Version + platform info (`--json` for scripts) |
 
 REPL session against the lab:

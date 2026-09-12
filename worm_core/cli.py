@@ -5,7 +5,7 @@ Subcommands
 -----------
     run       Launch the propagation engine (full pipeline).
     scan      Network reconnaissance only (no exploitation).
-    report    Inspect & export engagement reports (list/show/html).
+    report    Inspect & export engagement reports (list/show/html/compare/prune).
     config    Inspect the effective configuration (config show).
     lab       Manage the Docker vulnerability lab.
     train     Train the ML models (RL agent / classifier / evasion).
@@ -23,6 +23,7 @@ variable. This is a deliberate safety gate, not friction.
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import os
 import platform
@@ -58,6 +59,7 @@ examples:
   %(prog)s doctor                       # verify the environment
   %(prog)s lab up                       # start the vulnerable Docker lab
   %(prog)s scan --json -o scan.json     # reconnaissance only
+  %(prog)s scan --csv hosts.csv         # reconnaissance to a spreadsheet
   %(prog)s run --dry-run                # full pipeline, simulation only
   %(prog)s run --profile stealth        # authorized engagement (asks gate)
   %(prog)s shell                        # interactive REPL
@@ -73,6 +75,10 @@ examples:
   %(prog)s report html -o report.html   # HTML export to a given path
   %(prog)s report compare               # last two engagements, side by side
   %(prog)s report compare 20260913_1 20260913_2   # explicit pair
+  %(prog)s report compare --metrics infected,success_rate   # 2 KPIs only
+  %(prog)s report prune                 # keep the newest 20, preview + ask
+  %(prog)s report prune --keep 5 --yes  # keep 5, no prompt (scripts)
+  %(prog)s report prune --dry-run       # preview only, nothing deleted
 """
 
 CONFIG_EPILOG = """\
@@ -307,6 +313,59 @@ def cmd_run(args) -> int:
 
 # ─────────────────────────── scan ───────────────────────────────
 
+_CSV_COLUMNS = (
+    "ip",
+    "hostname",
+    "os_guess",
+    "open_ports",
+    "services",
+    "vulnerability_score",
+    "scan_time",
+)
+
+
+def _fmt_services(services) -> str:
+    """Flatten scanner ``services`` (list or port→name dict) into one cell."""
+    if not services:
+        return ""
+    if isinstance(services, dict):
+        return ";".join(f"{port}:{name}" for port, name in sorted(services.items(), key=str))
+    return ";".join(str(s) for s in services)
+
+
+def _write_scan_csv(results: list, path: str) -> int:
+    """Write reconnaissance results as CSV. Returns the host-row count.
+
+    One row per discovered host, one column per scanner field (``-`` as
+    path writes to stdout for piping). ``open_ports`` and ``services``
+    are flattened with ';' separators so spreadsheets keep each host in
+    a single row; dict services render as ``22:ssh;80:http``.
+    """
+    out = sys.stdout if path == "-" else open(path, "w", encoding="utf-8", newline="")
+    try:
+        writer = csv.writer(out)
+        writer.writerow(_CSV_COLUMNS)
+        count = 0
+        for host in results:
+            if not isinstance(host, dict):
+                continue
+            writer.writerow(
+                [
+                    host.get("ip", ""),
+                    host.get("hostname", "") or "",
+                    host.get("os_guess", "") or "",
+                    ";".join(str(p) for p in (host.get("open_ports") or [])),
+                    _fmt_services(host.get("services")),
+                    host.get("vulnerability_score", 0),
+                    host.get("scan_time", "") or "",
+                ]
+            )
+            count += 1
+    finally:
+        if out is not sys.stdout:
+            out.close()
+    return count
+
 
 def cmd_scan(args) -> int:
     from . import WormCore
@@ -328,6 +387,10 @@ def cmd_scan(args) -> int:
 
     results = worm.scan_network(use_professional=not args.basic)
     worm.scanner.print_summary()
+
+    if getattr(args, "csv", None):
+        n_hosts = _write_scan_csv(results, args.csv)
+        console.print(f"[green]CSV written to[/] [cyan]{args.csv}[/] ({n_hosts} host(s))")
 
     payload = json.dumps(results, indent=2, default=str)
     if args.output:
@@ -796,6 +859,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--json", action="store_true", help="print results as JSON to stdout")
     p.add_argument("--output", "-o", metavar="FILE", help="write results to a JSON file")
+    p.add_argument(
+        "--csv",
+        metavar="FILE",
+        help="write results as CSV for spreadsheets (use '-' for stdout)",
+    )
     p.set_defaults(func=cmd_scan)
 
     # report
@@ -809,7 +877,7 @@ def build_parser() -> argparse.ArgumentParser:
         "action",
         nargs="?",
         default="list",
-        choices=["list", "show", "html", "compare"],
+        choices=["list", "show", "html", "compare", "prune"],
         help="report operation (default: list)",
     )
     p.add_argument(
@@ -831,8 +899,36 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="DIR",
         help="reports directory (default: ./reports, $WORMY_REPORTS_DIR)",
     )
-    p.add_argument("--json", action="store_true", help="machine-readable output (list/show)")
+    p.add_argument(
+        "--json",
+        action="store_true",
+        help="machine-readable output (list/show/compare/prune)",
+    )
     p.add_argument("--output", "-o", metavar="FILE", help="output path for the HTML export")
+    p.add_argument(
+        "--metrics",
+        metavar="K1,K2",
+        help="compare only these metrics — keys (infected, success_rate, ...) or labels",
+    )
+    p.add_argument(
+        "--keep",
+        type=int,
+        metavar="N",
+        default=None,
+        help="prune: keep the newest N reports (default: 20)",
+    )
+    p.add_argument(
+        "--yes",
+        "-y",
+        action="store_true",
+        help="prune: delete without the confirmation prompt (scripts)",
+    )
+    p.add_argument(
+        "--dry-run",
+        action="store_true",
+        dest="dry_run",
+        help="prune: preview the deletion plan without touching anything",
+    )
     p.set_defaults(func=cmd_report)
 
     # config

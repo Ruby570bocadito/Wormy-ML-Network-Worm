@@ -12,8 +12,15 @@ read-only operations on top of that directory:
     html    standalone self-contained HTML export for sharing/delivering
     compare side-by-side comparison of two engagements with deltas
 
-Reports are never modified or deleted by this command — it is a pure
-consumer of the audit trail. Resolution order for the reports directory:
+plus exactly one mutating operation:
+
+    prune   retention policy: keep the newest N engagements, delete the
+            rest (always previewed, confirmed unless ``--yes``)
+
+Reports are never modified or deleted by any other operation — everything
+except ``prune`` is a pure consumer of the audit trail, and ``prune``
+only removes whole engagement file sets (``audit_report_<id>.*``) after
+an explicit confirmation. Resolution order for the reports directory:
 ``--reports-dir`` flag → ``$WORMY_REPORTS_DIR`` → ``./reports`` →
 ``<repo root>/reports``.
 
@@ -49,6 +56,9 @@ REPORT_GLOB = "audit_report_*.json"
 _ID_RE = re.compile(r"audit_report_(\d{8}_\d{6})\.json$")
 
 LATEST = "latest"
+
+# Retention default: `report prune` keeps the newest N engagements.
+PRUNE_DEFAULT_KEEP = 20
 
 # Severity → rich style for recommendations.
 _SEVERITY_STYLES = {
@@ -611,10 +621,11 @@ def compare_metrics(data_a: dict, data_b: dict) -> list[dict]:
     """Build the side-by-side metric model for two report dicts.
 
     ``data_a`` is the baseline (older engagement), ``data_b`` the candidate
-    (newer). Each metric row: {"metric", "baseline", "candidate", "delta",
-    "trend"} — numeric values when parseable, the raw string otherwise,
-    ``delta``/``trend`` are None/"neutral" when no numeric comparison is
-    possible.
+    (newer). Each metric row: {"key", "metric", "baseline", "candidate",
+    "delta", "trend"} — ``key`` is the summarize field (usable with
+    ``--metrics``), ``metric`` the human label; numeric values when
+    parseable, the raw string otherwise, ``delta``/``trend`` are
+    None/"neutral" when no numeric comparison is possible.
     """
     s_a, s_b = summarize(data_a), summarize(data_b)
     rows = []
@@ -649,6 +660,7 @@ def compare_metrics(data_a: dict, data_b: dict) -> list[dict]:
                 trend = "worse"
             rows.append(
                 {
+                    "key": key,
                     "metric": label,
                     "baseline": fmt(va),
                     "candidate": fmt(vb),
@@ -659,6 +671,7 @@ def compare_metrics(data_a: dict, data_b: dict) -> list[dict]:
         else:
             rows.append(
                 {
+                    "key": key,
                     "metric": label,
                     "baseline": fmt(va) if va is not None else str(raw_a),
                     "candidate": fmt(vb) if vb is not None else str(raw_b),
@@ -667,6 +680,28 @@ def compare_metrics(data_a: dict, data_b: dict) -> list[dict]:
                 }
             )
     return rows
+
+
+def _filter_metric_rows(rows: list[dict], metrics: str) -> tuple[list[dict], list[str]]:
+    """Filter compare rows by a comma-separated metric spec.
+
+    Each name matches either the machine key (``infected``,
+    ``success_rate``) or the human label (``"Infected"``, ``"Success
+    rate"``), case-insensitively. Returns ``(filtered_rows, unknown_names)``
+    — the caller turns a non-empty ``unknown_names`` into a usage error.
+    """
+    wanted = [name.strip().lower() for name in metrics.split(",") if name.strip()]
+    unknown = []
+    picked = []
+    for name in wanted:
+        matches = [
+            r for r in rows if r["key"].lower() == name or r["metric"].strip().lower() == name
+        ]
+        if matches:
+            picked.extend(matches)
+        else:
+            unknown.append(name)
+    return picked, unknown
 
 
 def _trend_cell(trend: str, delta) -> str:
@@ -682,9 +717,16 @@ def _trend_cell(trend: str, delta) -> str:
     return f"[dim]{text}[/]"
 
 
-def render_compare(data_a: dict, data_b: dict, id_a: str, id_b: str) -> None:
-    """Terminal rendering of a two-engagement comparison."""
-    rows = compare_metrics(data_a, data_b)
+def render_compare(
+    data_a: dict, data_b: dict, id_a: str, id_b: str, rows: list[dict] | None = None
+) -> None:
+    """Terminal rendering of a two-engagement comparison.
+
+    ``rows`` lets the caller pass pre-filtered metric rows (``--metrics``);
+    when omitted the full model is built from the two report dicts.
+    """
+    if rows is None:
+        rows = compare_metrics(data_a, data_b)
     s_a, s_b = summarize(data_a), summarize(data_b)
     console.print(
         Panel(
@@ -741,13 +783,23 @@ def _ref_index(refs: list[dict], ref: dict) -> int | None:
     return None
 
 
-def compare_flow(reports_dir: str, id1: str | None, id2: str | None, as_json: bool = False) -> int:
+def compare_flow(
+    reports_dir: str,
+    id1: str | None,
+    id2: str | None,
+    as_json: bool = False,
+    metrics: str | None = None,
+) -> int:
     """Resolve two engagements, compare them, render. Used by CLI and REPL.
 
     Resolution semantics (the newer report is always the candidate):
       - ``compare`` (no ids)        → latest vs. its predecessor
       - ``compare A``               → A vs. the report right before A
       - ``compare A B``             → both resolved; the older is baseline
+
+    ``metrics`` ("infected,success_rate") restricts the comparison to
+    those KPIs, matched by key or human label; an unknown name is a
+    usage error that lists the valid ones.
     """
     refs = discover_reports(reports_dir) if os.path.isdir(reports_dir) else []
 
@@ -790,20 +842,30 @@ def compare_flow(reports_dir: str, id1: str | None, id2: str | None, as_json: bo
         err_console.print(f"[red]Cannot read report for comparison:[/] {exc}")
         return EXIT_ERROR
 
+    rows = compare_metrics(data_a, data_b)
+    if metrics:
+        rows, unknown = _filter_metric_rows(rows, metrics)
+        if unknown:
+            valid = ", ".join(f"{key} ({label.lower()})" for key, label, _d, _k in _METRICS)
+            err_console.print(
+                f"[red]Unknown metric(s):[/] {', '.join(unknown)}\n" f"Valid metrics: {valid}"
+            )
+            return EXIT_USAGE
+
     if as_json:
         print(
             json.dumps(
                 {
                     "baseline": {"id": base_ref["id"], "path": base_ref["path"]},
                     "candidate": {"id": cand_ref["id"], "path": cand_ref["path"]},
-                    "metrics": compare_metrics(data_a, data_b),
+                    "metrics": rows,
                 },
                 indent=2,
                 default=str,
             )
         )
     else:
-        render_compare(data_a, data_b, base_ref["id"], cand_ref["id"])
+        render_compare(data_a, data_b, base_ref["id"], cand_ref["id"], rows)
     return EXIT_OK
 
 
@@ -861,6 +923,146 @@ def export_html(reports_dir: str, report_id: str | None, output: str | None = No
     return EXIT_OK
 
 
+# ─────────────────────────── prune ────────────────────────────────
+# The single mutating operation of the hub: a retention policy over the
+# engagement trail. Kept deliberately conservative — preview always,
+# confirm by default, delete only whole `audit_report_<id>.*` sets.
+
+
+def _engagement_files(reports_dir: str, ref: dict) -> list[str]:
+    """Every artifact of one engagement (json/csv/txt/html siblings)."""
+    pattern = os.path.join(reports_dir, f"audit_report_{ref['id']}.*")
+    return sorted(glob.glob(pattern))
+
+
+def _confirm_prune(question: str) -> bool:
+    """Ask the operator; EOF/Ctrl-D or anything but y/yes aborts."""
+    try:
+        answer = input(f"{question} ").strip().lower()
+    except EOFError:
+        return False
+    return answer in ("y", "yes")
+
+
+def prune_flow(
+    reports_dir: str,
+    keep: int = PRUNE_DEFAULT_KEEP,
+    assume_yes: bool = False,
+    dry_run: bool = False,
+    as_json: bool = False,
+    confirm=None,
+) -> int:
+    """Keep the newest ``keep`` engagements, delete the rest.
+
+    Used by the CLI (``report prune --keep N [--yes] [--dry-run]``) and
+    the REPL (``report prune [N]``). The plan is always previewed before
+    anything is touched; without ``--yes`` the operator confirms via a
+    y/N prompt (an EOF or a "no" aborts with exit 0 — the audit trail is
+    the safer default). ``--json`` requires ``--yes`` so scripts never
+    hang on a prompt.
+    """
+    if keep is None or keep < 1:
+        err_console.print(
+            f"[red]--keep must be >= 1 (got {keep})[/] — pruning to zero would "
+            "erase the whole audit trail."
+        )
+        return EXIT_USAGE
+    if as_json and not assume_yes:
+        err_console.print(
+            "[red]report prune --json requires --yes[/] — machine output never "
+            "prompts for confirmation."
+        )
+        return EXIT_USAGE
+    if not os.path.isdir(reports_dir):
+        err_console.print(f"[red]Reports directory not found:[/] {reports_dir}")
+        return EXIT_ERROR
+
+    refs = discover_reports(reports_dir)
+    if len(refs) <= keep:
+        msg = (
+            f"Nothing to prune — {len(refs)} report(s) present, keeping {keep}."
+            if refs
+            else f"No reports in {reports_dir} — nothing to prune."
+        )
+        if as_json:
+            print(json.dumps({"pruned": [], "kept": [r["id"] for r in refs], "errors": []}))
+        else:
+            console.print(f"[yellow]{msg}[/]")
+        return EXIT_OK
+
+    keep_refs, drop_refs = refs[-keep:], refs[:-keep]
+    plan = []  # [{id, files: [path, ...]}]
+    for ref in drop_refs:
+        plan.append({"id": ref["id"], "files": _engagement_files(reports_dir, ref)})
+
+    if as_json:
+        pass  # machine mode: no preview table, straight to deletion below
+    else:
+        t = Table(
+            title=f"Prune plan — keep {len(keep_refs)} newest, delete {len(drop_refs)} oldest",
+            border_style="yellow",
+        )
+        t.add_column("Report ID", style="cyan")
+        t.add_column("Files", justify="right")
+        t.add_column("Size", justify="right")
+        for entry in plan:
+            size = 0
+            for f in entry["files"]:
+                try:
+                    size += os.path.getsize(f)
+                except OSError:
+                    pass
+            t.add_row(entry["id"], str(len(entry["files"])), f"{size / 1024:.1f} KiB")
+        console.print(t)
+
+    if dry_run:
+        console.print(
+            f"[yellow]dry-run:[/] {sum(len(e['files']) for e in plan)} file(s) would be "
+            f"deleted. Nothing was touched."
+        )
+        return EXIT_OK
+
+    if not assume_yes:
+        n_files = sum(len(e["files"]) for e in plan)
+        ask = confirm or _confirm_prune
+        if not ask(
+            f"Delete {n_files} file(s) from {len(drop_refs)} old report(s) in {reports_dir}? [y/N]"
+        ):
+            console.print("[yellow]Aborted — nothing was deleted.[/]")
+            return EXIT_OK
+
+    deleted: list[str] = []
+    errors: list[dict] = []
+    for entry in plan:
+        for path in entry["files"]:
+            try:
+                os.remove(path)
+                deleted.append(os.path.basename(path))
+            except OSError as exc:
+                errors.append({"file": os.path.basename(path), "error": str(exc)})
+                err_console.print(f"[red]Could not delete[/] {path}: {exc}")
+
+    if as_json:
+        print(
+            json.dumps(
+                {
+                    "pruned": [e["id"] for e in plan],
+                    "deleted_files": sorted(deleted),
+                    "kept": [r["id"] for r in keep_refs],
+                    "errors": errors,
+                },
+                indent=2,
+            )
+        )
+    else:
+        console.print(
+            f"[green]Deleted {len(deleted)} file(s)[/] from {len(drop_refs)} old report(s); "
+            f"{len(keep_refs)} engagement(s) kept."
+            + (f" [red]{len(errors)} error(s).[/]" if errors else "")
+        )
+    return EXIT_ERROR if errors else EXIT_OK
+
+
 # ─────────────────────────── command ──────────────────────────────
 
 
@@ -893,6 +1095,19 @@ def cmd_report(args) -> int:
             reports_dir,
             getattr(args, "report_id", None),
             getattr(args, "report_id2", None),
+            as_json=getattr(args, "json", False),
+            metrics=getattr(args, "metrics", None),
+        )
+
+    if action == "prune":
+        keep = getattr(args, "keep", None)
+        if keep is None:
+            keep = PRUNE_DEFAULT_KEEP
+        return prune_flow(
+            reports_dir,
+            keep=keep,
+            assume_yes=getattr(args, "yes", False),
+            dry_run=getattr(args, "dry_run", False),
             as_json=getattr(args, "json", False),
         )
 

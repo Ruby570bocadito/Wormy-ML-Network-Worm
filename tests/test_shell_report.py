@@ -249,6 +249,197 @@ class TestReportHtmlArgParsing(unittest.TestCase):
             shell.InteractiveCLI._parse_report_html_args(["a", "b"])
 
 
+class TestReportCompareArgParsing(unittest.TestCase):
+    def test_no_tokens(self):
+        self.assertEqual(shell.InteractiveCLI._parse_report_compare_args([]), (None, None, None))
+
+    def test_single_id(self):
+        self.assertEqual(
+            shell.InteractiveCLI._parse_report_compare_args(["20260101"]),
+            ("20260101", None, None),
+        )
+
+    def test_two_ids(self):
+        self.assertEqual(
+            shell.InteractiveCLI._parse_report_compare_args(["a", "b"]),
+            ("a", "b", None),
+        )
+
+    def test_short_metrics_flag(self):
+        self.assertEqual(
+            shell.InteractiveCLI._parse_report_compare_args(["-m", "infected"]),
+            (None, None, "infected"),
+        )
+
+    def test_long_metrics_flag_with_ids(self):
+        self.assertEqual(
+            shell.InteractiveCLI._parse_report_compare_args(
+                ["20260101", "20260102", "--metrics", "infected,failed"]
+            ),
+            ("20260101", "20260102", "infected,failed"),
+        )
+
+    def test_metrics_without_value_raises(self):
+        with self.assertRaises(ValueError):
+            shell.InteractiveCLI._parse_report_compare_args(["--metrics"])
+
+    def test_three_ids_raise(self):
+        with self.assertRaises(ValueError):
+            shell.InteractiveCLI._parse_report_compare_args(["a", "b", "c"])
+
+
+class TestReportPruneArgParsing(unittest.TestCase):
+    def test_defaults(self):
+        self.assertEqual(shell.InteractiveCLI._parse_report_prune_args([]), (None, False, False))
+
+    def test_bare_number(self):
+        self.assertEqual(shell.InteractiveCLI._parse_report_prune_args(["5"]), (5, False, False))
+
+    def test_keep_flag(self):
+        self.assertEqual(
+            shell.InteractiveCLI._parse_report_prune_args(["--keep", "5"]),
+            (5, False, False),
+        )
+
+    def test_short_keep_flag(self):
+        self.assertEqual(
+            shell.InteractiveCLI._parse_report_prune_args(["-k", "7"]), (7, False, False)
+        )
+
+    def test_yes_and_dry_run(self):
+        self.assertEqual(
+            shell.InteractiveCLI._parse_report_prune_args(["3", "--yes", "--dry-run"]),
+            (3, True, True),
+        )
+
+    def test_short_yes(self):
+        self.assertEqual(shell.InteractiveCLI._parse_report_prune_args(["-y"]), (None, True, False))
+
+    def test_keep_without_number_raises(self):
+        with self.assertRaises(ValueError):
+            shell.InteractiveCLI._parse_report_prune_args(["--keep"])
+
+    def test_garbage_token_raises(self):
+        with self.assertRaises(ValueError):
+            shell.InteractiveCLI._parse_report_prune_args(["banana"])
+
+    def test_negative_number_is_forwarded_not_crash(self):
+        # hub validates it (usage error message) — parsing must not explode
+        self.assertEqual(
+            shell.InteractiveCLI._parse_report_prune_args(["-2"]),
+            (-2, False, False),
+        )
+
+
+class TestReportPruneInRepl(ShellReportTestBase):
+    """Two engagements; prune keeps the newest one."""
+
+    def _seed_second_report(self):
+        forced_a = "20260101_090000"
+        current = report_cli.discover_reports(self.reports_dir)[0]
+        os.replace(current["path"], os.path.join(self.reports_dir, f"audit_report_{forced_a}.json"))
+        gen = AuditReportGenerator()
+        gen.generate(
+            worm_stats=_make_stats(infections=3),
+            scan_results=_make_hosts(),
+            infected_hosts={"10.0.0.5", "10.0.0.6", "10.0.0.7"},
+            failed_targets=set(),
+            output_dir=self.reports_dir,
+        )
+
+    def test_prune_dry_run_deletes_nothing(self):
+        self._seed_second_report()
+        before = sorted(os.listdir(self.reports_dir))
+        console, patch = _capture_shell_console()
+        with patch:
+            self.repl.onecmd("report prune 1 --dry-run")
+        out = console.file.getvalue()
+        self.assertIn("dry-run", out)
+        self.assertIn("Nothing was touched", out)
+        self.assertEqual(sorted(os.listdir(self.reports_dir)), before)
+
+    def test_prune_with_yes_deletes_oldest(self):
+        self._seed_second_report()
+        ids = [r["id"] for r in report_cli.discover_reports(self.reports_dir)]
+        self.assertEqual(len(ids), 2)
+        console, patch = _capture_shell_console()
+        with patch:
+            self.repl.onecmd("report prune 1 --yes")
+        out = console.file.getvalue()
+        self.assertIn("Deleted", out)
+        remaining = [r["id"] for r in report_cli.discover_reports(self.reports_dir)]
+        self.assertEqual(remaining, [ids[-1]])  # newest survives
+        self.assertFalse(
+            os.path.exists(os.path.join(self.reports_dir, f"audit_report_{ids[0]}.json"))
+        )
+
+    def test_prune_declined_keeps_everything(self):
+        self._seed_second_report()
+        before = sorted(os.listdir(self.reports_dir))
+        with mock.patch("builtins.input", return_value="n"):
+            console, patch = _capture_shell_console()
+            with patch:
+                self.repl.onecmd("report prune 1")
+        self.assertIn("Aborted", console.file.getvalue())
+        self.assertEqual(sorted(os.listdir(self.reports_dir)), before)
+
+    def test_prune_confirmed_via_prompt_deletes(self):
+        self._seed_second_report()
+        ids = [r["id"] for r in report_cli.discover_reports(self.reports_dir)]
+        with mock.patch("builtins.input", return_value="y"):
+            console, patch = _capture_shell_console()
+            with patch:
+                self.repl.onecmd("report prune 1")
+        self.assertIn("Deleted", console.file.getvalue())
+        remaining = [r["id"] for r in report_cli.discover_reports(self.reports_dir)]
+        self.assertEqual(remaining, [ids[-1]])
+
+    def test_prune_bad_token_prints_error_not_crash(self):
+        console, patch = _capture_shell_console()
+        with patch:
+            self.repl.onecmd("report prune banana")
+        self.assertIn("Report command failed", console.file.getvalue())
+
+    def test_prune_nothing_to_do_is_friendly(self):
+        console, patch = _capture_shell_console()
+        with patch:
+            self.repl.onecmd("report prune 5 --yes")
+        self.assertIn("Nothing to prune", console.file.getvalue())
+
+
+class TestReportCompareMetricsInRepl(ShellReportTestBase):
+    def _seed_pair(self):
+        forced_a = "20260101_090000"
+        current = report_cli.discover_reports(self.reports_dir)[0]
+        os.replace(current["path"], os.path.join(self.reports_dir, f"audit_report_{forced_a}.json"))
+        gen = AuditReportGenerator()
+        gen.generate(
+            worm_stats=_make_stats(infections=3),
+            scan_results=_make_hosts(),
+            infected_hosts={"10.0.0.5", "10.0.0.6", "10.0.0.7"},
+            failed_targets=set(),
+            output_dir=self.reports_dir,
+        )
+
+    def test_compare_metrics_renders_only_requested(self):
+        self._seed_pair()
+        console, patch = _capture_shell_console()
+        with patch:
+            self.repl.onecmd("report compare --metrics infected,success_rate")
+        out = console.file.getvalue()
+        self.assertIn("engagement comparison", out)
+        self.assertIn("Infected", out)
+        self.assertIn("Success rate", out)
+        self.assertNotIn("Credentials discovered", out)
+
+    def test_compare_unknown_metric_prints_error_not_crash(self):
+        self._seed_pair()
+        console, patch = _capture_shell_console()
+        with patch:
+            self.repl.onecmd("report compare --metrics bogus")
+        self.assertIn("Unknown metric", console.file.getvalue())
+
+
 class TestReplErrorContainment(ShellReportTestBase):
     def test_hub_failure_never_crashes_the_loop(self):
         with mock.patch.object(report_cli, "compare_flow", side_effect=RuntimeError("boom")):
@@ -272,7 +463,7 @@ class TestHelpMentionsReportSubcommands(unittest.TestCase):
         with mock.patch.object(shell, "console", console):
             repl.onecmd("help")
         out = console.file.getvalue()
-        self.assertIn("report [new|list|show|compare|html]", out)
+        self.assertIn("report [new|list|show|compare|html|prune]", out)
 
 
 if __name__ == "__main__":

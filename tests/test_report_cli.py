@@ -620,5 +620,307 @@ class TestCmdReportCompare(CompareFixtureBase):
         self.assertEqual(rc, report_cli.EXIT_ERROR)
 
 
+# ─────────────────── prune (retention policy) ────────────────────
+
+
+def _seed_engagements(reports_dir: str, ids: list[str]) -> None:
+    """Seed N engagements with forced ids, each with json+csv+txt siblings.
+
+    One real generation, then copies — fast and immune to the known
+    second-granularity filename collision (reported to Bugs).
+    """
+    gen = AuditReportGenerator()
+    files = gen.generate(
+        worm_stats=_make_stats(),
+        scan_results=_make_hosts(),
+        infected_hosts={"10.0.0.5"},
+        failed_targets={"10.0.0.6"},
+        output_dir=reports_dir,
+    )
+    for ext, key in (("json", "json"), ("csv", "csv"), ("txt", "text")):
+        src = files[key]
+        for rid in ids:
+            dst = os.path.join(reports_dir, f"audit_report_{rid}.{ext}")
+            if os.path.abspath(src) == os.path.abspath(dst):
+                continue
+            with open(src, "rb") as fh_in, open(dst, "wb") as fh_out:
+                fh_out.write(fh_in.read())
+    # drop the original (collision-prone) files, keep only forced ids
+    for path in files.values():
+        if all(
+            os.path.basename(path) != f"audit_report_{rid}.{os.path.splitext(path)[1][1:]}"
+            for rid in ids
+        ):
+            os.remove(path)
+
+
+class PruneFixtureBase(unittest.TestCase):
+    """Five engagements: 20260101_000000 .. 20260105_000000 (oldest first)."""
+
+    IDS = [f"2026010{i}_000000" for i in range(1, 6)]
+
+    def setUp(self):
+        self.reports_dir = tempfile.mkdtemp(prefix="wormy_test_prune_")
+        _seed_engagements(self.reports_dir, self.IDS)
+
+    def tearDown(self):
+        for name in os.listdir(self.reports_dir):
+            os.remove(os.path.join(self.reports_dir, name))
+        os.rmdir(self.reports_dir)
+
+    def _ids_left(self) -> list[str]:
+        return [r["id"] for r in report_cli.discover_reports(self.reports_dir)]
+
+
+class TestPruneValidation(PruneFixtureBase):
+    def test_keep_zero_is_usage_error(self):
+        _, patch = _capture("err_console")
+        with patch:
+            rc = report_cli.prune_flow(self.reports_dir, keep=0, assume_yes=True)
+        self.assertEqual(rc, report_cli.EXIT_USAGE)
+
+    def test_keep_negative_is_usage_error(self):
+        _, patch = _capture("err_console")
+        with patch:
+            rc = report_cli.prune_flow(self.reports_dir, keep=-3, assume_yes=True)
+        self.assertEqual(rc, report_cli.EXIT_USAGE)
+
+    def test_json_without_yes_is_usage_error(self):
+        _, patch = _capture("err_console")
+        with patch:
+            rc = report_cli.prune_flow(self.reports_dir, keep=2, as_json=True)
+        self.assertEqual(rc, report_cli.EXIT_USAGE)
+
+    def test_missing_dir_is_error(self):
+        _, patch = _capture("err_console")
+        with patch:
+            rc = report_cli.prune_flow("/nonexistent/xx", keep=2, assume_yes=True)
+        self.assertEqual(rc, report_cli.EXIT_ERROR)
+
+
+class TestPruneFlow(PruneFixtureBase):
+    def test_nothing_to_prune_when_fewer_than_keep(self):
+        console, patch = _capture("console")
+        with patch:
+            rc = report_cli.prune_flow(self.reports_dir, keep=10, assume_yes=True)
+        self.assertEqual(rc, report_cli.EXIT_OK)
+        self.assertIn("Nothing to prune", console.file.getvalue())
+        self.assertEqual(len(self._ids_left()), 5)
+
+    def test_empty_dir_is_ok_nothing_to_prune(self):
+        empty = tempfile.mkdtemp(prefix="wormy_test_prune_empty_")
+        try:
+            console, patch = _capture("console")
+            with patch:
+                rc = report_cli.prune_flow(empty, keep=5, assume_yes=True)
+            self.assertEqual(rc, report_cli.EXIT_OK)
+            self.assertIn("nothing to prune", console.file.getvalue())
+        finally:
+            os.rmdir(empty)
+
+    def test_dry_run_deletes_nothing(self):
+        console, patch = _capture("console")
+        with patch:
+            rc = report_cli.prune_flow(self.reports_dir, keep=3, assume_yes=True, dry_run=True)
+        self.assertEqual(rc, report_cli.EXIT_OK)
+        self.assertIn("dry-run", console.file.getvalue())
+        self.assertIn("Nothing was touched", console.file.getvalue())
+        self.assertEqual(len(self._ids_left()), 5)
+
+    def test_confirmed_prune_removes_oldest_and_siblings(self):
+        rc = report_cli.prune_flow(
+            self.reports_dir, keep=3, assume_yes=True, confirm=lambda q: True
+        )
+        self.assertEqual(rc, report_cli.EXIT_OK)
+        self.assertEqual(self._ids_left(), self.IDS[2:])  # newest 3 kept
+        # every sibling file of the pruned ids is gone
+        for rid in self.IDS[:2]:
+            for ext in ("json", "csv", "txt"):
+                self.assertFalse(
+                    os.path.exists(os.path.join(self.reports_dir, f"audit_report_{rid}.{ext}"))
+                )
+
+    def test_declined_confirmation_keeps_everything(self):
+        console, patch = _capture("console")
+        with patch:
+            rc = report_cli.prune_flow(self.reports_dir, keep=3, confirm=lambda q: False)
+        self.assertEqual(rc, report_cli.EXIT_OK)
+        self.assertIn("Aborted", console.file.getvalue())
+        self.assertEqual(len(self._ids_left()), 5)
+
+    def test_yes_skips_the_prompt_entirely(self):
+        def fail(q):
+            raise AssertionError("prompt must not be called with --yes")
+
+        rc = report_cli.prune_flow(self.reports_dir, keep=4, assume_yes=True, confirm=fail)
+        self.assertEqual(rc, report_cli.EXIT_OK)
+        self.assertEqual(len(self._ids_left()), 4)
+
+    def test_prune_plan_preview_lists_dropped_ids(self):
+        console, patch = _capture("console")
+        with patch:
+            # decline via confirm so nothing is actually deleted
+            report_cli.prune_flow(self.reports_dir, keep=3, confirm=lambda q: False)
+        out = console.file.getvalue()
+        self.assertIn("Prune plan", out)
+        for rid in self.IDS[:2]:
+            self.assertIn(rid, out)
+
+    def test_json_output_structure(self):
+        import contextlib
+        import io as _io
+
+        buf = _io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rc = report_cli.prune_flow(self.reports_dir, keep=4, assume_yes=True, as_json=True)
+        self.assertEqual(rc, report_cli.EXIT_OK)
+        payload = json.loads(buf.getvalue())
+        self.assertEqual(payload["pruned"], self.IDS[:1])
+        self.assertEqual(payload["kept"], self.IDS[1:])
+        self.assertEqual(payload["errors"], [])
+        self.assertTrue(
+            any(
+                name.startswith("audit_report_20260101_000000") for name in payload["deleted_files"]
+            )
+        )
+
+    def test_deletion_failure_is_reported_as_error(self):
+        with mock.patch.object(report_cli.os, "remove", side_effect=OSError("locked")):
+            _, patch = _capture("err_console")
+            with patch:
+                rc = report_cli.prune_flow(
+                    self.reports_dir, keep=3, assume_yes=True, confirm=lambda q: True
+                )
+        self.assertEqual(rc, report_cli.EXIT_ERROR)
+
+
+class TestPruneCmdReport(unittest.TestCase):
+    def _args(self, **kw):
+        base = {
+            "action": "prune",
+            "reports_dir": None,
+            "keep": None,
+            "yes": False,
+            "dry_run": False,
+            "json": False,
+            "report_id": "latest",
+            "report_id2": None,
+            "output": None,
+            "metrics": None,
+        }
+        base.update(kw)
+        return argparse.Namespace(**base)
+
+    def test_cmd_report_defaults_keep_to_20(self):
+        with mock.patch.object(report_cli, "prune_flow", return_value=report_cli.EXIT_OK) as flow:
+            rc = report_cli.cmd_report(self._args())
+        self.assertEqual(rc, report_cli.EXIT_OK)
+        self.assertEqual(flow.call_args.kwargs["keep"], report_cli.PRUNE_DEFAULT_KEEP)
+
+    def test_cmd_report_forwards_explicit_keep(self):
+        with mock.patch.object(report_cli, "prune_flow", return_value=report_cli.EXIT_OK) as flow:
+            rc = report_cli.cmd_report(self._args(keep=2, yes=True, dry_run=True))
+        self.assertEqual(rc, report_cli.EXIT_OK)
+        self.assertEqual(flow.call_args.kwargs["keep"], 2)
+        self.assertTrue(flow.call_args.kwargs["assume_yes"])
+        self.assertTrue(flow.call_args.kwargs["dry_run"])
+
+    def test_cmd_report_keep_zero_stays_zero_not_default(self):
+        # explicit --keep 0 must reach validation, not be replaced by 20
+        with mock.patch.object(
+            report_cli, "prune_flow", return_value=report_cli.EXIT_USAGE
+        ) as flow:
+            rc = report_cli.cmd_report(self._args(keep=0))
+        self.assertEqual(rc, report_cli.EXIT_USAGE)
+        self.assertEqual(flow.call_args.kwargs["keep"], 0)
+
+
+# ─────────────────── compare --metrics filter ────────────────────
+
+
+class TestFilterMetricRows(CompareFixtureBase):
+    def _rows(self):
+        data_a = report_cli.load_report(
+            os.path.join(self.reports_dir, f"audit_report_{self.ID_A}.json")
+        )
+        data_b = report_cli.load_report(
+            os.path.join(self.reports_dir, f"audit_report_{self.ID_B}.json")
+        )
+        return report_cli.compare_metrics(data_a, data_b)
+
+    def test_filter_by_machine_key(self):
+        picked, unknown = report_cli._filter_metric_rows(self._rows(), "infected")
+        self.assertEqual(unknown, [])
+        self.assertEqual([r["key"] for r in picked], ["infected"])
+
+    def test_filter_by_human_label_case_insensitive(self):
+        picked, unknown = report_cli._filter_metric_rows(self._rows(), "Success Rate")
+        self.assertEqual(unknown, [])
+        self.assertEqual([r["key"] for r in picked], ["success_rate"])
+
+    def test_filter_mixed_keys_and_labels(self):
+        picked, unknown = report_cli._filter_metric_rows(
+            self._rows(), "infected, Success rate ,failed"
+        )
+        self.assertEqual(unknown, [])
+        self.assertEqual([r["key"] for r in picked], ["infected", "success_rate", "failed"])
+
+    def test_unknown_metric_is_reported(self):
+        picked, unknown = report_cli._filter_metric_rows(self._rows(), "infected,bogus")
+        self.assertEqual(unknown, ["bogus"])
+
+    def test_blank_entries_are_ignored(self):
+        picked, unknown = report_cli._filter_metric_rows(self._rows(), "infected,, ")
+        self.assertEqual(unknown, [])
+        self.assertEqual(len(picked), 1)
+
+
+class TestCompareMetricsFilter(CompareFixtureBase):
+    def test_flow_renders_only_requested_metrics(self):
+        console, patch = _capture("console")
+        with patch:
+            rc = report_cli.compare_flow(
+                self.reports_dir, None, None, metrics="infected,success_rate"
+            )
+        self.assertEqual(rc, report_cli.EXIT_OK)
+        out = console.file.getvalue()
+        self.assertIn("Infected", out)
+        self.assertIn("Success rate", out)
+        self.assertNotIn("Credentials discovered", out)
+
+    def test_flow_json_respects_the_filter(self):
+        import contextlib
+        import io as _io
+
+        buf = _io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rc = report_cli.compare_flow(
+                self.reports_dir, None, None, as_json=True, metrics="infected"
+            )
+        self.assertEqual(rc, report_cli.EXIT_OK)
+        payload = json.loads(buf.getvalue())
+        self.assertEqual([m["key"] for m in payload["metrics"]], ["infected"])
+
+    def test_flow_unknown_metric_is_usage_error_listing_valid(self):
+        console, patch = _capture("err_console")
+        with patch:
+            rc = report_cli.compare_flow(self.reports_dir, None, None, metrics="bogus")
+        self.assertEqual(rc, report_cli.EXIT_USAGE)
+        out = console.file.getvalue()
+        self.assertIn("bogus", out)
+        self.assertIn("success_rate", out)
+
+    def test_rows_carry_the_key_field(self):
+        data_a = report_cli.load_report(
+            os.path.join(self.reports_dir, f"audit_report_{self.ID_A}.json")
+        )
+        data_b = report_cli.load_report(
+            os.path.join(self.reports_dir, f"audit_report_{self.ID_B}.json")
+        )
+        rows = report_cli.compare_metrics(data_a, data_b)
+        self.assertEqual(rows[0]["key"], "hosts_discovered")
+        self.assertEqual(rows[0]["metric"], "Hosts discovered")
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -10,6 +10,7 @@ import io
 import json
 import os
 import sys
+import tempfile
 import unittest
 from unittest import mock
 
@@ -381,6 +382,187 @@ class TestConfigSubcommand(unittest.TestCase):
     def test_parse_config_with_profile(self):
         args = cli.build_parser().parse_args(["config", "show", "--profile", "stealth"])
         self.assertEqual(args.profile, "stealth")
+
+
+class TestReportPruneParser(unittest.TestCase):
+    """Parser wiring for `report prune`."""
+
+    def test_parse_prune_defaults(self):
+        args = cli.build_parser().parse_args(["report", "prune"])
+        self.assertEqual(args.action, "prune")
+        self.assertIsNone(args.keep)
+        self.assertFalse(args.yes)
+        self.assertFalse(args.dry_run)
+
+    def test_parse_prune_full_flags(self):
+        args = cli.build_parser().parse_args(
+            ["report", "prune", "--keep", "5", "--yes", "--dry-run"]
+        )
+        self.assertEqual(args.keep, 5)
+        self.assertTrue(args.yes)
+        self.assertTrue(args.dry_run)
+
+    def test_parse_prune_short_yes(self):
+        args = cli.build_parser().parse_args(["report", "prune", "-y", "--keep", "3"])
+        self.assertTrue(args.yes)
+        self.assertEqual(args.keep, 3)
+
+    def test_parse_compare_metrics_flag(self):
+        args = cli.build_parser().parse_args(
+            ["report", "compare", "--metrics", "infected,success_rate"]
+        )
+        self.assertEqual(args.metrics, "infected,success_rate")
+        self.assertEqual(args.action, "compare")
+
+    def test_parse_scan_csv_flag(self):
+        args = cli.build_parser().parse_args(["scan", "--csv", "hosts.csv"])
+        self.assertEqual(args.csv, "hosts.csv")
+
+    def test_parse_scan_csv_defaults_to_none(self):
+        args = cli.build_parser().parse_args(["scan"])
+        self.assertIsNone(getattr(args, "csv", None))
+
+
+class TestScanCsv(unittest.TestCase):
+    """`wormy scan --csv`: one row per host, flattened ports/services."""
+
+    HOSTS = [
+        {
+            "ip": "10.0.0.5",
+            "os_guess": "Linux",
+            "open_ports": [22, 8080],
+            "vulnerability_score": 78,
+            "services": {"22": "ssh", "8080": "http"},
+            "hostname": "web01",
+            "scan_time": 0.42,
+        },
+        {
+            "ip": "10.0.0.6",
+            "os_guess": "Windows",
+            "open_ports": [445, 3389],
+            "vulnerability_score": 91,
+            "services": ["smb", "rdp"],
+        },
+    ]
+
+    def test_writes_header_and_rows(self):
+        import csv as _csv
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "hosts.csv")
+            count = cli._write_scan_csv(self.HOSTS, path)
+            self.assertEqual(count, 2)
+            with open(path, newline="", encoding="utf-8") as fh:
+                rows = list(_csv.reader(fh))
+        self.assertEqual(
+            rows[0],
+            [
+                "ip",
+                "hostname",
+                "os_guess",
+                "open_ports",
+                "services",
+                "vulnerability_score",
+                "scan_time",
+            ],
+        )
+        self.assertEqual(rows[1][0], "10.0.0.5")
+        self.assertEqual(rows[1][1], "web01")
+        self.assertEqual(rows[1][3], "22;8080")
+        self.assertEqual(rows[1][4], "22:ssh;8080:http")
+
+    def test_list_services_are_semicolon_joined(self):
+        import csv as _csv
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "hosts.csv")
+            cli._write_scan_csv(self.HOSTS, path)
+            with open(path, newline="", encoding="utf-8") as fh:
+                rows = list(_csv.reader(fh))
+        self.assertEqual(rows[2][4], "smb;rdp")
+        self.assertEqual(rows[2][1], "")  # no hostname from the basic scanner
+
+    def test_empty_results_write_header_only(self):
+        import csv as _csv
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "empty.csv")
+            count = cli._write_scan_csv([], path)
+            self.assertEqual(count, 0)
+            with open(path, newline="", encoding="utf-8") as fh:
+                rows = list(_csv.reader(fh))
+        self.assertEqual(len(rows), 1)  # header only
+
+    def test_non_dict_entries_are_skipped(self):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "hosts.csv")
+            count = cli._write_scan_csv([self.HOSTS[0], "garbage", None], path)
+        self.assertEqual(count, 1)
+
+    def test_dash_writes_to_stdout(self):
+        import contextlib
+
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            count = cli._write_scan_csv(self.HOSTS[:1], "-")
+        out = buf.getvalue()
+        self.assertEqual(count, 1)
+        self.assertIn("10.0.0.5", out)
+        self.assertIn("open_ports", out)
+
+    def test_cmd_scan_writes_csv_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            csv_path = os.path.join(tmp, "hosts.csv")
+            args = argparse.Namespace(
+                config=None,
+                profile=None,
+                target=None,
+                basic=False,
+                json=False,
+                output=None,
+                csv=csv_path,
+            )
+            fake_worm = mock.MagicMock()
+            fake_worm.scan_network.return_value = self.HOSTS
+            with mock.patch("worm_core.WormCore", return_value=fake_worm):
+                rc = cli.cmd_scan(args)
+            self.assertEqual(rc, cli.EXIT_OK)
+            self.assertTrue(os.path.isfile(csv_path))
+            with open(csv_path, encoding="utf-8") as fh:
+                content = fh.read()
+            self.assertIn("10.0.0.5", content)
+            self.assertIn("22:ssh", content)
+
+    def test_cmd_scan_without_csv_writes_nothing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            before = os.listdir(tmp)
+            args = argparse.Namespace(
+                config=None,
+                profile=None,
+                target=None,
+                basic=False,
+                json=False,
+                output=None,
+                csv=None,
+            )
+            fake_worm = mock.MagicMock()
+            fake_worm.scan_network.return_value = self.HOSTS
+            buf = io.StringIO()
+            with (
+                mock.patch("worm_core.WormCore", return_value=fake_worm),
+                mock.patch.object(
+                    cli, "console", Console(file=buf, force_terminal=False, width=100)
+                ),
+            ):
+                rc = cli.cmd_scan(args)
+            self.assertEqual(rc, cli.EXIT_OK)
+            self.assertEqual(os.listdir(tmp), before)
+            self.assertNotIn("CSV written", buf.getvalue())
 
 
 def _capture(fn):

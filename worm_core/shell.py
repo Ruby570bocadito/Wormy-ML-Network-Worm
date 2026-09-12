@@ -685,11 +685,13 @@ class InteractiveCLI(cmd.Cmd):
     def do_report(self, arg):
         """Engagement reports.
 
-        Usage: report [new|list|show [id]|compare [id1 id2]|html [id] [-o FILE]]
+        Usage: report [new|list|show [id]|compare [id1 id2] [--metrics a,b]|
+                      html [id] [-o FILE]|prune [N] [--yes] [--dry-run]]
 
         Without arguments it generates a fresh report for the current
         session (previous behavior). The subcommands operate on the
-        historical audit reports in ./reports, read-only.
+        historical audit reports in ./reports — everything is read-only
+        except `prune`, which asks for confirmation before deleting.
         """
         parts = arg.split()
         sub = parts[0].lower() if parts else "new"
@@ -708,17 +710,19 @@ class InteractiveCLI(cmd.Cmd):
                 rid = parts[1] if len(parts) > 1 else None
                 hub.show_report(reports_dir, rid)
             elif sub == "compare":
-                id1 = parts[1] if len(parts) > 1 else None
-                id2 = parts[2] if len(parts) > 2 else None
-                hub.compare_flow(reports_dir, id1, id2)
+                id1, id2, metrics = self._parse_report_compare_args(parts[1:])
+                hub.compare_flow(reports_dir, id1, id2, metrics=metrics)
             elif sub == "html":
                 out, rid = self._parse_report_html_args(parts[1:])
                 hub.export_html(reports_dir, rid or hub.LATEST, out)
+            elif sub == "prune":
+                keep, yes, dry = self._parse_report_prune_args(parts[1:])
+                hub.prune_flow(reports_dir, keep=keep, assume_yes=yes, dry_run=dry)
             else:
                 console.print(
                     f"[red]Unknown report subcommand:[/] {sub}\n"
-                    "Usage: report [new|list|show [id]|compare [id1 id2]|"
-                    "html [id] [-o FILE]]"
+                    "Usage: report [new|list|show [id]|compare [id1 id2] [--metrics a,b]|"
+                    "html [id] [-o FILE]|prune [N] [--yes] [--dry-run]]"
                 )
         except Exception as exc:  # noqa: BLE001 — a REPL command must never crash the loop
             console.print(f"[red]Report command failed:[/] {exc}")
@@ -741,6 +745,59 @@ class InteractiveCLI(cmd.Cmd):
         if len(ids) > 1:
             raise ValueError("html takes at most one report id")
         return out, ids[0] if ids else None
+
+    @staticmethod
+    def _parse_report_compare_args(tokens: list[str]) -> tuple[str | None, str | None, str | None]:
+        """Parse ``compare [id1] [id2] [-m K1,K2]`` tokens.
+
+        Returns (id1, id2, metrics) — ids keep the order typed by the
+        operator, ``metrics`` stays None unless -m/--metrics is given.
+        """
+        ids = []
+        metrics = None
+        i = 0
+        while i < len(tokens):
+            if tokens[i] in ("-m", "--metrics"):
+                if i + 1 >= len(tokens):
+                    raise ValueError("-m/--metrics needs a comma-separated metric list")
+                metrics = tokens[i + 1]
+                i += 2
+                continue
+            ids.append(tokens[i])
+            i += 1
+        if len(ids) > 2:
+            raise ValueError("compare takes at most two report ids")
+        return (ids[0] if ids else None, ids[1] if len(ids) > 1 else None, metrics)
+
+    @staticmethod
+    def _parse_report_prune_args(tokens: list[str]) -> tuple[int | None, bool, bool]:
+        """Parse ``prune [N] [--yes] [--dry-run]`` tokens → (keep, yes, dry_run).
+
+        ``N`` may also be spelled ``--keep N``. Invalid numbers raise
+        ValueError, which do_report renders as a friendly error.
+        """
+        keep = None
+        yes = False
+        dry = False
+        i = 0
+        while i < len(tokens):
+            tok = tokens[i]
+            if tok in ("-y", "--yes"):
+                yes = True
+            elif tok == "--dry-run":
+                dry = True
+            elif tok in ("--keep", "-k"):
+                i += 1
+                if i >= len(tokens):
+                    raise ValueError("--keep needs a number")
+                keep = int(tokens[i])
+            else:
+                try:
+                    keep = int(tok)
+                except ValueError:
+                    raise ValueError(f"bad prune argument: {tok}") from None
+            i += 1
+        return keep, yes, dry
 
     # ── TRAIN ────────────────────────────────────────────────────────
 
@@ -814,7 +871,7 @@ class InteractiveCLI(cmd.Cmd):
             ("run [n]", "Start propagation"),
             ("stop", "Stop propagation"),
             ("train [model]", "Train ML models"),
-            ("report [new|list|show|compare|html]", "Generate or inspect audit reports"),
+            ("report [new|list|show|compare|html|prune]", "Generate or inspect audit reports"),
             ("version", "Show version"),
             ("exit", "Exit CLI"),
         ]

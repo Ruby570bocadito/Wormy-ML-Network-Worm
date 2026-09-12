@@ -71,16 +71,22 @@ wormy run --dry-run --target 127.0.0.0/30 --max-infections 2  # demo-friendly ca
 ```bash
 wormy scan --target 10.0.0.0/24 --output scan.json
 wormy scan --target 10.0.0.0/24 --json      # machine-readable stdout
+wormy scan --target 10.0.0.0/24 --csv hosts.csv   # one row per host, spreadsheet-ready
 wormy scan --basic                           # basic scanner instead of pro
 ```
 
-Logs go to **stderr**, so `wormy scan --json | jq .` works cleanly.
+Logs go to **stderr**, so `wormy scan --json | jq .` works cleanly. The CSV
+export keeps the scan order; `open_ports` and `services` are flattened with
+`;` separators (`22:ssh;8080:http`) so each host stays on one row, and
+`--csv -` writes to stdout for piping into other tools.
 
 ### `wormy report` — engagement reports
 
 Every engagement writes timestamped audit reports
-(`reports/audit_report_<ts>.json|csv|txt`). `wormy report` is the read-only
-consumer for that trail — it never modifies or deletes reports:
+(`reports/audit_report_<ts>.json|csv|txt`). `wormy report` consumes that
+trail: everything is read-only except `prune`, the single mutating
+operation — and even that always previews the plan and asks before
+deleting:
 
 ```bash
 wormy report list                  # engagement inventory (date, KPIs, success rate)
@@ -92,6 +98,10 @@ wormy report html -o report.html   # HTML export to a given path
 wormy report compare               # last two engagements, side by side
 wormy report compare 20260913_1 20260913_2   # explicit pair
 wormy report compare --json        # machine-readable deltas
+wormy report compare --metrics infected,success_rate   # just 2-3 KPIs
+wormy report prune                 # keep the newest 20 (preview + confirm)
+wormy report prune --keep 5 --yes  # keep 5, no prompt (scripts)
+wormy report prune --dry-run       # preview only, nothing is deleted
 ```
 
 `show` renders the executive summary, infected/failed hosts, the most
@@ -107,6 +117,19 @@ with two ids it compares them in chronological order (any order accepted).
 Comparing a report with itself, an unknown id, or the oldest report without
 predecessor exits with code `1` and a clear message. `--json` emits
 `{baseline, candidate, metrics[{metric, baseline, candidate, delta, trend}]}`.
+`--metrics K1,K2` narrows the table (and the JSON) to the KPIs you care
+about — names match either the machine key (`infected`, `success_rate`) or
+the human label (`"Success rate"`), case-insensitive; an unknown name is a
+usage error that lists the valid ones.
+
+`prune` is the retention policy: it keeps the newest N engagements (default
+20) and deletes the rest — always the **whole file set** of each pruned
+engagement (`audit_report_<id>.json|csv|txt|html`). The deletion plan is
+previewed (ids, file counts, sizes); without `--yes` you confirm with a y/N
+prompt, and declining (or Ctrl-D) aborts without touching anything.
+`--keep 0` is refused — erasing the whole audit trail is never one flag
+away. `--json` requires `--yes` so scripts never hang on a prompt, and
+emits `{pruned, deleted_files, kept, errors}`.
 
 The reports directory resolution is: `--reports-dir` → `$WORMY_REPORTS_DIR`
 → `./reports` → `<repo root>/reports`. Missing or corrupt reports exit with
@@ -203,7 +226,7 @@ Every command has a short alias (shown in parentheses):
 | `run [iterations]` (`r`) | start the propagation loop |
 | `stop` | cooperative stop |
 | `train [model]` | train ML models from the REPL |
-| `report [new\|list\|show\|compare\|html]` | generate a fresh report or inspect the historical ones (read-only) |
+| `report [new\|list\|show\|compare\|html\|prune]` | generate a fresh report or inspect/manage the historical ones |
 | `status` | banner + status |
 | `exit` (`q`) | shutdown and leave |
 
@@ -219,6 +242,8 @@ Walkthrough against the lab:
 > report                  # evidence for this session
 > report list             # history of past engagements
 > report compare          # deltas vs. the previous engagement
+> report compare --metrics infected,success_rate
+> report prune 10 --dry-run   # preview a retention pass
 ```
 
 ---

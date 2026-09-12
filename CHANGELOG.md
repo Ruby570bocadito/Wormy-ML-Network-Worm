@@ -63,6 +63,29 @@ safety caps per run without editing YAML.
   uses a `getattr` fallback
 - 62 new tests (compare hub 29, REPL report 22, shell caps 11)
 
+### Added (round 3)
+- **`wormy report prune`** — retention policy for the engagement trail:
+  keep the newest N reports (default 20, `--keep N`), delete the rest as
+  whole `audit_report_<id>.json|csv|txt|html` sets. The plan is always
+  previewed (ids, file counts, sizes); without `--yes` a y/N prompt
+  confirms (EOF or "no" aborts safely); `--dry-run` previews without
+  touching anything. `--keep 0` is refused (usage error). `--json`
+  requires `--yes` (scripts never hang on a prompt) and emits
+  `{pruned, deleted_files, kept, errors}`
+- **REPL `report prune [N] [--yes] [--dry-run]`** — same retention pass
+  from the interactive shell, same confirmation semantics
+- **`wormy report compare --metrics K1,K2`** — narrow the comparison (and
+  its `--json` output) to chosen KPIs; names match machine keys
+  (`infected`, `success_rate`) or human labels (`"Success rate"`),
+  case-insensitive; unknown names are usage errors listing the valid
+  ones. Also available in the REPL (`report compare --metrics …`)
+- **`wormy scan --csv FILE`** — reconnaissance export for spreadsheets:
+  one row per host (ip, hostname, os, open_ports, services,
+  vulnerability_score, scan_time); `open_ports`/`services` flattened with
+  `;` (`22:ssh;8080:http`); `--csv -` writes to stdout for piping
+- 62 new tests (prune hub 24, metrics filter 9, scan CSV 7, CLI/REPL
+  wiring 22); suite total 443 passing
+
 ## v4.3.1 (2026-09-10)
 
 Polish release: demo mode for the dashboard, honest doctor semantics and a
