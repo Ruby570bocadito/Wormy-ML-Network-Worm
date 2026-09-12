@@ -1,10 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Wormy ML Network Worm v3.0
-Developed by Ruby570bocadito (https://github.com/Ruby570bocadito)
-Copyright (c) 2024 Ruby570bocadito. All rights reserved.
-"""
-
 """
 Advanced Self-Healing Engine v2.0
 Real improvements over the basic self_healing.py:

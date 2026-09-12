@@ -3,7 +3,6 @@ Enhanced Infection Engine
 More robust and sophisticated infection mechanisms
 """
 
-
 import hashlib
 import os
 import sys

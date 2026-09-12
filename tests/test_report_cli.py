@@ -924,3 +924,57 @@ class TestCompareMetricsFilter(CompareFixtureBase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestCompareMetricPipeline(unittest.TestCase):
+    """Contract of the table-driven metric parse/format pipeline."""
+
+    def test_every_metric_kind_has_a_parser_and_formatter(self):
+        # Adding a kind to _METRICS without wiring it into both tables
+        # would make compare_metrics raise KeyError mid-render.
+        for _key, _label, _direction, kind in report_cli._METRICS:
+            self.assertIn(kind, report_cli._METRIC_PARSERS, kind)
+            self.assertIn(kind, report_cli._METRIC_FORMATTERS, kind)
+
+    def test_pass_through_keeps_values_and_none(self):
+        f = report_cli._pass_through
+        self.assertEqual(f(0), 0)
+        self.assertEqual(f("raw"), "raw")
+        self.assertIsNone(f(None))
+
+    def test_rate_formatter(self):
+        self.assertEqual(report_cli._fmt_rate(12.5), "12.5%")
+        self.assertIsNone(report_cli._fmt_rate(None))
+
+    def test_duration_formatter_is_none_safe(self):
+        self.assertEqual(report_cli._fmt_dur(92.5), "1.54m")
+        self.assertEqual(report_cli._fmt_dur(None), "N/A")
+
+
+class TestCompareFlowErrors(CompareFixtureBase):
+    def test_corrupt_report_error_names_the_file(self):
+        corrupt = os.path.join(self.reports_dir, f"audit_report_{self.ID_A}.json")
+        with open(corrupt, "w") as fh:
+            fh.write("{broken json")
+        console, patch = _capture("err_console")
+        with patch:
+            rc = report_cli.compare_flow(self.reports_dir, self.ID_A, self.ID_B)
+        self.assertEqual(rc, report_cli.EXIT_ERROR)
+        # The shared loader always includes the failing path.
+        self.assertIn(self.ID_A, console.file.getvalue())
+
+    def test_two_id_missing_latest_names_latest_not_none(self):
+        # id1 omitted implies `latest`; an empty dir cannot resolve it
+        # while id2 is a direct path that does resolve. The error must
+        # name 'latest', never a literal None.
+        empty_dir = tempfile.mkdtemp(prefix="wormy_test_compare_empty_")
+        outside = os.path.join(empty_dir, "outside.json")
+        with open(outside, "w") as fh:
+            fh.write("{}")
+        console, patch = _capture("err_console")
+        with patch:
+            rc = report_cli.compare_flow(empty_dir, None, outside)
+        self.assertEqual(rc, report_cli.EXIT_ERROR)
+        out = console.file.getvalue()
+        self.assertIn("'latest'", out)
+        self.assertNotIn("None", out)

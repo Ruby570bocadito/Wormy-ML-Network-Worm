@@ -1,10 +1,4 @@
 """
-Wormy ML Network Worm v3.0 — The Adaptive Cycle
-Developed by Ruby570bocadito (https://github.com/Ruby570bocadito)
-Copyright (c) 2024 Ruby570bocadito. All rights reserved.
-"""
-
-"""
 Adaptive Cycle Orchestrator
 Integrates all 6 APT-level components into a self-adaptive propagation system:
 

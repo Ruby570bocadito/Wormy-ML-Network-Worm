@@ -26,6 +26,45 @@ from ._version import __version__
 console = Console()
 
 
+# Report subcommand flag specs: canonical key → (alias spellings, usage
+# error when the flag is the last token). Shared by the html and compare
+# token parsers below.
+_REPORT_OUTPUT_FLAG = {
+    "output": (("-o", "--output"), "-o/--output needs a file path"),
+}
+_REPORT_METRICS_FLAG = {
+    "metrics": (("-m", "--metrics"), "-m/--metrics needs a comma-separated metric list"),
+}
+
+
+def _split_report_tokens(
+    tokens: list[str], value_flags: dict[str, tuple[tuple[str, ...], str]]
+) -> tuple[list[str], dict[str, str]]:
+    """Split REPL report tokens into positionals and ``flag VALUE`` pairs.
+
+    ``value_flags`` maps a canonical key to ``(aliases, error)`` — when a
+    flag is repeated the last value wins (the semantics of the previous
+    per-command parsers). Positionals keep their typed order. A flag at
+    the end of the token list raises ``ValueError``, which ``do_report``
+    renders as a friendly error.
+    """
+    alias_map = {alias: key for key, (aliases, _err) in value_flags.items() for alias in aliases}
+    positionals: list[str] = []
+    values: dict[str, str] = {}
+    i = 0
+    while i < len(tokens):
+        key = alias_map.get(tokens[i])
+        if key is not None:
+            if i + 1 >= len(tokens):
+                raise ValueError(value_flags[key][1])
+            values[key] = tokens[i + 1]
+            i += 2
+            continue
+        positionals.append(tokens[i])
+        i += 1
+    return positionals, values
+
+
 class InteractiveCLI(cmd.Cmd):
     """Interactive command shell for a live WormCore instance."""
 
@@ -730,21 +769,10 @@ class InteractiveCLI(cmd.Cmd):
     @staticmethod
     def _parse_report_html_args(tokens: list[str]) -> tuple[str | None, str | None]:
         """Parse ``html [id] [-o FILE]`` tokens → (output_path, report_id)."""
-        out = None
-        ids = []
-        i = 0
-        while i < len(tokens):
-            if tokens[i] in ("-o", "--output"):
-                if i + 1 >= len(tokens):
-                    raise ValueError("-o/--output needs a file path")
-                out = tokens[i + 1]
-                i += 2
-                continue
-            ids.append(tokens[i])
-            i += 1
+        ids, flags = _split_report_tokens(tokens, _REPORT_OUTPUT_FLAG)
         if len(ids) > 1:
             raise ValueError("html takes at most one report id")
-        return out, ids[0] if ids else None
+        return flags.get("output"), ids[0] if ids else None
 
     @staticmethod
     def _parse_report_compare_args(tokens: list[str]) -> tuple[str | None, str | None, str | None]:
@@ -753,21 +781,10 @@ class InteractiveCLI(cmd.Cmd):
         Returns (id1, id2, metrics) — ids keep the order typed by the
         operator, ``metrics`` stays None unless -m/--metrics is given.
         """
-        ids = []
-        metrics = None
-        i = 0
-        while i < len(tokens):
-            if tokens[i] in ("-m", "--metrics"):
-                if i + 1 >= len(tokens):
-                    raise ValueError("-m/--metrics needs a comma-separated metric list")
-                metrics = tokens[i + 1]
-                i += 2
-                continue
-            ids.append(tokens[i])
-            i += 1
+        ids, flags = _split_report_tokens(tokens, _REPORT_METRICS_FLAG)
         if len(ids) > 2:
             raise ValueError("compare takes at most two report ids")
-        return (ids[0] if ids else None, ids[1] if len(ids) > 1 else None, metrics)
+        return (ids[0] if ids else None, ids[1] if len(ids) > 1 else None, flags.get("metrics"))
 
     @staticmethod
     def _parse_report_prune_args(tokens: list[str]) -> tuple[int | None, bool, bool]:

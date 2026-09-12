@@ -3,7 +3,6 @@ ML Network Worm - Configuration Management
 Handles all configuration settings for the worm
 """
 
-
 import ipaddress
 import os
 from dataclasses import dataclass, field

@@ -468,3 +468,44 @@ class TestHelpMentionsReportSubcommands(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestSplitReportTokens(unittest.TestCase):
+    """The shared `flag VALUE` tokenizer behind the html/compare parsers."""
+
+    SPEC = {"output": (("-o", "--output"), "-o/--output needs a file path")}
+
+    def test_positionals_keep_typed_order(self):
+        ids, flags = shell._split_report_tokens(["a", "-o", "f.html", "b"], self.SPEC)
+        self.assertEqual(ids, ["a", "b"])
+        self.assertEqual(flags, {"output": "f.html"})
+
+    def test_repeated_flag_last_value_wins_across_aliases(self):
+        ids, flags = shell._split_report_tokens(
+            ["--output", "first.html", "-o", "second.html"], self.SPEC
+        )
+        self.assertEqual(ids, [])
+        self.assertEqual(flags, {"output": "second.html"})
+
+    def test_flag_as_last_token_raises(self):
+        with self.assertRaises(ValueError) as ctx:
+            shell._split_report_tokens(["id", "--output"], self.SPEC)
+        self.assertIn("file path", str(ctx.exception))
+
+    def test_empty_tokens(self):
+        self.assertEqual(shell._split_report_tokens([], self.SPEC), ([], {}))
+
+    def test_unknown_tokens_are_positionals(self):
+        ids, flags = shell._split_report_tokens(["-x", "id"], self.SPEC)
+        self.assertEqual(ids, ["-x", "id"])
+        self.assertEqual(flags, {})
+
+
+class TestReportHtmlParsingAliases(unittest.TestCase):
+    def test_mixed_alias_spellings_last_wins(self):
+        self.assertEqual(
+            shell.InteractiveCLI._parse_report_html_args(
+                ["--output", "first.html", "-o", "second.html"]
+            ),
+            ("second.html", None),
+        )

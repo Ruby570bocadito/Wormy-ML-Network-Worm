@@ -3,7 +3,6 @@ Async Scanner
 High-performance parallel scanning using asyncio
 """
 
-
 import asyncio
 import ipaddress
 import time

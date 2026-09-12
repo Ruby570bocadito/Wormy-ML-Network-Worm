@@ -3,7 +3,6 @@ Network Scanner Module
 Provides intelligent network scanning and host discovery
 """
 
-
 import concurrent.futures
 import hashlib
 import hmac
@@ -638,9 +637,7 @@ class HostClassifier:
                     hmac_key = os.environ.get("WORMY_MODEL_KEY", "").encode() or (
                         b"wormy_model_integrity_key"
                     )
-                    computed_sig = (
-                        hmac.new(hmac_key, raw_data, hashlib.sha256).hexdigest().encode()
-                    )
+                    computed_sig = hmac.new(hmac_key, raw_data, hashlib.sha256).hexdigest().encode()
                     if not hmac.compare_digest(computed_sig, expected_sig):
                         raise ValueError("Model integrity check failed — possible tampering")
                     self.model = pickle.loads(raw_data)

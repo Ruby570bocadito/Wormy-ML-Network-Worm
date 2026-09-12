@@ -1,5 +1,6 @@
 """
-Wormy ML Network Worm v3.0 - Perfect Forward Secrecy Crypto
+Wormy — perfect-forward-secrecy crypto.
+
 X25519 ECDH key exchange + AES-GCM session encryption.
 Replaces the static XOR+SHA256 scheme in resilient_c2.py.
 """

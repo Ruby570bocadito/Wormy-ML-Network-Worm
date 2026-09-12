@@ -158,6 +158,29 @@ def load_report(path: str) -> dict:
         return json.load(fh)
 
 
+def _report_not_found(rid: str, reports_dir: str) -> None:
+    """The shared "Report not found" error — points the operator at `report list`."""
+    err_console.print(
+        f"[red]Report not found:[/] '{rid}' in {reports_dir}\n"
+        "List available engagements with [cyan]report list[/]."
+    )
+
+
+def _load_or_error(path: str, context: str = "") -> tuple[dict | None, int]:
+    """Load a report JSON, or print one consistent error and fail.
+
+    Returns ``(data, EXIT_OK)`` on success and ``(None, EXIT_ERROR)`` on
+    failure — the caller returns the code. ``context`` optionally names
+    the flow (``" for comparison"``) so the message stays actionable;
+    the failing path is always included.
+    """
+    try:
+        return load_report(path), EXIT_OK
+    except (json.JSONDecodeError, OSError) as exc:
+        err_console.print(f"[red]Cannot read report{context}[/] {path}: {exc}")
+        return None, EXIT_ERROR
+
+
 # ─────────────────────────── summaries ────────────────────────────
 
 
@@ -617,6 +640,31 @@ def _fmt_dur(seconds: float | None) -> str:
     return f"{seconds:.2f}s"
 
 
+def _pass_through(value):
+    """Identity parse/format — ``int`` metrics are already numeric."""
+    return value
+
+
+def _fmt_rate(value: float | None):
+    """Rate cell: ``12.5%`` (None stays None — caller falls back to raw)."""
+    return None if value is None else f"{value:.1f}%"
+
+
+# Metric value pipeline, keyed by the ``kind`` column of _METRICS: parse
+# turns the raw summarize value into a number (None = unknown), fmt renders
+# a parsed value back into a table cell.
+_METRIC_PARSERS = {
+    "rate": _parse_rate,
+    "dur": _parse_duration,
+    "int": _pass_through,
+}
+_METRIC_FORMATTERS = {
+    "rate": _fmt_rate,
+    "dur": _fmt_dur,  # None-safe: renders "N/A"
+    "int": _pass_through,
+}
+
+
 def compare_metrics(data_a: dict, data_b: dict) -> list[dict]:
     """Build the side-by-side metric model for two report dicts.
 
@@ -631,24 +679,8 @@ def compare_metrics(data_a: dict, data_b: dict) -> list[dict]:
     rows = []
     for key, label, direction, kind in _METRICS:
         raw_a, raw_b = s_a[key], s_b[key]
-        if kind == "rate":
-
-            def fmt(v):
-                return v if v is None else f"{v:.1f}%"
-
-            va, vb = _parse_rate(raw_a), _parse_rate(raw_b)
-        elif kind == "dur":
-
-            def fmt(v):  # noqa: A001 — local formatter per metric kind
-                return _fmt_dur(v) if v is not None else "N/A"
-
-            va, vb = _parse_duration(raw_a), _parse_duration(raw_b)
-        else:
-
-            def fmt(v):
-                return v
-
-            va, vb = raw_a, raw_b
+        parse, fmt = _METRIC_PARSERS[kind], _METRIC_FORMATTERS[kind]
+        va, vb = parse(raw_a), parse(raw_b)
 
         if va is not None and vb is not None:
             delta = vb - va
@@ -764,13 +796,13 @@ def _resolve_ref(refs: list[dict], reports_dir: str, rid: str) -> dict | None:
         if os.path.abspath(r["path"]) == os.path.abspath(path):
             return r
     # Direct file path outside the inventory (e.g. /tmp/other.json).
-    rid = _report_id_from_path(path)
+    derived_id = _report_id_from_path(path)
     try:
         mtime = os.path.getmtime(path)
     except OSError:
         mtime = 0.0
     return {
-        "id": rid or os.path.splitext(os.path.basename(path))[0],
+        "id": derived_id or os.path.splitext(os.path.basename(path))[0],
         "path": path,
         "mtime": mtime,
     }
@@ -806,10 +838,7 @@ def compare_flow(
     if id2 is None:
         cand = _resolve_ref(refs, reports_dir, id1 or LATEST)
         if cand is None:
-            err_console.print(
-                f"[red]Report not found:[/] '{id1 or LATEST}' in {reports_dir}\n"
-                "List available engagements with [cyan]report list[/]."
-            )
+            _report_not_found(id1 or LATEST, reports_dir)
             return EXIT_ERROR
         idx = _ref_index(refs, cand)
         if idx is None or idx == 0:
@@ -824,23 +853,22 @@ def compare_flow(
         a = _resolve_ref(refs, reports_dir, id1 or LATEST)
         b = _resolve_ref(refs, reports_dir, id2)
         if a is None or b is None:
-            missing = id1 if a is None else id2
-            err_console.print(
-                f"[red]Report not found:[/] '{missing}' in {reports_dir}\n"
-                "List available engagements with [cyan]report list[/]."
-            )
+            # An omitted id1 implies ``latest`` — name that in the error
+            # instead of a literal ``None``.
+            missing = (id1 or LATEST) if a is None else id2
+            _report_not_found(missing, reports_dir)
             return EXIT_ERROR
         if os.path.abspath(a["path"]) == os.path.abspath(b["path"]):
             err_console.print("[red]Cannot compare a report with itself.[/]")
             return EXIT_ERROR
         base_ref, cand_ref = sorted((a, b), key=lambda r: (r["id"], r["mtime"]))
 
-    try:
-        data_a = load_report(base_ref["path"])
-        data_b = load_report(cand_ref["path"])
-    except (json.JSONDecodeError, OSError) as exc:
-        err_console.print(f"[red]Cannot read report for comparison:[/] {exc}")
-        return EXIT_ERROR
+    data_a, code = _load_or_error(base_ref["path"], " for comparison")
+    if data_a is None:
+        return code
+    data_b, code = _load_or_error(cand_ref["path"], " for comparison")
+    if data_b is None:
+        return code
 
     rows = compare_metrics(data_a, data_b)
     if metrics:
@@ -879,16 +907,11 @@ def show_report(reports_dir: str, report_id: str | None, as_json: bool = False) 
     rid = report_id or LATEST
     path = resolve_report_path(reports_dir, rid)
     if path is None:
-        err_console.print(
-            f"[red]Report not found:[/] '{rid}' in {reports_dir}\n"
-            "List available engagements with [cyan]report list[/]."
-        )
+        _report_not_found(rid, reports_dir)
         return EXIT_ERROR
-    try:
-        data = load_report(path)
-    except (json.JSONDecodeError, OSError) as exc:
-        err_console.print(f"[red]Cannot read report[/] {path}: {exc}")
-        return EXIT_ERROR
+    data, code = _load_or_error(path)
+    if data is None:
+        return code
     if as_json:
         print(json.dumps(data, indent=2, default=str))
     else:
@@ -901,16 +924,11 @@ def export_html(reports_dir: str, report_id: str | None, output: str | None = No
     rid = report_id or LATEST
     path = resolve_report_path(reports_dir, rid)
     if path is None:
-        err_console.print(
-            f"[red]Report not found:[/] '{rid}' in {reports_dir}\n"
-            "List available engagements with [cyan]report list[/]."
-        )
+        _report_not_found(rid, reports_dir)
         return EXIT_ERROR
-    try:
-        data = load_report(path)
-    except (json.JSONDecodeError, OSError) as exc:
-        err_console.print(f"[red]Cannot read report[/] {path}: {exc}")
-        return EXIT_ERROR
+    data, code = _load_or_error(path)
+    if data is None:
+        return code
     out = output
     if not out:
         rid = _report_id_from_path(path)
@@ -933,6 +951,14 @@ def _engagement_files(reports_dir: str, ref: dict) -> list[str]:
     """Every artifact of one engagement (json/csv/txt/html siblings)."""
     pattern = os.path.join(reports_dir, f"audit_report_{ref['id']}.*")
     return sorted(glob.glob(pattern))
+
+
+def _file_size(path: str) -> int:
+    """File size in bytes, 0 when unreadable (vanished between scan and plan)."""
+    try:
+        return os.path.getsize(path)
+    except OSError:
+        return 0
 
 
 def _confirm_prune(question: str) -> bool:
@@ -991,13 +1017,12 @@ def prune_flow(
         return EXIT_OK
 
     keep_refs, drop_refs = refs[-keep:], refs[:-keep]
-    plan = []  # [{id, files: [path, ...]}]
-    for ref in drop_refs:
-        plan.append({"id": ref["id"], "files": _engagement_files(reports_dir, ref)})
+    # plan: [{id, files: [path, ...]}]
+    plan = [{"id": ref["id"], "files": _engagement_files(reports_dir, ref)} for ref in drop_refs]
+    n_files = sum(len(entry["files"]) for entry in plan)
 
-    if as_json:
-        pass  # machine mode: no preview table, straight to deletion below
-    else:
+    # Machine mode skips the preview table and goes straight to deletion.
+    if not as_json:
         t = Table(
             title=f"Prune plan — keep {len(keep_refs)} newest, delete {len(drop_refs)} oldest",
             border_style="yellow",
@@ -1006,24 +1031,17 @@ def prune_flow(
         t.add_column("Files", justify="right")
         t.add_column("Size", justify="right")
         for entry in plan:
-            size = 0
-            for f in entry["files"]:
-                try:
-                    size += os.path.getsize(f)
-                except OSError:
-                    pass
+            size = sum(_file_size(path) for path in entry["files"])
             t.add_row(entry["id"], str(len(entry["files"])), f"{size / 1024:.1f} KiB")
         console.print(t)
 
     if dry_run:
         console.print(
-            f"[yellow]dry-run:[/] {sum(len(e['files']) for e in plan)} file(s) would be "
-            f"deleted. Nothing was touched."
+            f"[yellow]dry-run:[/] {n_files} file(s) would be deleted. Nothing was touched."
         )
         return EXIT_OK
 
     if not assume_yes:
-        n_files = sum(len(e["files"]) for e in plan)
         ask = confirm or _confirm_prune
         if not ask(
             f"Delete {n_files} file(s) from {len(drop_refs)} old report(s) in {reports_dir}? [y/N]"

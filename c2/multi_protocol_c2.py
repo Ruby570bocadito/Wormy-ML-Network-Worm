@@ -1,10 +1,4 @@
 """
-Wormy ML Network Worm v3.0
-Developed by Ruby570bocadito (https://github.com/Ruby570bocadito)
-Copyright (c) 2024 Ruby570bocadito. All rights reserved.
-"""
-
-"""
 Multi-Protocol C2 Module
 Support for HTTPS, DNS, ICMP, WebSockets, SMB
 """
