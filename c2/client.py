@@ -3,7 +3,6 @@ C2 Client Module
 Handles beacon sending and command execution on infected hosts
 """
 
-
 import os
 import platform
 import socket

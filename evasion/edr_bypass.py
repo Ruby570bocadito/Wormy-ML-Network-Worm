@@ -1,5 +1,5 @@
 """
-Wormy ML Network Worm v3.0 - EDR Bypass Module (REAL implementations)
+Wormy — EDR bypass module (real implementations).
 """
 
 import ctypes

@@ -3,7 +3,6 @@ Domain Generation Algorithm (DGA)
 Generates pseudo-random domains for C2 communication
 """
 
-
 import datetime
 import hashlib
 from typing import List

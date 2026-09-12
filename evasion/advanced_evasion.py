@@ -1,14 +1,7 @@
 """
-Wormy ML Network Worm v3.0
-Developed by Ruby570bocadito (https://github.com/Ruby570bocadito)
-Copyright (c) 2024 Ruby570bocadito. All rights reserved.
-"""
-
-"""
 Advanced Evasion Module - Sandbox & VM Detection
 Detects virtualized environments and analysis tools
 """
-
 
 import os
 import platform

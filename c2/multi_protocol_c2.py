@@ -3,7 +3,6 @@ Multi-Protocol C2 Module
 Support for HTTPS, DNS, ICMP, WebSockets, SMB
 """
 
-
 import base64
 import json
 import os
@@ -117,7 +116,10 @@ class MultiProtocolC2:
             }
 
             response = requests.get(
-                url, headers=headers, timeout=10, verify=os.getenv("WORMY_SSL_VERIFY", "1") not in ("0", "false", "no")
+                url,
+                headers=headers,
+                timeout=10,
+                verify=os.getenv("WORMY_SSL_VERIFY", "1") not in ("0", "false", "no"),
             )
 
             if response.status_code == 200:

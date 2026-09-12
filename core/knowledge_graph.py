@@ -4,7 +4,6 @@ Builds and queries a graph of hosts, services, credentials, and relationships
 for optimal propagation path planning.
 """
 
-
 import json
 import os
 import sys

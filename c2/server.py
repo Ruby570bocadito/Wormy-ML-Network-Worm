@@ -3,7 +3,6 @@ Command & Control (C2) Server
 Manages infected hosts and provides remote control capabilities
 """
 
-
 import hmac
 import os
 import secrets

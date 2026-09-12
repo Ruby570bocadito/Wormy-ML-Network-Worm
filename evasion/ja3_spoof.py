@@ -1,5 +1,6 @@
 """
-Wormy ML Network Worm v3.0 - JA3 Fingerprint Spoofing
+Wormy — JA3 fingerprint spoofing.
+
 Force the TLS client hello to match known-good browser fingerprints.
 """
 

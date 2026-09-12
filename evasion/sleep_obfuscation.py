@@ -1,5 +1,6 @@
 """
-Wormy ML Network Worm v3.0 - Sleep Obfuscation
+Wormy — sleep obfuscation.
+
 Encrypt agent heap while sleeping to evade memory scanner detection.
 """
 

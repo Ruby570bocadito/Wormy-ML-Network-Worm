@@ -3,7 +3,6 @@ Self-Healing Worm Module
 Real automatic detection and repair of worm components
 """
 
-
 import os
 import socket
 import sys

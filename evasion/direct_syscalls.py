@@ -1,5 +1,6 @@
 """
-Wormy ML Network Worm v3.0 - Direct Syscalls Module
+Wormy — direct syscalls module.
+
 Bypass userland EDR hooks by calling NT syscalls directly via mmap'd stubs.
 """
 

