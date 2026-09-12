@@ -1,5 +1,6 @@
 """
-Wormy ML Network Worm v3.0 - Multi-Operator C2 Server
+Wormy — multi-operator C2 server.
+
 JWT authentication, role-based access, full audit trail.
 """
 
@@ -353,9 +354,7 @@ class MultiOperatorServer:
                         server_ref._login_failures[user] = failures
                         if failures >= 5:
                             server_ref._login_locked_until[user] = time.time() + 60
-                            logger.warning(
-                                f"Login lockout: {user} after {failures} failures (60s)"
-                            )
+                            logger.warning(f"Login lockout: {user} after {failures} failures (60s)")
                         server_ref.db.log(user, "login_fail", ip=ip, success=False)
                         server_ref._json_response(self, 401, {"error": "Invalid credentials"})
 
@@ -455,9 +454,7 @@ class MultiOperatorServer:
         handler = self._make_handler()
         self._server = HTTPServer((self.host, self.port), handler)
         logger.success(f"Multi-operator C2 API: http://{self.host}:{self.port}")
-        logger.info(
-            "  Admin password comes from WORMY_ADMIN_PASSWORD (or was randomly generated)"
-        )
+        logger.info("  Admin password comes from WORMY_ADMIN_PASSWORD (or was randomly generated)")
         logger.warning(
             "  Set WORMY_JWT_SECRET, WORMY_ADMIN_PASSWORD and WORMY_AGENT_TOKEN "
             "for any multi-host deployment"

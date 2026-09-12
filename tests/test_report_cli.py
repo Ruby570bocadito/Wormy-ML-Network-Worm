@@ -129,6 +129,19 @@ class TestDiscovery(ReportHubTestBase):
         ids = [r["id"] for r in refs]
         self.assertEqual(len(ids), 1)
 
+    def test_report_id_from_valid_path(self):
+        self.assertEqual(report_cli._report_id_from_path(self.json_path), self.report_id)
+
+    def test_report_id_from_full_path_uses_basename(self):
+        prefixed = os.path.join("/elsewhere", f"audit_report_{self.report_id}.json")
+        self.assertEqual(report_cli._report_id_from_path(prefixed), self.report_id)
+
+    def test_report_id_from_non_report_path_is_none(self):
+        self.assertIsNone(report_cli._report_id_from_path("/tmp/final_report.json"))
+        self.assertIsNone(report_cli._report_id_from_path("audit_report.json"))
+        self.assertIsNone(report_cli._report_id_from_path(None))
+        self.assertIsNone(report_cli._report_id_from_path(""))
+
     def test_resolve_latest(self):
         self.assertEqual(report_cli.resolve_report_path(self.reports_dir, "latest"), self.json_path)
         self.assertEqual(report_cli.resolve_report_path(self.reports_dir, ""), self.json_path)

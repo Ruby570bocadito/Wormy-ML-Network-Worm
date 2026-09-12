@@ -58,6 +58,14 @@ _SEVERITY_STYLES = {
 }
 
 
+def _report_id_from_path(path: str | None) -> str | None:
+    """Timestamp id embedded in a report filename, or ``None``."""
+    if not path:
+        return None
+    m = _ID_RE.search(os.path.basename(path))
+    return m.group(1) if m else None
+
+
 # ─────────────────────────── discovery ────────────────────────────
 
 
@@ -97,14 +105,14 @@ def discover_reports(reports_dir: str) -> list[dict]:
     """
     refs = []
     for path in glob.glob(os.path.join(reports_dir, REPORT_GLOB)):
-        m = _ID_RE.search(os.path.basename(path))
-        if not m:
+        rid = _report_id_from_path(path)
+        if rid is None:
             continue
         try:
             mtime = os.path.getmtime(path)
         except OSError:
             mtime = 0.0
-        refs.append({"id": m.group(1), "path": path, "mtime": mtime})
+        refs.append({"id": rid, "path": path, "mtime": mtime})
     refs.sort(key=lambda r: (r["id"], r["mtime"]))
     return refs
 
@@ -252,6 +260,8 @@ def render_show(data: dict, source: str) -> None:
     """Terminal rendering of a single report."""
     s = summarize(data)
     meta = data.get("report_metadata", {}) or {}
+    infected_set = set(s["infected_ips"])
+    hosts = [h for h in s["scan_results"] if isinstance(h, dict)]
 
     console.print(
         Panel(
@@ -280,13 +290,12 @@ def render_show(data: dict, source: str) -> None:
     console.print(kpi)
 
     if s["infected_ips"]:
-        infected_set = set(s["infected_ips"])
         t = Table(title=f"Infected hosts ({len(s['infected_ips'])})", border_style="red")
         t.add_column("IP", style="bold red")
         t.add_column("OS")
         t.add_column("Open ports")
         t.add_column("Vuln score", justify="right")
-        by_ip = {h.get("ip"): h for h in s["scan_results"] if isinstance(h, dict)}
+        by_ip = {h.get("ip"): h for h in hosts}
         for ip in s["infected_ips"]:
             host = by_ip.get(ip, {})
             t.add_row(
@@ -306,7 +315,7 @@ def render_show(data: dict, source: str) -> None:
         )
 
     top = sorted(
-        (h for h in s["scan_results"] if isinstance(h, dict)),
+        hosts,
         key=lambda h: h.get("vulnerability_score", 0),
         reverse=True,
     )[:10]
@@ -317,7 +326,6 @@ def render_show(data: dict, source: str) -> None:
         t.add_column("Open ports")
         t.add_column("Vuln score", justify="right")
         t.add_column("Status")
-        infected_set = set(s["infected_ips"])
         for host in top:
             status = "INFECTED" if host.get("ip") in infected_set else "DISCOVERED"
             t.add_row(
@@ -422,11 +430,7 @@ def render_html(data: dict, source: str) -> str:
     """Build a standalone HTML document from a report dict (all values escaped)."""
     s = summarize(data)
     meta = data.get("report_metadata", {}) or {}
-    report_id = "—"
-    if source:
-        m = _ID_RE.search(os.path.basename(source))
-        if m:
-            report_id = m.group(1)
+    report_id = _report_id_from_path(source) or "—"
 
     e = html.escape  # every dynamic string goes through this
 
@@ -718,13 +722,13 @@ def _resolve_ref(refs: list[dict], reports_dir: str, rid: str) -> dict | None:
         if os.path.abspath(r["path"]) == os.path.abspath(path):
             return r
     # Direct file path outside the inventory (e.g. /tmp/other.json).
-    m = _ID_RE.search(os.path.basename(path))
+    rid = _report_id_from_path(path)
     try:
         mtime = os.path.getmtime(path)
     except OSError:
         mtime = 0.0
     return {
-        "id": m.group(1) if m else os.path.splitext(os.path.basename(path))[0],
+        "id": rid or os.path.splitext(os.path.basename(path))[0],
         "path": path,
         "mtime": mtime,
     }
@@ -847,8 +851,8 @@ def export_html(reports_dir: str, report_id: str | None, output: str | None = No
         return EXIT_ERROR
     out = output
     if not out:
-        m = _ID_RE.search(os.path.basename(path))
-        stem = f"audit_report_{m.group(1)}" if m else "audit_report"
+        rid = _report_id_from_path(path)
+        stem = f"audit_report_{rid}" if rid else "audit_report"
         out = os.path.join(os.path.dirname(path) or ".", f"{stem}.html")
     doc = render_html(data, path)
     with open(out, "w", encoding="utf-8") as fh:

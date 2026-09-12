@@ -20,6 +20,7 @@ Exit codes mirror the CLI contract: 0 ok · 1 error · 2 usage.
 
 from __future__ import annotations
 
+import dataclasses
 import json
 
 from rich.console import Console
@@ -81,6 +82,8 @@ _GROUPS = {
 
 def _build_effective_config(args):
     """Build the Config exactly like the engine would for this invocation."""
+    # Lazy like cli.py: the configs.config machinery (yaml, logger) loads
+    # only when `wormy config` actually runs, not at CLI startup.
     from configs.config import Config
 
     config_file = getattr(args, "config", None)
@@ -113,8 +116,6 @@ def _fmt(value) -> str:
 
 def _effective_dict(config) -> dict:
     """Nested plain-dict view of a Config (dataclasses → dicts)."""
-    import dataclasses
-
     out = {}
     for section in (
         "network",

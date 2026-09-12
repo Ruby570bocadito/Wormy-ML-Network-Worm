@@ -1,10 +1,4 @@
 """
-Wormy ML Network Worm v3.0
-Developed by Ruby570bocadito (https://github.com/Ruby570bocadito)
-Copyright (c) 2024 Ruby570bocadito. All rights reserved.
-"""
-
-"""
 Enterprise Scanner v2.0 — TCP SYN Probe + Banner Grab + OS Detection
 Fixes the Windows/Docker scanning issue by replacing ICMP ping with
 multi-port TCP probes that work in all environments.

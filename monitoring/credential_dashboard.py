@@ -1,5 +1,6 @@
 """
-Wormy ML Network Worm - Credential Dashboard
+Wormy — credential dashboard.
+
 Web dashboard for viewing and managing discovered credentials.
 """
 
