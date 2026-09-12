@@ -6,12 +6,12 @@ Web dashboard for viewing and managing discovered credentials.
 
 import os
 import sys
-import threading
 from datetime import datetime
 from typing import Dict
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from monitoring._dashboard_base import DashboardBase  # noqa: E402 — path fix above must run first
 from monitoring._server_utils import (  # noqa: E402 — path fix above must run first
     FLASK_AVAILABLE,
     Flask,
@@ -21,7 +21,7 @@ from monitoring._server_utils import (  # noqa: E402 — path fix above must run
 from utils.logger import logger  # noqa: E402
 
 
-class CredentialDashboard:
+class CredentialDashboard(DashboardBase):
     """
     Credential Dashboard
 
@@ -33,11 +33,14 @@ class CredentialDashboard:
     - Export credentials
     """
 
+    log_label = "Credential Dashboard"
+    thread_name = "credential-dashboard"
+
     def __init__(self, worm_core=None, host: str = "127.0.0.1", port: int = 5002):
+        super().__init__()
         self.worm = worm_core
         self.host = host
         self.port = port
-        self._thread = None
 
         if not FLASK_AVAILABLE:
             logger.error("Flask not available for Credential Dashboard")
@@ -496,24 +499,3 @@ class CredentialDashboard:
 </body>
 </html>
 """
-
-    def run(self, debug: bool = False):
-        if not FLASK_AVAILABLE:
-            return
-
-        logger.info(f"Starting Credential Dashboard on {self.host}:{self.port}")
-        self.app.run(
-            host=self.host,
-            port=self.port,
-            debug=False,
-            threaded=True,
-            use_reloader=False,
-        )
-
-    def run_background(self):
-        if not FLASK_AVAILABLE:
-            return None
-        self._thread = threading.Thread(target=self.run, daemon=True)
-        self._thread.start()
-        logger.info(f"Credential Dashboard running at http://{self.host}:{self.port}")
-        return self._thread

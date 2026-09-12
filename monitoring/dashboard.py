@@ -12,6 +12,7 @@ from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from monitoring._dashboard_base import DashboardBase  # noqa: E402 — path fix above must run first
 from monitoring._server_utils import (  # noqa: E402 — path fix above must run first
     FLASK_AVAILABLE,
     Flask,
@@ -19,20 +20,34 @@ from monitoring._server_utils import (  # noqa: E402 — path fix above must run
 )
 from utils.logger import logger  # noqa: E402
 
+# SECURITY: loopback by default; the previous hardcoded 0.0.0.0 exposed the
+# monitoring plane (no auth) to the whole network.
+DEFAULT_HOST = os.environ.get("WORMY_MONITOR_HOST", "127.0.0.1")
 
-class MonitoringDashboard:
+
+class MonitoringDashboard(DashboardBase):
     """
     Real-time monitoring dashboard for worm activity
     Shows live activity feed and device status
+
+    Lifecycle (run/stop/run_background) is inherited from DashboardBase:
+    serving goes through make_server so stop() always works, and the
+    ``debug`` flag of run() is never honored — the Werkzeug interactive
+    debugger is an RCE vector when exposed.
     """
 
+    log_label = "Monitoring Dashboard"
+    thread_name = "monitoring-dashboard"
+
     def __init__(self, port=8080):
-        self.app = None
+        super().__init__()
+        self.port = port
+        self.host = DEFAULT_HOST
+
         if not FLASK_AVAILABLE:
             logger.error("Flask not available for Monitoring Dashboard")
             return
         self.app = Flask(__name__)
-        self.port = port
 
         # Activity log (last 100 events)
         self.activity_log = deque(maxlen=100)
@@ -433,30 +448,6 @@ class MonitoringDashboard:
 </body>
 </html>
         """
-
-    def run(self, debug=False):
-        """Start monitoring dashboard.
-
-        SECURITY: binds to 127.0.0.1 by default (override explicitly via
-        WORMY_MONITOR_HOST). The previous hardcoded 0.0.0.0 exposed the
-        monitoring plane (no auth) to the whole network. debug=True must
-        never be the default: Flask/Werkzeug debug mode ships an interactive
-        debugger that allows remote code execution when exposed.
-        """
-        if not FLASK_AVAILABLE:
-            return
-        host = os.environ.get("WORMY_MONITOR_HOST", "127.0.0.1")
-        logger.info(f"Starting monitoring dashboard on {host}:{self.port}")
-        self.app.run(host=host, port=self.port, debug=debug, threaded=True)
-
-    def run_background(self):
-        """Run dashboard in background thread"""
-        if not FLASK_AVAILABLE:
-            return None
-        thread = threading.Thread(target=self.run, daemon=True)
-        thread.start()
-        logger.info(f"Monitoring dashboard running: http://localhost:{self.port}")
-        return thread
 
 
 # Global dashboard instance

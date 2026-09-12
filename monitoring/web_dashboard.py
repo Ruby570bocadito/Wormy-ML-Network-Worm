@@ -14,9 +14,9 @@ Safety by design:
 
 import json
 import os
-import threading
 from typing import Dict, List
 
+from monitoring._dashboard_base import DashboardBase
 from monitoring._server_utils import (
     FLASK_AVAILABLE,
     Flask,
@@ -46,7 +46,7 @@ def _safe_str(value) -> str:
     return str(value)
 
 
-class WebDashboard:
+class WebDashboard(DashboardBase):
     """Monitoring web UI for a live WormCore instance.
 
     The dashboard is read-only by default. Two safety endpoints are
@@ -54,13 +54,14 @@ class WebDashboard:
     so an operator can halt the engine from the browser.
     """
 
+    log_label = "Web Dashboard"
+    thread_name = "web-dashboard"
+
     def __init__(self, worm_core=None, host: str = None, port: int = 5000):
+        super().__init__()
         self.worm = worm_core
         self.host = host or DEFAULT_HOST
         self.port = port
-        self.app = None
-        self._thread = None
-        self._server = None
 
         if not FLASK_AVAILABLE:
             logger.error("Flask not available, Web Dashboard disabled")
@@ -649,36 +650,6 @@ window.onload = () => {
 </body>
 </html>
 """
-
-    # ── lifecycle ────────────────────────────────────────────────────
-
-    def run(self, debug: bool = False):
-        if not FLASK_AVAILABLE:
-            return
-        from werkzeug.serving import make_server
-
-        logger.info(f"Starting Web Dashboard on {self.host}:{self.port}")
-        # make_server instead of app.run so stop() can shut the listener down
-        # (previously the dashboard kept serving after a kill switch).
-        self._server = make_server(self.host, self.port, self.app, threaded=True)
-        self._server.serve_forever()
-
-    def stop(self):
-        server = self._server
-        if server is not None:
-            try:
-                server.shutdown()
-                logger.info("Web Dashboard stopped")
-            except Exception as e:  # noqa: BLE001 — shutdown must never raise
-                logger.debug(f"Web Dashboard stop error: {e}")
-
-    def run_background(self):
-        if not FLASK_AVAILABLE:
-            return None
-        self._thread = threading.Thread(target=self.run, daemon=True, name="web-dashboard")
-        self._thread.start()
-        logger.info(f"Web Dashboard running in background on {self.host}:{self.port}")
-        return self._thread
 
 
 def _main():

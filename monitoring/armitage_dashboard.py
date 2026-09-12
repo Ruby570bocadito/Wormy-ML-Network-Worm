@@ -10,6 +10,7 @@ import threading
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from monitoring._dashboard_base import DashboardBase  # noqa: E402 — path fix above must run first
 from monitoring._server_utils import (  # noqa: E402 — path fix above must run first
     FLASK_AVAILABLE,
     Flask,
@@ -22,7 +23,7 @@ from utils.logger import logger  # noqa: E402
 DEFAULT_HOST = os.environ.get("WORMY_ARMITAGE_HOST", "127.0.0.1")  # control plane stays local
 
 
-class ArmitageDashboard:
+class ArmitageDashboard(DashboardBase):
     """
     Armitage-style Dashboard
 
@@ -36,12 +37,15 @@ class ArmitageDashboard:
     - Simple, clean interface
     """
 
+    log_label = "Armitage Dashboard"
+    thread_name = "armitage-dashboard"
+
     def __init__(self, worm_core=None, trainer=None, host: str = None, port: int = 5001):
+        super().__init__()
         self.worm = worm_core
         self.trainer = trainer
         self.host = host or DEFAULT_HOST
         self.port = port
-        self._thread = None
 
         if not FLASK_AVAILABLE:
             logger.error("Flask not available")
@@ -802,31 +806,3 @@ class ArmitageDashboard:
 </body>
 </html>
 """
-
-    def run(self, debug: bool = False):
-        if not FLASK_AVAILABLE:
-            return
-
-        from werkzeug.serving import make_server
-
-        logger.info(f"Starting Armitage Dashboard on {self.host}:{self.port}")
-        # make_server instead of app.run so stop() can shut the listener down.
-        self._server = make_server(self.host, self.port, self.app, threaded=True)
-        self._server.serve_forever()
-
-    def stop(self):
-        server = getattr(self, "_server", None)
-        if server is not None:
-            try:
-                server.shutdown()
-                logger.info("Armitage Dashboard stopped")
-            except Exception as e:
-                logger.debug(f"Armitage Dashboard stop error: {e}")
-
-    def run_background(self):
-        if not FLASK_AVAILABLE:
-            return None
-        self._thread = threading.Thread(target=self.run, daemon=True)
-        self._thread.start()
-        logger.info(f"Armitage Dashboard running at http://{self.host}:{self.port}")
-        return self._thread
