@@ -495,9 +495,7 @@ class CredentialDashboard:
     def run(self, debug: bool = False):
         if not FLASK_AVAILABLE:
             return
-        import logging as _log
 
-        _log.getLogger("werkzeug").setLevel(_log.ERROR)
         logger.info(f"Starting Credential Dashboard on {self.host}:{self.port}")
         self.app.run(
             host=self.host,

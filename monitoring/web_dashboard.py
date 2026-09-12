@@ -12,6 +12,7 @@ Safety by design:
 - Command execution is disabled unless WORMY_DASHBOARD_COMMANDS=1.
 """
 
+import json
 import logging
 import os
 import threading
@@ -44,8 +45,6 @@ def _safe_str(value) -> str:
     if value is None:
         return ""
     if isinstance(value, (dict, list)):
-        import json
-
         try:
             return json.dumps(value, default=str)
         except Exception:  # noqa: BLE001 — display fallback only
@@ -546,6 +545,7 @@ function refreshStatus(){
 
 function loadHosts(){
   jget('/api/hosts').then(h => {
+    window._hostsCache = h;  // single fetch feeds both the table and the drill-down dialog
     const t = document.getElementById('hosts-tbody');
     if(!h.length){ t.innerHTML = '<tr><td colspan="9" class="empty">No hosts yet — run a scan</td></tr>'; return; }
     t.innerHTML = h.map(x => {
@@ -649,9 +649,7 @@ function refreshAll(){
 window.onload = () => {
   initCharts();
   refreshAll();
-  jget('/api/hosts').then(h => window._hostsCache = h).catch(()=>{});
   setInterval(refreshAll, 5000);
-  setInterval(() => jget('/api/hosts').then(h => window._hostsCache = h).catch(()=>{}), 5000);
 };
 </script>
 </body>
@@ -666,7 +664,7 @@ window.onload = () => {
         from werkzeug.serving import make_server
 
         logger.info(f"Starting Web Dashboard on {self.host}:{self.port}")
-        # make_server instead of app.run so shutdown() can stop the listener
+        # make_server instead of app.run so stop() can shut the listener down
         # (previously the dashboard kept serving after a kill switch).
         self._server = make_server(self.host, self.port, self.app, threaded=True)
         self._server.serve_forever()
@@ -716,7 +714,7 @@ def _main():
     try:
         dash.run()
     except KeyboardInterrupt:
-        dash.shutdown()
+        dash.stop()
 
 
 if __name__ == "__main__":

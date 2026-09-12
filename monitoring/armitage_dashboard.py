@@ -670,8 +670,6 @@ class ArmitageDashboard:
 
             // Draw hosts
             hosts.forEach(host => {
-                const color = host.status === 'infected' ? 'var(--success)' :
-                              host.status === 'failed' ? 'var(--danger)' : 'var(--accent)';
                 const colors = { success: '#22c55e', danger: '#ef4444', accent: '#3b82f6' };
                 const nodeColor = colors[host.status === 'infected' ? 'success' : host.status === 'failed' ? 'danger' : 'accent'];
                 const bgColor = host.status === 'infected' ? 'rgba(34, 197, 94, 0.1)' :
@@ -814,13 +812,11 @@ class ArmitageDashboard:
     def run(self, debug: bool = False):
         if not FLASK_AVAILABLE:
             return
-        import logging as _log
 
         from werkzeug.serving import make_server
 
-        _log.getLogger("werkzeug").setLevel(_log.ERROR)
         logger.info(f"Starting Armitage Dashboard on {self.host}:{self.port}")
-        # make_server instead of app.run so shutdown() can stop the listener.
+        # make_server instead of app.run so stop() can shut the listener down.
         self._server = make_server(self.host, self.port, self.app, threaded=True)
         self._server.serve_forever()
 

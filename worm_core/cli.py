@@ -272,6 +272,18 @@ def _lab_compose(root: str, expanded: bool = False) -> str:
     return os.path.join(root, EXPANDED_COMPOSE_FILE if expanded else LAB_COMPOSE_FILE)
 
 
+def _print_lab_urls() -> int:
+    """Print the lab services cheat-sheet (works with or without the lab up)."""
+    t = Table(title="Lab services (bound to 127.0.0.1)", border_style="bright_blue")
+    t.add_column("Service", style="cyan")
+    t.add_column("URL", style="white")
+    t.add_column("Credentials", style="yellow")
+    for name, url, creds in LAB_SERVICE_URLS:
+        t.add_row(name, url, creds)
+    console.print(t)
+    return EXIT_OK
+
+
 def _docker(args: list[str], root: str, expanded: bool = False) -> int:
     compose = _lab_compose(root, expanded)
     if not shutil.which("docker"):
@@ -302,7 +314,7 @@ def cmd_lab(args) -> int:
             console.print(f"[green]Starting lab[/] ({'expanded' if expanded else 'standard'})...")
             rc = _docker(["up", "-d", "--build"], root, expanded)
             if rc == EXIT_OK:
-                cmd_lab(type("A", (), {"action": "urls", "expanded": expanded})())
+                _print_lab_urls()
             return rc
         if args.action == "down":
             console.print("[green]Stopping lab...[/]")
@@ -318,14 +330,7 @@ def cmd_lab(args) -> int:
                 expanded,
             )
 
-    t = Table(title="Lab services (bound to 127.0.0.1)", border_style="bright_blue")
-    t.add_column("Service", style="cyan")
-    t.add_column("URL", style="white")
-    t.add_column("Credentials", style="yellow")
-    for name, url, creds in LAB_SERVICE_URLS:
-        t.add_row(name, url, creds)
-    console.print(t)
-    return EXIT_OK
+    return _print_lab_urls()
 
 
 # ─────────────────────────── train ──────────────────────────────
