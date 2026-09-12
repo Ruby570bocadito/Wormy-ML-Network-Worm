@@ -6,6 +6,7 @@ timestamp / prefix / path), KPI summarization, list & show rendering,
 data), and error exit codes for missing/corrupt reports.
 """
 
+import argparse
 import io
 import json
 import os
@@ -379,6 +380,231 @@ class TestReportsDirResolution(unittest.TestCase):
                     self.assertEqual(
                         report_cli.resolve_reports_dir(None), report_cli.DEFAULT_REPORTS_DIR
                     )
+
+
+class CompareFixtureBase(unittest.TestCase):
+    """Two engagements with distinct forced ids: a weak baseline, a strong candidate."""
+
+    ID_A = "20260101_090000"  # baseline (older)
+    ID_B = "20260102_100000"  # candidate (newer)
+
+    def setUp(self):
+        self.reports_dir = tempfile.mkdtemp(prefix="wormy_test_compare_")
+        gen = AuditReportGenerator()
+        files_a = gen.generate(
+            worm_stats=_make_stats(infections=1, failures=3, hosts=5),
+            scan_results=_make_hosts(),
+            infected_hosts={"10.0.0.5"},
+            failed_targets={"10.0.0.6", "10.0.0.7"},
+            output_dir=self.reports_dir,
+        )
+        os.replace(
+            files_a["json"], os.path.join(self.reports_dir, f"audit_report_{self.ID_A}.json")
+        )
+        files_b = gen.generate(
+            worm_stats=_make_stats(infections=3, failures=0, hosts=7),
+            scan_results=_make_hosts(),
+            infected_hosts={"10.0.0.5", "10.0.0.6", "10.0.0.7"},
+            failed_targets=set(),
+            output_dir=self.reports_dir,
+        )
+        os.replace(
+            files_b["json"], os.path.join(self.reports_dir, f"audit_report_{self.ID_B}.json")
+        )
+
+    def tearDown(self):
+        for name in os.listdir(self.reports_dir):
+            os.remove(os.path.join(self.reports_dir, name))
+        os.rmdir(self.reports_dir)
+
+
+class TestDurationAndRateParsing(unittest.TestCase):
+    def test_parse_timedelta_string(self):
+        self.assertAlmostEqual(report_cli._parse_duration("0:00:02.044012"), 2.044012)
+
+    def test_parse_timedelta_with_days(self):
+        self.assertAlmostEqual(report_cli._parse_duration("1 day, 0:00:02"), 86402)
+
+    def test_parse_plain_seconds(self):
+        self.assertAlmostEqual(report_cli._parse_duration("45.2"), 45.2)
+
+    def test_parse_na_returns_none(self):
+        self.assertIsNone(report_cli._parse_duration("N/A"))
+        self.assertIsNone(report_cli._parse_duration(None))
+        self.assertIsNone(report_cli._parse_duration(""))
+
+    def test_parse_garbage_returns_none(self):
+        self.assertIsNone(report_cli._parse_duration("soon"))
+        self.assertIsNone(report_cli._parse_duration("a:b:c"))
+
+    def test_parse_rate(self):
+        self.assertAlmostEqual(report_cli._parse_rate("12.5%"), 12.5)
+        self.assertIsNone(report_cli._parse_rate("n/a"))
+
+
+class TestCompareMetrics(CompareFixtureBase):
+    def _rows(self):
+        a = report_cli.load_report(os.path.join(self.reports_dir, f"audit_report_{self.ID_A}.json"))
+        b = report_cli.load_report(os.path.join(self.reports_dir, f"audit_report_{self.ID_B}.json"))
+        return report_cli.compare_metrics(a, b)
+
+    def test_model_covers_all_ten_metrics(self):
+        self.assertEqual(len(self._rows()), len(report_cli._METRICS))
+
+    def test_infected_up_is_better(self):
+        row = next(r for r in self._rows() if r["metric"] == "Infected")
+        self.assertEqual(row["baseline"], 1)
+        self.assertEqual(row["candidate"], 3)
+        self.assertEqual(row["delta"], 2)
+        self.assertEqual(row["trend"], "better")
+
+    def test_failed_down_is_better(self):
+        row = next(r for r in self._rows() if r["metric"] == "Failed")
+        self.assertEqual(row["candidate"], 0)
+        self.assertEqual(row["delta"], -2)
+        self.assertEqual(row["trend"], "better")
+
+    def test_success_rate_delta_in_points(self):
+        row = next(r for r in self._rows() if r["metric"] == "Success rate")
+        self.assertEqual(row["trend"], "better")
+        # A: 1/3 attempts = 33.3% · B: 3/3 = 100% → +66.7 points
+        self.assertAlmostEqual(row["delta"], 66.7, places=1)
+
+    def test_equal_metric_is_neutral(self):
+        row = next(r for r in self._rows() if r["metric"] == "Scans")
+        self.assertEqual(row["delta"], 0)
+        self.assertEqual(row["trend"], "neutral")
+
+    def test_unknown_duration_is_neutral_without_delta(self):
+        row = next(r for r in self._rows() if r["metric"] == "Duration")
+        # both fixtures carry start/end times → numeric comparison
+        self.assertIsNotNone(row["delta"])
+        self.assertEqual(row["trend"], "neutral")
+
+    def test_half_unknown_duration_degrades_gracefully(self):
+        data_a = {"executive_summary": {}, "worm_statistics": {}, "report_metadata": {}}
+        data_b = report_cli.load_report(
+            os.path.join(self.reports_dir, f"audit_report_{self.ID_B}.json")
+        )
+        rows = report_cli.compare_metrics(data_a, data_b)
+        row = next(r for r in rows if r["metric"] == "Duration")
+        self.assertIsNone(row["delta"])
+        self.assertEqual(row["trend"], "neutral")
+
+
+class TestCompareFlow(CompareFixtureBase):
+    def test_default_compares_last_two(self):
+        _, patch = _capture("console")
+        with patch:
+            rc = report_cli.compare_flow(self.reports_dir, None, None)
+        self.assertEqual(rc, report_cli.EXIT_OK)
+
+    def test_single_id_uses_its_predecessor(self):
+        console, patch = _capture("console")
+        with patch:
+            rc = report_cli.compare_flow(self.reports_dir, self.ID_B, None)
+        self.assertEqual(rc, report_cli.EXIT_OK)
+        out = console.file.getvalue()
+        self.assertIn(self.ID_A, out)  # baseline = predecessor of B
+        self.assertIn(self.ID_B, out)
+
+    def test_two_ids_any_order_older_is_baseline(self):
+        console, patch = _capture("console")
+        with patch:
+            rc = report_cli.compare_flow(self.reports_dir, self.ID_B, self.ID_A)
+        self.assertEqual(rc, report_cli.EXIT_OK)
+        out = console.file.getvalue()
+        self.assertIn("baseline  20260101_090000", out)
+        self.assertIn("candidate 20260102_100000", out)
+
+    def test_same_report_twice_is_error(self):
+        _, patch = _capture("err_console")
+        with patch:
+            rc = report_cli.compare_flow(self.reports_dir, self.ID_A, self.ID_A)
+        self.assertEqual(rc, report_cli.EXIT_ERROR)
+
+    def test_unknown_id_is_error(self):
+        _, patch = _capture("err_console")
+        with patch:
+            rc = report_cli.compare_flow(self.reports_dir, "19990101_000000", self.ID_B)
+        self.assertEqual(rc, report_cli.EXIT_ERROR)
+
+    def test_oldest_without_predecessor_is_error(self):
+        _, patch = _capture("err_console")
+        with patch:
+            rc = report_cli.compare_flow(self.reports_dir, self.ID_A, None)
+        self.assertEqual(rc, report_cli.EXIT_ERROR)
+
+    def test_prefix_ids_resolve(self):
+        console, patch = _capture("console")
+        with patch:
+            rc = report_cli.compare_flow(self.reports_dir, "20260101", "20260102")
+        self.assertEqual(rc, report_cli.EXIT_OK)
+        self.assertIn(self.ID_A, console.file.getvalue())
+
+    def test_json_output_structure(self):
+        buf = io.StringIO()
+        with mock.patch("sys.stdout", buf):
+            rc = report_cli.compare_flow(self.reports_dir, None, None, as_json=True)
+        self.assertEqual(rc, report_cli.EXIT_OK)
+        payload = json.loads(buf.getvalue())
+        self.assertEqual(payload["baseline"]["id"], self.ID_A)
+        self.assertEqual(payload["candidate"]["id"], self.ID_B)
+        self.assertEqual(len(payload["metrics"]), len(report_cli._METRICS))
+        infected = next(m for m in payload["metrics"] if m["metric"] == "Infected")
+        self.assertEqual(infected["delta"], 2)
+        self.assertEqual(infected["trend"], "better")
+
+    def test_corrupt_report_is_error(self):
+        with open(os.path.join(self.reports_dir, f"audit_report_{self.ID_A}.json"), "w") as fh:
+            fh.write("{broken json")
+        _, patch = _capture("err_console")
+        with patch:
+            rc = report_cli.compare_flow(self.reports_dir, self.ID_A, self.ID_B)
+        self.assertEqual(rc, report_cli.EXIT_ERROR)
+
+
+class TestCmdReportCompare(CompareFixtureBase):
+    def _args(self, **kw):
+        base = {
+            "action": "compare",
+            "report_id": "latest",
+            "report_id2": None,
+            "reports_dir": self.reports_dir,
+            "json": False,
+            "output": None,
+        }
+        base.update(kw)
+        return argparse.Namespace(**base)
+
+    def test_cmd_compare_ok(self):
+        console, patch = _capture("console")
+        with patch:
+            rc = report_cli.cmd_report(self._args())
+        self.assertEqual(rc, report_cli.EXIT_OK)
+        self.assertIn("engagement comparison", console.file.getvalue())
+
+    def test_cmd_compare_json(self):
+        buf = io.StringIO()
+        with mock.patch("sys.stdout", buf):
+            rc = report_cli.cmd_report(self._args(json=True))
+        self.assertEqual(rc, report_cli.EXIT_OK)
+        payload = json.loads(buf.getvalue())
+        self.assertIn("metrics", payload)
+
+    def test_cmd_compare_explicit_pair(self):
+        console, patch = _capture("console")
+        with patch:
+            rc = report_cli.cmd_report(self._args(report_id=self.ID_A, report_id2=self.ID_B))
+        self.assertEqual(rc, report_cli.EXIT_OK)
+        out = console.file.getvalue()
+        self.assertIn("baseline  20260101_090000", out)
+
+    def test_cmd_compare_missing_dir_is_error(self):
+        _, patch = _capture("err_console")
+        with patch:
+            rc = report_cli.cmd_report(self._args(reports_dir="/nonexistent/xx"))
+        self.assertEqual(rc, report_cli.EXIT_ERROR)
 
 
 if __name__ == "__main__":

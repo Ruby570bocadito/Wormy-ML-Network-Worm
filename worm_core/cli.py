@@ -71,6 +71,8 @@ examples:
   %(prog)s report show --json           # raw report JSON to stdout
   %(prog)s report html                  # standalone HTML export (latest)
   %(prog)s report html -o report.html   # HTML export to a given path
+  %(prog)s report compare               # last two engagements, side by side
+  %(prog)s report compare 20260913_1 20260913_2   # explicit pair
 """
 
 CONFIG_EPILOG = """\
@@ -170,7 +172,7 @@ def _apply_cap_overrides(worm, args) -> None:
         old = prop.max_infections
         prop.max_infections = args.max_infections
         logger.info(f"max_infections override: {old} -> {args.max_infections}")
-        if args.max_infections > old and not (args.dry_run or args.scan_only):
+        if args.max_infections > old and not (args.dry_run or getattr(args, "scan_only", False)):
             err_console.print(
                 Panel(
                     f"You are [bold]raising[/] the infection cap from {old} to "
@@ -186,7 +188,7 @@ def _apply_cap_overrides(worm, args) -> None:
         old = safety.max_runtime_hours
         safety.max_runtime_hours = args.max_runtime
         logger.info(f"max_runtime_hours override: {old} -> {args.max_runtime}")
-        if args.max_runtime > old and not (args.dry_run or args.scan_only):
+        if args.max_runtime > old and not (args.dry_run or getattr(args, "scan_only", False)):
             err_console.print(
                 Panel(
                     f"You are [bold]raising[/] the runtime cap from {old}h to "
@@ -662,6 +664,13 @@ def cmd_shell(args) -> int:
     from . import WormCore
     from .shell import InteractiveCLI
 
+    # Fail fast: reject invalid cap values BEFORE booting the engine
+    # (same contract as `wormy run`).
+    err = _validate_cap_overrides(args)
+    if err:
+        err_console.print(f"[red]{err}[/]")
+        return EXIT_USAGE
+
     worm = WormCore(
         config_file=args.config,
         use_cli_monitor=False,
@@ -675,6 +684,8 @@ def cmd_shell(args) -> int:
             err_console.print(f"[red]{err}[/]")
             return EXIT_USAGE
         _apply_target_override(worm, args.target)
+    if args.max_infections is not None or args.max_runtime is not None:
+        _apply_cap_overrides(worm, args)
     try:
         InteractiveCLI(worm).cmdloop()
     except (KeyboardInterrupt, EOFError):
@@ -798,15 +809,22 @@ def build_parser() -> argparse.ArgumentParser:
         "action",
         nargs="?",
         default="list",
-        choices=["list", "show", "html"],
+        choices=["list", "show", "html", "compare"],
         help="report operation (default: list)",
     )
     p.add_argument(
         "report_id",
         nargs="?",
         default="latest",
-        metavar="ID",
+        metavar="ID1",
         help="report id (timestamp), file, or 'latest' (default)",
+    )
+    p.add_argument(
+        "report_id2",
+        nargs="?",
+        default=None,
+        metavar="ID2",
+        help="second id for 'compare' (the older report is the baseline)",
     )
     p.add_argument(
         "--reports-dir",
@@ -897,6 +915,18 @@ def build_parser() -> argparse.ArgumentParser:
     )
     common(p)
     p.add_argument("--dry-run", action="store_true", help="simulate; no real exploits are executed")
+    p.add_argument(
+        "--max-infections",
+        type=int,
+        metavar="N",
+        help="override propagation.max_infections for this session",
+    )
+    p.add_argument(
+        "--max-runtime",
+        type=int,
+        metavar="HOURS",
+        help="override safety.max_runtime_hours for this session",
+    )
     p.set_defaults(func=cmd_shell)
 
     # version

@@ -253,6 +253,125 @@ class TestReportSubcommand(unittest.TestCase):
         with self.assertRaises(SystemExit):
             cli.build_parser().parse_args(["report", "explode"])
 
+    def test_parse_report_compare_defaults(self):
+        args = cli.build_parser().parse_args(["report", "compare"])
+        self.assertEqual(args.action, "compare")
+        self.assertEqual(args.report_id, "latest")
+        self.assertIsNone(args.report_id2)
+
+    def test_parse_report_compare_single_id(self):
+        args = cli.build_parser().parse_args(["report", "compare", "20260913_1"])
+        self.assertEqual(args.action, "compare")
+        self.assertEqual(args.report_id, "20260913_1")
+        self.assertIsNone(args.report_id2)
+
+    def test_parse_report_compare_pair(self):
+        args = cli.build_parser().parse_args(["report", "compare", "20260913_1", "20260913_2"])
+        self.assertEqual(args.report_id, "20260913_1")
+        self.assertEqual(args.report_id2, "20260913_2")
+
+    def test_parse_report_compare_json(self):
+        args = cli.build_parser().parse_args(["report", "compare", "--json"])
+        self.assertTrue(args.json)
+        self.assertEqual(args.action, "compare")
+
+
+class TestShellCapFlags(unittest.TestCase):
+    """--max-infections / --max-runtime parity for `wormy shell`."""
+
+    def test_parse_shell_cap_flags(self):
+        args = cli.build_parser().parse_args(
+            ["shell", "--dry-run", "--max-infections", "2", "--max-runtime", "3"]
+        )
+        self.assertEqual(args.max_infections, 2)
+        self.assertEqual(args.max_runtime, 3)
+        self.assertTrue(args.dry_run)
+
+    def test_parse_shell_caps_default_to_none(self):
+        args = cli.build_parser().parse_args(["shell"])
+        self.assertIsNone(args.max_infections)
+        self.assertIsNone(args.max_runtime)
+
+    def test_shell_parser_keeps_common_flags(self):
+        args = cli.build_parser().parse_args(
+            ["shell", "--dry-run", "--target", "127.0.0.0/30", "--profile", "audit"]
+        )
+        self.assertEqual(args.target, ["127.0.0.0/30"])
+        self.assertEqual(args.profile, "audit")
+
+    def test_validate_rejects_bad_shell_caps(self):
+        # shell namespaces have no scan_only attribute — validation must
+        # still work (getattr fallback in the warning guard).
+        args = argparse.Namespace(dry_run=True, max_infections=0, max_runtime=None)
+        err = cli._validate_cap_overrides(args)
+        self.assertIsNotNone(err)
+        self.assertIn("--max-infections", err)
+
+    def test_apply_caps_tolerates_namespace_without_scan_only(self):
+        # Regression: shell args lack scan_only; _apply_cap_overrides used
+        # to crash with AttributeError on it.
+        from types import SimpleNamespace
+
+        from configs.config import Config
+
+        worm = SimpleNamespace(config=Config())
+        args = argparse.Namespace(dry_run=False, max_infections=500, max_runtime=None)
+        buf = io.StringIO()
+        with mock.patch.object(
+            cli, "err_console", Console(file=buf, force_terminal=False, width=100)
+        ):
+            cli._apply_cap_overrides(worm, args)  # must not raise
+        self.assertEqual(worm.config.propagation.max_infections, 500)
+        self.assertIn("Safety cap raised", buf.getvalue())
+
+    def test_cmd_shell_applies_caps_to_engine(self):
+        # Wiring: cmd_shell must forward the cap flags into the engine.
+        from configs.config import Config
+
+        args = argparse.Namespace(
+            config=None,
+            profile=None,
+            dry_run=True,
+            target=None,
+            max_infections=2,
+            max_runtime=None,
+        )
+        with (
+            mock.patch("worm_core.WormCore") as wc,
+            mock.patch("worm_core.shell.InteractiveCLI") as icli,
+        ):
+            worm = wc.return_value
+            worm.config = Config()
+            rc = cli.cmd_shell(args)
+        self.assertEqual(rc, cli.EXIT_OK)
+        self.assertEqual(worm.config.propagation.max_infections, 2)
+        icli.assert_called_once_with(worm)
+        icli.return_value.cmdloop.assert_called_once()
+        worm.shutdown.assert_called_once()
+
+    def test_cmd_shell_rejects_invalid_caps_before_boot(self):
+        args = argparse.Namespace(
+            config=None,
+            profile=None,
+            dry_run=True,
+            target=None,
+            max_infections=0,
+            max_runtime=None,
+        )
+        buf = io.StringIO()
+        with (
+            mock.patch("worm_core.WormCore") as wc,
+            mock.patch("worm_core.shell.InteractiveCLI") as icli,
+            mock.patch.object(
+                cli, "err_console", Console(file=buf, force_terminal=False, width=100)
+            ),
+        ):
+            rc = cli.cmd_shell(args)
+        self.assertEqual(rc, cli.EXIT_USAGE)
+        self.assertIn("--max-infections", buf.getvalue())
+        wc.assert_not_called()
+        icli.assert_not_called()
+
 
 class TestConfigSubcommand(unittest.TestCase):
     def test_parse_config_defaults_to_show(self):

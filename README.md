@@ -10,7 +10,7 @@ authorization gate, hard infection caps and a kill switch.
 
 [![CI](https://github.com/Ruby570bocadito/Wormy-ML-Network-Worm/actions/workflows/ci.yml/badge.svg)](https://github.com/Ruby570bocadito/Wormy-ML-Network-Worm/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
-[![Tests](https://img.shields.io/badge/tests-347%20passing-brightgreen)](#testing--ci)
+[![Tests](https://img.shields.io/badge/tests-410%20passing-brightgreen)](#testing--ci)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 `wormy doctor` · `wormy lab up` · `wormy run --dry-run` · `wormy shell`
@@ -71,10 +71,11 @@ wormy run --dry-run --target 127.0.0.0/24
 
 # 4) Inspect what the engine produced and what it will use
 wormy report show                     # latest engagement, rendered
+wormy report compare                 # deltas vs. the previous engagement
 wormy config show --profile stealth   # effective configuration
 
 # 5) Watch it think in the interactive REPL
-wormy shell --dry-run
+wormy shell --dry-run --max-infections 2   # demo session with a tight cap
 
 # or the 10-second version, no lab needed:
 make demo
@@ -118,12 +119,12 @@ warnings with a fix hint:
 |---|---|
 | `wormy run` | Full propagation pipeline. Flags: `--dry-run`, `--scan-only`, `--profile {stealth,aggressive,audit,lab_docker}`, `--target CIDR…`, `--max-infections N`, `--max-runtime H`, `--web`, `--interactive`, `--kill-switch CODE`, `--yes-i-am-authorized` |
 | `wormy scan` | Reconnaissance only. `--basic`, `--json`, `--output FILE` |
-| `wormy report` | Engagement reports: `list` (inventory + KPIs), `show [ID]` (terminal rendering), `html [ID]` (self-contained HTML export). `--json`, `--reports-dir` |
+| `wormy report` | Engagement reports: `list` (inventory + KPIs), `show [ID]` (terminal rendering), `html [ID]` (self-contained HTML export), `compare [ID1] [ID2]` (side-by-side deltas, older = baseline). `--json`, `--reports-dir` |
 | `wormy config` | Inspect the effective configuration: `show --profile stealth` renders what the engine will use, with profile overrides marked. `--json` |
 | `wormy lab` | Docker lab manager: `up`, `down`, `status`, `rebuild`, `urls` (`--expanded` for the 15-service compose) |
 | `wormy train` | Train ML models: `rl` (curriculum), `classifier`, `evasion`, `all`; `--list-scenarios`, `--status` |
 | `wormy doctor` | Environment health check: deps, torch/CUDA, docker, config validity, feature geometry, writable dirs |
-| `wormy shell` | Interactive REPL: `scan`, `targets`, `exploit <ip>`, `creds`, `run`, `stop`, `report`, … |
+| `wormy shell` | Interactive REPL: `scan`, `targets`, `exploit <ip>`, `creds`, `run`, `stop`, `report [new\|list\|show\|compare\|html]`, … Supports `--dry-run` and the same cap flags as `run` (`--max-infections`, `--max-runtime`) |
 | `wormy version` | Version + platform info (`--json` for scripts) |
 
 REPL session against the lab:
@@ -260,7 +261,7 @@ Detailed threat model and controls: [docs/SAFETY.md](docs/SAFETY.md).
 ## Testing & CI
 
 ```bash
-make test            # 347 unit tests (pytest)
+make test            # 410 unit tests (pytest)
 make test-cov        # with coverage
 wormy doctor         # environment check
 ```

@@ -89,12 +89,24 @@ wormy report show 20260913_142530  # a specific engagement
 wormy report show --json           # raw report JSON to stdout
 wormy report html                  # standalone HTML export (latest)
 wormy report html -o report.html   # HTML export to a given path
+wormy report compare               # last two engagements, side by side
+wormy report compare 20260913_1 20260913_2   # explicit pair
+wormy report compare --json        # machine-readable deltas
 ```
 
 `show` renders the executive summary, infected/failed hosts, the most
 vulnerable hosts and the recommendations (color-coded by severity). `html`
 produces a single self-contained file — all dynamic values are HTML-escaped —
 suitable for emailing or archiving an authorized engagement.
+
+`compare` answers "did the engagement improve?": ten KPIs side by side with
+signed deltas (`▲` green = better, `▼` red = worse, plain = neutral). The
+older report is always the **baseline**. With no ids it compares the last two
+engagements; with one id it compares that report against its predecessor;
+with two ids it compares them in chronological order (any order accepted).
+Comparing a report with itself, an unknown id, or the oldest report without
+predecessor exits with code `1` and a clear message. `--json` emits
+`{baseline, candidate, metrics[{metric, baseline, candidate, delta, trend}]}`.
 
 The reports directory resolution is: `--reports-dir` → `$WORMY_REPORTS_DIR`
 → `./reports` → `<repo root>/reports`. Missing or corrupt reports exit with
@@ -151,7 +163,12 @@ mismatch fails loudly.
 
 ```bash
 wormy shell --dry-run
+wormy shell --dry-run --max-infections 2    # demo session with a tight cap
 ```
+
+`--max-infections N` / `--max-runtime HOURS` override the safety caps for the
+session — same semantics as `wormy run` (validated before the engine boots,
+logged, and a prominent warning is shown when raising a cap in live mode).
 
 ### `wormy version`
 
@@ -186,7 +203,7 @@ Every command has a short alias (shown in parentheses):
 | `run [iterations]` (`r`) | start the propagation loop |
 | `stop` | cooperative stop |
 | `train [model]` | train ML models from the REPL |
-| `report` | final audit report |
+| `report [new\|list\|show\|compare\|html]` | generate a fresh report or inspect the historical ones (read-only) |
 | `status` | banner + status |
 | `exit` (`q`) | shutdown and leave |
 
@@ -199,7 +216,9 @@ Walkthrough against the lab:
 > exploit 10.0.0.5        # compromise
 > creds                   # harvest
 > run                     # autonomous propagation
-> report                  # evidence
+> report                  # evidence for this session
+> report list             # history of past engagements
+> report compare          # deltas vs. the previous engagement
 ```
 
 ---

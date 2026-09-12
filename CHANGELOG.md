@@ -33,6 +33,36 @@ safety caps per run without editing YAML.
 - 95 new tests (report hub, config surface, cap overrides); suite total
   347 passing
 
+### Added (round 2)
+- **`wormy report compare [ID1] [ID2]`** — side-by-side engagement
+  comparison with signed deltas over 10 KPIs (hosts, infected, failed,
+  success rate, duration, scans, vulnerabilities, credentials, lateral
+  movements, recommendations). Trend arrows: `▲` better / `▼` worse /
+  plain delta = neutral; the older report is always the baseline. No ids
+  → last two engagements; one id → that report vs. its predecessor; two
+  ids → chronological pair (any order). `--json` emits
+  `{baseline, candidate, metrics[{metric, baseline, candidate, delta, trend}]}`
+- **REPL `report` subcommands** — the interactive shell now reaches the
+  historical report hub (read-only): `report list`, `report show [ID]`,
+  `report compare [ID1] [ID2]`, `report html [ID] [-o FILE]`. Bare
+  `report` / `report new` keep generating a fresh report for the live
+  session (backwards compatible). A failing hub call prints an error and
+  never crashes the cmd loop
+- **`wormy shell --max-infections N / --max-runtime HOURS`** — the REPL
+  inherits the same per-session safety-cap flags as `wormy run`: validated
+  before the engine boots (exit 2 on invalid values), applied with
+  logging, and raising a cap in live mode shows the "Safety cap raised"
+  warning
+
+### Fixed (round 2)
+- REPL `help` table: usage hints in brackets (`run [n]`, `scan [pro|basic]`,
+  …) were silently swallowed by rich markup interpretation — cells are now
+  escaped and render literally
+- `worm_core/cli.py`: `_apply_cap_overrides` no longer assumes the args
+  namespace has a `scan_only` attribute (AttributeError on shell args);
+  uses a `getattr` fallback
+- 62 new tests (compare hub 29, REPL report 22, shell caps 11)
+
 ## v4.3.1 (2026-09-10)
 
 Polish release: demo mode for the dashboard, honest doctor semantics and a

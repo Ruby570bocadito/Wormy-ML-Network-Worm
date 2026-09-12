@@ -15,6 +15,7 @@ import time
 from datetime import datetime
 
 from rich.console import Console
+from rich.markup import escape
 from rich.panel import Panel
 from rich.table import Table
 
@@ -679,9 +680,67 @@ class InteractiveCLI(cmd.Cmd):
         self.worm.stop()
         console.print("[yellow]Propagation stopped[/]")
 
+    # ── REPORT ──────────────────────────────────────────────────────
+
     def do_report(self, arg):
-        """Generate audit report"""
-        self.worm.print_final_report()
+        """Engagement reports.
+
+        Usage: report [new|list|show [id]|compare [id1 id2]|html [id] [-o FILE]]
+
+        Without arguments it generates a fresh report for the current
+        session (previous behavior). The subcommands operate on the
+        historical audit reports in ./reports, read-only.
+        """
+        parts = arg.split()
+        sub = parts[0].lower() if parts else "new"
+
+        if sub == "new":
+            self.worm.print_final_report()
+            return
+
+        try:
+            from . import report_cli as hub
+
+            reports_dir = hub.resolve_reports_dir(None)
+            if sub == "list":
+                hub.render_list(reports_dir)
+            elif sub == "show":
+                rid = parts[1] if len(parts) > 1 else None
+                hub.show_report(reports_dir, rid)
+            elif sub == "compare":
+                id1 = parts[1] if len(parts) > 1 else None
+                id2 = parts[2] if len(parts) > 2 else None
+                hub.compare_flow(reports_dir, id1, id2)
+            elif sub == "html":
+                out, rid = self._parse_report_html_args(parts[1:])
+                hub.export_html(reports_dir, rid or hub.LATEST, out)
+            else:
+                console.print(
+                    f"[red]Unknown report subcommand:[/] {sub}\n"
+                    "Usage: report [new|list|show [id]|compare [id1 id2]|"
+                    "html [id] [-o FILE]]"
+                )
+        except Exception as exc:  # noqa: BLE001 — a REPL command must never crash the loop
+            console.print(f"[red]Report command failed:[/] {exc}")
+
+    @staticmethod
+    def _parse_report_html_args(tokens: list[str]) -> tuple[str | None, str | None]:
+        """Parse ``html [id] [-o FILE]`` tokens → (output_path, report_id)."""
+        out = None
+        ids = []
+        i = 0
+        while i < len(tokens):
+            if tokens[i] in ("-o", "--output"):
+                if i + 1 >= len(tokens):
+                    raise ValueError("-o/--output needs a file path")
+                out = tokens[i + 1]
+                i += 2
+                continue
+            ids.append(tokens[i])
+            i += 1
+        if len(ids) > 1:
+            raise ValueError("html takes at most one report id")
+        return out, ids[0] if ids else None
 
     # ── TRAIN ────────────────────────────────────────────────────────
 
@@ -755,12 +814,14 @@ class InteractiveCLI(cmd.Cmd):
             ("run [n]", "Start propagation"),
             ("stop", "Stop propagation"),
             ("train [model]", "Train ML models"),
-            ("report", "Audit report"),
+            ("report [new|list|show|compare|html]", "Generate or inspect audit reports"),
             ("version", "Show version"),
             ("exit", "Exit CLI"),
         ]
         for cmd_name, desc in commands:
-            t.add_row(cmd_name, desc)
+            # escape(): the command column contains "[...]" usage hints that
+            # rich would otherwise swallow as markup style tags.
+            t.add_row(escape(cmd_name), desc)
         console.print(t)
 
     def do_version(self, arg):

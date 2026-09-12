@@ -4,12 +4,13 @@ Wormy — post-engagement report hub (``wormy report``).
 The engine (``wormy run`` and the REPL ``report`` command) writes
 timestamped audit reports — ``reports/audit_report_<ts>.json|csv|txt`` —
 at the end of every engagement. Until now the only way to consume those
-artifacts was opening the raw files by hand. This module adds three
+artifacts was opening the raw files by hand. This module adds four
 read-only operations on top of that directory:
 
     list    engagement inventory (date, hosts, infections, success rate)
     show    terminal rendering of one report (summary, hosts, findings)
     html    standalone self-contained HTML export for sharing/delivering
+    compare side-by-side comparison of two engagements with deltas
 
 Reports are never modified or deleted by this command — it is a pure
 consumer of the audit trail. Resolution order for the reports directory:
@@ -532,6 +533,330 @@ def render_html(data: dict, source: str) -> str:
     )
 
 
+# ─────────────────────────── compare ──────────────────────────────
+
+
+def _parse_duration(value) -> float | None:
+    """Parse a report duration into seconds (None when unknown).
+
+    The engine writes durations as ``str(timedelta)`` ("0:00:02.044012",
+    "1 day, 0:00:02") or the literal "N/A" when an engagement had no
+    start time (e.g. scan-only or interrupted runs).
+    """
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text or text.upper() == "N/A":
+        return None
+    try:
+        if ":" in text:
+            days = 0.0
+            if " day" in text:  # "1 day, 0:00:02" / "2 days, ..."
+                day_part, _, rest = text.partition(",")
+                days = float(day_part.split()[0])
+                text = rest.strip()
+            parts = text.split(":")
+            if len(parts) != 3:
+                return None
+            h, m, s = parts
+            return days * 86400 + int(h) * 3600 + int(m) * 60 + float(s)
+        return float(text)
+    except (ValueError, IndexError):
+        return None
+
+
+def _parse_rate(value) -> float | None:
+    """Parse a success rate ("12.5%") into a float (None when unknown)."""
+    if value is None:
+        return None
+    text = str(value).strip().rstrip("%")
+    try:
+        return float(text)
+    except ValueError:
+        return None
+
+
+# (summarize key, label, direction, formatter)
+#   direction: "up" → higher is better · "down" → lower is better ·
+#              "neutral" → no value judgement is implied.
+_METRICS = (
+    ("hosts_discovered", "Hosts discovered", "up", "int"),
+    ("infected", "Infected", "up", "int"),
+    ("failed", "Failed", "down", "int"),
+    ("success_rate", "Success rate", "up", "rate"),
+    ("duration", "Duration", "neutral", "dur"),
+    ("scans", "Scans", "neutral", "int"),
+    ("vulnerabilities", "Vulnerabilities found", "up", "int"),
+    ("credentials", "Credentials discovered", "up", "int"),
+    ("lateral", "Lateral movements", "up", "int"),
+    ("recommendations", "Recommendations", "neutral", "int"),
+)
+
+
+def _fmt_dur(seconds: float | None) -> str:
+    if seconds is None:
+        return "N/A"
+    if seconds >= 3600:
+        return f"{seconds / 3600:.2f}h"
+    if seconds >= 60:
+        return f"{seconds / 60:.2f}m"
+    return f"{seconds:.2f}s"
+
+
+def compare_metrics(data_a: dict, data_b: dict) -> list[dict]:
+    """Build the side-by-side metric model for two report dicts.
+
+    ``data_a`` is the baseline (older engagement), ``data_b`` the candidate
+    (newer). Each metric row: {"metric", "baseline", "candidate", "delta",
+    "trend"} — numeric values when parseable, the raw string otherwise,
+    ``delta``/``trend`` are None/"neutral" when no numeric comparison is
+    possible.
+    """
+    s_a, s_b = summarize(data_a), summarize(data_b)
+    rows = []
+    for key, label, direction, kind in _METRICS:
+        raw_a, raw_b = s_a[key], s_b[key]
+        if kind == "rate":
+
+            def fmt(v):
+                return v if v is None else f"{v:.1f}%"
+
+            va, vb = _parse_rate(raw_a), _parse_rate(raw_b)
+        elif kind == "dur":
+
+            def fmt(v):  # noqa: A001 — local formatter per metric kind
+                return _fmt_dur(v) if v is not None else "N/A"
+
+            va, vb = _parse_duration(raw_a), _parse_duration(raw_b)
+        else:
+
+            def fmt(v):
+                return v
+
+            va, vb = raw_a, raw_b
+
+        if va is not None and vb is not None:
+            delta = vb - va
+            if direction == "neutral" or delta == 0:
+                trend = "neutral"
+            elif (delta > 0) == (direction == "up"):
+                trend = "better"
+            else:
+                trend = "worse"
+            rows.append(
+                {
+                    "metric": label,
+                    "baseline": fmt(va),
+                    "candidate": fmt(vb),
+                    "delta": round(delta, 3),
+                    "trend": trend,
+                }
+            )
+        else:
+            rows.append(
+                {
+                    "metric": label,
+                    "baseline": fmt(va) if va is not None else str(raw_a),
+                    "candidate": fmt(vb) if vb is not None else str(raw_b),
+                    "delta": None,
+                    "trend": "neutral",
+                }
+            )
+    return rows
+
+
+def _trend_cell(trend: str, delta) -> str:
+    """Render the delta column: colored +/- value with a trend arrow."""
+    if delta is None:
+        return "[dim]—[/]"
+    sign = "+" if delta > 0 else "" if delta < 0 else "±"
+    text = f"{sign}{delta:g}"
+    if trend == "better":
+        return f"[green]▲ {text}[/]"
+    if trend == "worse":
+        return f"[red]▼ {text}[/]"
+    return f"[dim]{text}[/]"
+
+
+def render_compare(data_a: dict, data_b: dict, id_a: str, id_b: str) -> None:
+    """Terminal rendering of a two-engagement comparison."""
+    rows = compare_metrics(data_a, data_b)
+    s_a, s_b = summarize(data_a), summarize(data_b)
+    console.print(
+        Panel(
+            f"[bold]baseline[/]  {id_a}  ·  {s_a['generated_at']}\n"
+            f"[bold]candidate[/] {id_b}  ·  {s_b['generated_at']}",
+            title="Wormy — engagement comparison",
+            border_style="bright_blue",
+        )
+    )
+    t = Table(title="Metric deltas (baseline → candidate)", border_style="bright_blue")
+    t.add_column("Metric", style="cyan")
+    t.add_column(f"Baseline {id_a}", justify="right")
+    t.add_column(f"Candidate {id_b}", justify="right")
+    t.add_column("Δ", justify="right")
+    for row in rows:
+        t.add_row(
+            row["metric"],
+            str(row["baseline"]),
+            str(row["candidate"]),
+            _trend_cell(row["trend"], row["delta"]),
+        )
+    console.print(t)
+    console.print(
+        "[dim]▲ higher is better · ▼ lower is better · plain delta = no value "
+        "judgement. The older report is always the baseline.[/]"
+    )
+
+
+def _resolve_ref(refs: list[dict], reports_dir: str, rid: str) -> dict | None:
+    """Resolve a report id to a ref entry (path + id + mtime)."""
+    path = resolve_report_path(reports_dir, rid)
+    if path is None:
+        return None
+    for r in refs:
+        if os.path.abspath(r["path"]) == os.path.abspath(path):
+            return r
+    # Direct file path outside the inventory (e.g. /tmp/other.json).
+    m = _ID_RE.search(os.path.basename(path))
+    try:
+        mtime = os.path.getmtime(path)
+    except OSError:
+        mtime = 0.0
+    return {
+        "id": m.group(1) if m else os.path.splitext(os.path.basename(path))[0],
+        "path": path,
+        "mtime": mtime,
+    }
+
+
+def _ref_index(refs: list[dict], ref: dict) -> int | None:
+    for i, r in enumerate(refs):
+        if r["id"] == ref["id"]:
+            return i
+    return None
+
+
+def compare_flow(reports_dir: str, id1: str | None, id2: str | None, as_json: bool = False) -> int:
+    """Resolve two engagements, compare them, render. Used by CLI and REPL.
+
+    Resolution semantics (the newer report is always the candidate):
+      - ``compare`` (no ids)        → latest vs. its predecessor
+      - ``compare A``               → A vs. the report right before A
+      - ``compare A B``             → both resolved; the older is baseline
+    """
+    refs = discover_reports(reports_dir) if os.path.isdir(reports_dir) else []
+
+    if id2 is None:
+        cand = _resolve_ref(refs, reports_dir, id1 or LATEST)
+        if cand is None:
+            err_console.print(
+                f"[red]Report not found:[/] '{id1 or LATEST}' in {reports_dir}\n"
+                "List available engagements with [cyan]report list[/]."
+            )
+            return EXIT_ERROR
+        idx = _ref_index(refs, cand)
+        if idx is None or idx == 0:
+            err_console.print(
+                f"[red]No earlier report before '{cand['id']}' in {reports_dir}.[/]\n"
+                "Compare needs a predecessor — pass two ids explicitly: "
+                f"[cyan]report compare <id> {cand['id']}[/]."
+            )
+            return EXIT_ERROR
+        base_ref, cand_ref = refs[idx - 1], cand
+    else:
+        a = _resolve_ref(refs, reports_dir, id1 or LATEST)
+        b = _resolve_ref(refs, reports_dir, id2)
+        if a is None or b is None:
+            missing = id1 if a is None else id2
+            err_console.print(
+                f"[red]Report not found:[/] '{missing}' in {reports_dir}\n"
+                "List available engagements with [cyan]report list[/]."
+            )
+            return EXIT_ERROR
+        if os.path.abspath(a["path"]) == os.path.abspath(b["path"]):
+            err_console.print("[red]Cannot compare a report with itself.[/]")
+            return EXIT_ERROR
+        base_ref, cand_ref = sorted((a, b), key=lambda r: (r["id"], r["mtime"]))
+
+    try:
+        data_a = load_report(base_ref["path"])
+        data_b = load_report(cand_ref["path"])
+    except (json.JSONDecodeError, OSError) as exc:
+        err_console.print(f"[red]Cannot read report for comparison:[/] {exc}")
+        return EXIT_ERROR
+
+    if as_json:
+        print(
+            json.dumps(
+                {
+                    "baseline": {"id": base_ref["id"], "path": base_ref["path"]},
+                    "candidate": {"id": cand_ref["id"], "path": cand_ref["path"]},
+                    "metrics": compare_metrics(data_a, data_b),
+                },
+                indent=2,
+                default=str,
+            )
+        )
+    else:
+        render_compare(data_a, data_b, base_ref["id"], cand_ref["id"])
+    return EXIT_OK
+
+
+# ─────────────────────────── single-report flows ──────────────────
+# Shared by the CLI (`wormy report …`) and the REPL (`report …`) so both
+# surfaces behave identically.
+
+
+def show_report(reports_dir: str, report_id: str | None, as_json: bool = False) -> int:
+    """Resolve + load + render one report. Returns an exit code."""
+    rid = report_id or LATEST
+    path = resolve_report_path(reports_dir, rid)
+    if path is None:
+        err_console.print(
+            f"[red]Report not found:[/] '{rid}' in {reports_dir}\n"
+            "List available engagements with [cyan]report list[/]."
+        )
+        return EXIT_ERROR
+    try:
+        data = load_report(path)
+    except (json.JSONDecodeError, OSError) as exc:
+        err_console.print(f"[red]Cannot read report[/] {path}: {exc}")
+        return EXIT_ERROR
+    if as_json:
+        print(json.dumps(data, indent=2, default=str))
+    else:
+        render_show(data, path)
+    return EXIT_OK
+
+
+def export_html(reports_dir: str, report_id: str | None, output: str | None = None) -> int:
+    """Resolve a report and write a standalone HTML export next to it."""
+    rid = report_id or LATEST
+    path = resolve_report_path(reports_dir, rid)
+    if path is None:
+        err_console.print(
+            f"[red]Report not found:[/] '{rid}' in {reports_dir}\n"
+            "List available engagements with [cyan]report list[/]."
+        )
+        return EXIT_ERROR
+    try:
+        data = load_report(path)
+    except (json.JSONDecodeError, OSError) as exc:
+        err_console.print(f"[red]Cannot read report[/] {path}: {exc}")
+        return EXIT_ERROR
+    out = output
+    if not out:
+        m = _ID_RE.search(os.path.basename(path))
+        stem = f"audit_report_{m.group(1)}" if m else "audit_report"
+        out = os.path.join(os.path.dirname(path) or ".", f"{stem}.html")
+    doc = render_html(data, path)
+    with open(out, "w", encoding="utf-8") as fh:
+        fh.write(doc)
+    console.print(f"[green]HTML report written to[/] [cyan]{out}[/]")
+    return EXIT_OK
+
+
 # ─────────────────────────── command ──────────────────────────────
 
 
@@ -553,39 +878,28 @@ def cmd_report(args) -> int:
             print(json.dumps(rows, indent=2, default=str))
         return EXIT_OK if rows else EXIT_ERROR
 
+    if action == "compare":
+        if not os.path.isdir(reports_dir):
+            err_console.print(
+                f"[red]Reports directory not found:[/] {reports_dir}\n"
+                "Run at least two engagements first (e.g. [cyan]wormy run --dry-run[/])."
+            )
+            return EXIT_ERROR
+        return compare_flow(
+            reports_dir,
+            getattr(args, "report_id", None),
+            getattr(args, "report_id2", None),
+            as_json=getattr(args, "json", False),
+        )
+
     # show / html operate on one report
     report_id = getattr(args, "report_id", None) or LATEST
-    path = resolve_report_path(reports_dir, report_id)
-    if path is None:
-        err_console.print(
-            f"[red]Report not found:[/] '{report_id}' in {reports_dir}\n"
-            "List available engagements with [cyan]wormy report list[/]."
-        )
-        return EXIT_ERROR
-    try:
-        data = load_report(path)
-    except (json.JSONDecodeError, OSError) as exc:
-        err_console.print(f"[red]Cannot read report[/] {path}: {exc}")
-        return EXIT_ERROR
 
     if action == "show":
-        if getattr(args, "json", False):
-            print(json.dumps(data, indent=2, default=str))
-        else:
-            render_show(data, path)
-        return EXIT_OK
+        return show_report(reports_dir, report_id, as_json=getattr(args, "json", False))
 
     if action == "html":
-        out = getattr(args, "output", None)
-        if not out:
-            m = _ID_RE.search(os.path.basename(path))
-            stem = f"audit_report_{m.group(1)}" if m else "audit_report"
-            out = os.path.join(os.path.dirname(path) or ".", f"{stem}.html")
-        doc = render_html(data, path)
-        with open(out, "w", encoding="utf-8") as fh:
-            fh.write(doc)
-        console.print(f"[green]HTML report written to[/] [cyan]{out}[/]")
-        return EXIT_OK
+        return export_html(reports_dir, report_id, getattr(args, "output", None))
 
     err_console.print(f"[red]Unknown report action:[/] {action}")
     return EXIT_USAGE
