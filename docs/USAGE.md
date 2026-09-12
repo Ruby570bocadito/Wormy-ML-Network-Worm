@@ -43,6 +43,8 @@ wormy run [flags]
 |---|---|
 | `--dry-run` | simulate every exploit (recommended default) |
 | `--scan-only` | recon and print a summary, then exit |
+| `--max-infections N` | per-run override of the `propagation.max_infections` safety cap (raising it in live mode prints a warning) |
+| `--max-runtime HOURS` | per-run override of the `safety.max_runtime_hours` cap |
 | `--profile NAME` | `stealth` · `aggressive` · `audit` · `lab_docker` |
 | `--target CIDR…` | override `network.target_ranges` from the config |
 | `--config FILE` | custom YAML config |
@@ -61,6 +63,7 @@ wormy run --dry-run --target 127.0.0.0/24        # safe simulation
 wormy run --scan-only --profile audit            # recon pass
 wormy run --profile stealth --yes-i-am-authorized # live (authorized)
 wormy run --dry-run --web --web-port 5001        # + dashboard
+wormy run --dry-run --target 127.0.0.0/30 --max-infections 2  # demo-friendly cap
 ```
 
 ### `wormy scan` — reconnaissance only
@@ -72,6 +75,49 @@ wormy scan --basic                           # basic scanner instead of pro
 ```
 
 Logs go to **stderr**, so `wormy scan --json | jq .` works cleanly.
+
+### `wormy report` — engagement reports
+
+Every engagement writes timestamped audit reports
+(`reports/audit_report_<ts>.json|csv|txt`). `wormy report` is the read-only
+consumer for that trail — it never modifies or deletes reports:
+
+```bash
+wormy report list                  # engagement inventory (date, KPIs, success rate)
+wormy report show                  # render the latest report in the terminal
+wormy report show 20260913_142530  # a specific engagement
+wormy report show --json           # raw report JSON to stdout
+wormy report html                  # standalone HTML export (latest)
+wormy report html -o report.html   # HTML export to a given path
+```
+
+`show` renders the executive summary, infected/failed hosts, the most
+vulnerable hosts and the recommendations (color-coded by severity). `html`
+produces a single self-contained file — all dynamic values are HTML-escaped —
+suitable for emailing or archiving an authorized engagement.
+
+The reports directory resolution is: `--reports-dir` → `$WORMY_REPORTS_DIR`
+→ `./reports` → `<repo root>/reports`. Missing or corrupt reports exit with
+code `1` and a clear message.
+
+### `wormy config` — inspect the effective configuration
+
+Profiles change safety-relevant values (infection caps, delays, runtime
+limits). `config show` answers "what exactly will the engine use for THIS
+invocation?" by building the configuration the same way the engine does
+(config file → profile → CLI target override) and rendering it — read-only,
+no engine start:
+
+```bash
+wormy config show                            # effective config (file or defaults)
+wormy config show --profile stealth          # + profile overrides, marked [profile]
+wormy config show --profile audit --json     # machine-readable, with _meta block
+wormy config show --target 10.0.0.0/24       # preview a target override
+wormy config show --config my.yaml           # validate & inspect a custom file
+```
+
+Values changed by the profile carry a `[profile]` marker. The kill switch
+code is shown deliberately — the operator needs it to stop the engine.
 
 ### `wormy lab` — Docker lab manager
 
@@ -206,7 +252,10 @@ safety:
 
 Profiles (`--profile`) override tuned values on top of the config:
 `stealth` (slow, evasive), `aggressive` (fast, loud), `audit` (balanced,
-heavy logging), `lab_docker` (tuned for the Docker lab).
+heavy logging), `lab_docker` (tuned for the Docker lab). To see exactly
+which values a profile changes for your invocation — before launching
+anything — run `wormy config show --profile <name>`; overridden settings
+are marked `[profile]`.
 
 ---
 

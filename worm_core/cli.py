@@ -5,6 +5,8 @@ Subcommands
 -----------
     run       Launch the propagation engine (full pipeline).
     scan      Network reconnaissance only (no exploitation).
+    report    Inspect & export engagement reports (list/show/html).
+    config    Inspect the effective configuration (config show).
     lab       Manage the Docker vulnerability lab.
     train     Train the ML models (RL agent / classifier / evasion).
     doctor    Environment health check.
@@ -33,6 +35,9 @@ from rich.panel import Panel
 from rich.table import Table
 
 from ._version import __version__
+from .config_profiles import CONFIG_PROFILES
+
+PROFILE_NAMES = tuple(CONFIG_PROFILES.keys())
 
 console = Console()
 err_console = Console(stderr=True)
@@ -56,6 +61,24 @@ examples:
   %(prog)s run --dry-run                # full pipeline, simulation only
   %(prog)s run --profile stealth        # authorized engagement (asks gate)
   %(prog)s shell                        # interactive REPL
+"""
+
+REPORT_EPILOG = """\
+examples:
+  %(prog)s report list                  # engagement inventory (KPIs)
+  %(prog)s report show                  # render the latest report
+  %(prog)s report show 20260913_142530  # render a specific report
+  %(prog)s report show --json           # raw report JSON to stdout
+  %(prog)s report html                  # standalone HTML export (latest)
+  %(prog)s report html -o report.html   # HTML export to a given path
+"""
+
+CONFIG_EPILOG = """\
+examples:
+  %(prog)s config show                            # effective config
+  %(prog)s config show --profile stealth          # + profile overrides
+  %(prog)s config show --profile audit --json     # machine-readable
+  %(prog)s config show --target 10.0.0.0/24       # preview a target override
 """
 
 
@@ -124,6 +147,57 @@ def _authorization_gate(args) -> bool:
     return False
 
 
+def _validate_cap_overrides(args) -> str | None:
+    """Return an error string for invalid --max-infections/--max-runtime values."""
+    if args.max_infections is not None and args.max_infections < 1:
+        return f"--max-infections must be >= 1 (got {args.max_infections})"
+    if args.max_runtime is not None and args.max_runtime < 1:
+        return f"--max-runtime must be >= 1 hour (got {args.max_runtime})"
+    return None
+
+
+def _apply_cap_overrides(worm, args) -> None:
+    """Apply per-run safety-cap overrides and log/warn about them.
+
+    Raising a cap above its effective value in live (non dry-run) mode is
+    surfaced with a prominent warning: safety caps are a deliberate
+    containment boundary, not friction.
+    """
+    from .module_imports import logger
+
+    if args.max_infections is not None:
+        prop = worm.config.propagation
+        old = prop.max_infections
+        prop.max_infections = args.max_infections
+        logger.info(f"max_infections override: {old} -> {args.max_infections}")
+        if args.max_infections > old and not (args.dry_run or args.scan_only):
+            err_console.print(
+                Panel(
+                    f"You are [bold]raising[/] the infection cap from {old} to "
+                    f"{args.max_infections} in [bold red]LIVE mode[/].\n"
+                    "Ensure this stays within your authorized scope.",
+                    title="Safety cap raised",
+                    border_style="yellow",
+                )
+            )
+
+    if args.max_runtime is not None:
+        safety = worm.config.safety
+        old = safety.max_runtime_hours
+        safety.max_runtime_hours = args.max_runtime
+        logger.info(f"max_runtime_hours override: {old} -> {args.max_runtime}")
+        if args.max_runtime > old and not (args.dry_run or args.scan_only):
+            err_console.print(
+                Panel(
+                    f"You are [bold]raising[/] the runtime cap from {old}h to "
+                    f"{args.max_runtime}h in [bold red]LIVE mode[/].\n"
+                    "Ensure this stays within your authorized scope.",
+                    title="Safety cap raised",
+                    border_style="yellow",
+                )
+            )
+
+
 def _pre_flight_banner(worm, args) -> None:
     mode = (
         "DRY-RUN (simulation)"
@@ -157,6 +231,11 @@ def cmd_run(args) -> int:
             err_console.print(f"[red]{err}[/]")
             return EXIT_USAGE
 
+    err = _validate_cap_overrides(args)
+    if err:
+        err_console.print(f"[red]{err}[/]")
+        return EXIT_USAGE
+
     worm = WormCore(
         config_file=args.config,
         use_cli_monitor=not args.no_monitor and not args.interactive,
@@ -165,6 +244,9 @@ def cmd_run(args) -> int:
         interactive=args.interactive,
         target_ranges=args.target,
     )
+
+    if args.max_infections is not None or args.max_runtime is not None:
+        _apply_cap_overrides(worm, args)
 
     if args.no_geofence:
         worm.config.safety.geofence_enabled = False
@@ -255,7 +337,23 @@ def cmd_scan(args) -> int:
     return EXIT_OK
 
 
-# ─────────────────────────── lab ────────────────────────────────
+# ─────────────────────────── report ────────────────────────────
+
+
+def cmd_report(args) -> int:
+    from .report_cli import cmd_report as _impl
+
+    return _impl(args)
+
+
+# ─────────────────────────── config ─────────────────────────────
+
+
+def cmd_config(args) -> int:
+    from .config_show import cmd_config as _impl
+
+    return _impl(args)
+
 
 LAB_SERVICE_URLS = [
     ("SSH (weak creds)", "ssh://127.0.0.1:2222", "root / labpass123"),
@@ -647,6 +745,18 @@ def build_parser() -> argparse.ArgumentParser:
     common(p)
     p.add_argument("--dry-run", action="store_true", help="simulate; no real exploits are executed")
     p.add_argument("--scan-only", action="store_true", help="reconnaissance only, then exit")
+    p.add_argument(
+        "--max-infections",
+        type=int,
+        metavar="N",
+        help="per-run override of the propagation.max_infections safety cap",
+    )
+    p.add_argument(
+        "--max-runtime",
+        type=int,
+        metavar="HOURS",
+        help="per-run override of the safety.max_runtime_hours cap",
+    )
     p.add_argument("--kill-switch", metavar="CODE", help="activate kill switch with CODE and exit")
     p.add_argument("--no-monitor", action="store_true", help="disable the live CLI monitor")
     p.add_argument("--no-geofence", action="store_true", help="disable geofence check (labs only)")
@@ -676,6 +786,60 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--json", action="store_true", help="print results as JSON to stdout")
     p.add_argument("--output", "-o", metavar="FILE", help="write results to a JSON file")
     p.set_defaults(func=cmd_scan)
+
+    # report
+    p = sub.add_parser(
+        "report",
+        help="inspect & export engagement reports",
+        epilog=REPORT_EPILOG,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    p.add_argument(
+        "action",
+        nargs="?",
+        default="list",
+        choices=["list", "show", "html"],
+        help="report operation (default: list)",
+    )
+    p.add_argument(
+        "report_id",
+        nargs="?",
+        default="latest",
+        metavar="ID",
+        help="report id (timestamp), file, or 'latest' (default)",
+    )
+    p.add_argument(
+        "--reports-dir",
+        metavar="DIR",
+        help="reports directory (default: ./reports, $WORMY_REPORTS_DIR)",
+    )
+    p.add_argument("--json", action="store_true", help="machine-readable output (list/show)")
+    p.add_argument("--output", "-o", metavar="FILE", help="output path for the HTML export")
+    p.set_defaults(func=cmd_report)
+
+    # config
+    p = sub.add_parser(
+        "config",
+        help="inspect the effective configuration",
+        epilog=CONFIG_EPILOG,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    p.add_argument("action", nargs="?", default="show", choices=["show"], help="config operation")
+    p.add_argument("--config", type=str, help="path to a YAML config file")
+    p.add_argument(
+        "--profile",
+        type=str,
+        choices=sorted(PROFILE_NAMES),
+        help="configuration profile to apply before rendering",
+    )
+    p.add_argument(
+        "--target",
+        nargs="+",
+        metavar="CIDR",
+        help="target override, to preview what the engine would scan",
+    )
+    p.add_argument("--json", action="store_true", help="machine-readable output")
+    p.set_defaults(func=cmd_config)
 
     # lab
     p = sub.add_parser(

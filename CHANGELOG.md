@@ -1,5 +1,38 @@
 # Changelog
 
+## Unreleased
+
+Post-engagement product surface: consume the reports the engine already
+produces, see the configuration the engine will actually use, and set
+safety caps per run without editing YAML.
+
+### Added
+- **`wormy report`** — read-only engagement report hub:
+  - `report list`: inventory of `reports/audit_report_<ts>.json` with date,
+    hosts, infected/failed counts, success rate and duration (`--json`)
+  - `report show [ID]`: terminal rendering of one report — executive
+    summary, infected/failed hosts, top-10 vulnerable hosts and
+    severity-colored recommendations (`--json` for the raw payload)
+  - `report html [ID]`: standalone self-contained HTML export
+    (all dynamic values HTML-escaped) for sharing/delivering engagements
+  - Report id resolution: timestamp, filename, path, prefix or `latest`;
+    reports dir via `--reports-dir` / `$WORMY_REPORTS_DIR` / `./reports`
+    / `<repo root>/reports`; missing or corrupt reports exit `1` with a
+    clear message
+- **`wormy config show`** — effective configuration inspection: builds the
+  config exactly like the engine (file → profile → CLI target override)
+  and renders it read-only; profile-override values carry a `[profile]`
+  marker; kill switch code surfaced (the operator needs it); `--json`
+  emits the effective config with a `_meta` block
+- **`wormy run --max-infections N / --max-runtime HOURS`** — per-run
+  safety-cap overrides; invalid values are usage errors; raising a cap
+  in live (non dry-run) mode prints a "Safety cap raised" warning
+- `apply_profile()` shared helper (`worm_core/config_profiles.py`): the
+  engine and `config show` now apply profiles through the same code path
+  and the applied `section.key` overrides are logged
+- 95 new tests (report hub, config surface, cap overrides); suite total
+  347 passing
+
 ## v4.3.1 (2026-09-10)
 
 Polish release: demo mode for the dashboard, honest doctor semantics and a

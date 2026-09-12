@@ -4,7 +4,7 @@ import threading
 from datetime import datetime, timedelta
 
 from ._version import __version__
-from .config_profiles import CONFIG_PROFILES
+from .config_profiles import CONFIG_PROFILES, apply_profile
 from .module_imports import (
     ADAPTIVE_CYCLE_AVAILABLE,
     ADAPTIVE_EXPLOIT_AVAILABLE,
@@ -749,21 +749,11 @@ class WormCoreBase:
         }
 
     def _apply_profile(self, profile: str):
-        overrides = CONFIG_PROFILES.get(profile, {})
-        if not overrides:
-            return
-
-        for key, value in overrides.items():
-            if hasattr(self.config.propagation, key):
-                setattr(self.config.propagation, key, value)
-            elif hasattr(self.config.evasion, key):
-                setattr(self.config.evasion, key, value)
-            elif hasattr(self.config.safety, key):
-                setattr(self.config.safety, key, value)
-            elif hasattr(self.config.ml, key):
-                setattr(self.config.ml, key, value)
-
-        logger.info(f"Applied profile: {profile}")
+        # Shared application path (also used by `wormy config show`) so the
+        # engine and the transparency surface never disagree on profiles.
+        applied = apply_profile(self.config, profile)
+        if applied:
+            logger.info(f"Applied profile: {profile} ({', '.join(applied)})")
 
     def _safe_add_infected(self, ip: str):
         with self._data_lock:

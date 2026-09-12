@@ -49,3 +49,29 @@ CONFIG_PROFILES = {
         "use_pretrained": False,
     },
 }
+
+
+def apply_profile(config, profile_name: str) -> list[str]:
+    """Apply a named profile's overrides onto a ``Config`` instance.
+
+    This is the single application path shared by the engine
+    (``WormCoreBase._apply_profile``) and transparency surfaces such as
+    ``wormy config show``, so both always agree on what a profile means.
+
+    Key resolution order mirrors the engine's: ``propagation`` →
+    ``evasion`` → ``safety`` → ``ml`` (first section that has the field
+    wins). Unknown or empty profiles are a no-op.
+
+    Returns the list of overridden settings as ``section.key`` strings
+    (empty when nothing was applied).
+    """
+    overrides = CONFIG_PROFILES.get(profile_name) or {}
+    applied: list[str] = []
+    for key, value in overrides.items():
+        for section in ("propagation", "evasion", "safety", "ml"):
+            target = getattr(config, section, None)
+            if target is not None and hasattr(target, key):
+                setattr(target, key, value)
+                applied.append(f"{section}.{key}")
+                break
+    return applied

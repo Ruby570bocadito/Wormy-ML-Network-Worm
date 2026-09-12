@@ -6,11 +6,14 @@ command contract.
 """
 
 import argparse
+import io
 import json
 import os
 import sys
 import unittest
 from unittest import mock
+
+from rich.console import Console
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -128,6 +131,137 @@ class TestDoctorContract(unittest.TestCase):
             ("Environment ready" in buf) or ("usable with warnings" in buf) or ("failed" in buf),
             "doctor must print a final summary line",
         )
+
+
+class TestRunCapOverrides(unittest.TestCase):
+    """--max-infections / --max-runtime: parsing, validation and application."""
+
+    def _ns(self, **kw):
+        base = {
+            "dry_run": True,
+            "scan_only": False,
+            "yes_i_am_authorized": False,
+            "max_infections": None,
+            "max_runtime": None,
+        }
+        base.update(kw)
+        return argparse.Namespace(**base)
+
+    def _fake_worm(self):
+        from types import SimpleNamespace
+
+        from configs.config import Config
+
+        return SimpleNamespace(config=Config())
+
+    def test_parse_cap_flags(self):
+        args = cli.build_parser().parse_args(
+            ["run", "--dry-run", "--max-infections", "3", "--max-runtime", "2"]
+        )
+        self.assertEqual(args.max_infections, 3)
+        self.assertEqual(args.max_runtime, 2)
+
+    def test_parse_caps_default_to_none(self):
+        args = cli.build_parser().parse_args(["run", "--dry-run"])
+        self.assertIsNone(args.max_infections)
+        self.assertIsNone(args.max_runtime)
+
+    def test_validate_rejects_zero_infections(self):
+        err = cli._validate_cap_overrides(self._ns(max_infections=0))
+        self.assertIsNotNone(err)
+        self.assertIn("--max-infections", err)
+
+    def test_validate_rejects_zero_runtime(self):
+        err = cli._validate_cap_overrides(self._ns(max_runtime=0))
+        self.assertIsNotNone(err)
+        self.assertIn("--max-runtime", err)
+
+    def test_validate_accepts_sane_values(self):
+        self.assertIsNone(cli._validate_cap_overrides(self._ns(max_infections=1, max_runtime=1)))
+
+    def test_validate_accepts_absent_values(self):
+        self.assertIsNone(cli._validate_cap_overrides(self._ns()))
+
+    def test_apply_lowering_cap(self):
+        worm = self._fake_worm()
+        worm.config.propagation.max_infections = 100  # default
+        cli._apply_cap_overrides(worm, self._ns(max_infections=3))
+        self.assertEqual(worm.config.propagation.max_infections, 3)
+
+    def test_apply_runtime_cap(self):
+        worm = self._fake_worm()
+        cli._apply_cap_overrides(worm, self._ns(max_runtime=2))
+        self.assertEqual(worm.config.safety.max_runtime_hours, 2)
+
+    def test_apply_no_flags_is_noop(self):
+        worm = self._fake_worm()
+        before_inf = worm.config.propagation.max_infections
+        before_rt = worm.config.safety.max_runtime_hours
+        cli._apply_cap_overrides(worm, self._ns())
+        self.assertEqual(worm.config.propagation.max_infections, before_inf)
+        self.assertEqual(worm.config.safety.max_runtime_hours, before_rt)
+
+    def test_raising_cap_in_dry_run_does_not_warn(self):
+        # Dry-run/scan-only are simulation surfaces: raising a cap there
+        # must NOT trigger the live-mode safety warning.
+        worm = self._fake_worm()
+        err_buf = io.StringIO()
+        with mock.patch.object(cli, "err_console", Console(file=err_buf, force_terminal=False)):
+            cli._apply_cap_overrides(worm, self._ns(dry_run=True, max_infections=500))
+        self.assertEqual(worm.config.propagation.max_infections, 500)
+        self.assertNotIn("raising", err_buf.getvalue().lower())
+
+    def test_raising_cap_in_live_mode_warns(self):
+        worm = self._fake_worm()
+        err_buf = io.StringIO()
+        with mock.patch.object(
+            cli, "err_console", Console(file=err_buf, force_terminal=False, width=100)
+        ):
+            cli._apply_cap_overrides(worm, self._ns(dry_run=False, max_infections=500))
+        self.assertEqual(worm.config.propagation.max_infections, 500)
+        self.assertIn("Safety cap raised", err_buf.getvalue())
+
+    def test_raising_runtime_in_live_mode_warns(self):
+        worm = self._fake_worm()
+        err_buf = io.StringIO()
+        with mock.patch.object(
+            cli, "err_console", Console(file=err_buf, force_terminal=False, width=100)
+        ):
+            cli._apply_cap_overrides(worm, self._ns(dry_run=False, max_runtime=48))
+        self.assertEqual(worm.config.safety.max_runtime_hours, 48)
+        self.assertIn("Safety cap raised", err_buf.getvalue())
+
+
+class TestReportSubcommand(unittest.TestCase):
+    def test_parse_report_defaults(self):
+        args = cli.build_parser().parse_args(["report"])
+        self.assertEqual(args.action, "list")
+        self.assertEqual(args.report_id, "latest")
+        self.assertFalse(args.json)
+
+    def test_parse_report_show_with_id(self):
+        args = cli.build_parser().parse_args(["report", "show", "20260913_142530"])
+        self.assertEqual(args.action, "show")
+        self.assertEqual(args.report_id, "20260913_142530")
+
+    def test_parse_report_html_output(self):
+        args = cli.build_parser().parse_args(["report", "html", "-o", "out.html"])
+        self.assertEqual(args.action, "html")
+        self.assertEqual(args.output, "out.html")
+
+    def test_parse_report_rejects_unknown_action(self):
+        with self.assertRaises(SystemExit):
+            cli.build_parser().parse_args(["report", "explode"])
+
+
+class TestConfigSubcommand(unittest.TestCase):
+    def test_parse_config_defaults_to_show(self):
+        args = cli.build_parser().parse_args(["config"])
+        self.assertEqual(args.action, "show")
+
+    def test_parse_config_with_profile(self):
+        args = cli.build_parser().parse_args(["config", "show", "--profile", "stealth"])
+        self.assertEqual(args.profile, "stealth")
 
 
 def _capture(fn):
