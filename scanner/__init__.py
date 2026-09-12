@@ -619,7 +619,16 @@ class HostClassifier:
         self._load_or_train()
 
     def _load_or_train(self):
-        """Load pretrained model or train on synthetic data"""
+        """Load pretrained model or train on synthetic data.
+
+        SECURITY (fail closed): a model file WITHOUT its HMAC signature is
+        REFUSED instead of loaded with a warning. pickle.loads() on an
+        attacker-controlled file is arbitrary code execution; deleting the
+        .sig file must not downgrade us to unverified deserialization. The
+        HMAC key can be rotated via the WORMY_MODEL_KEY env var (the
+        built-in default only protects against casual tampering since it
+        ships in a public repo).
+        """
         try:
             import pickle
 
@@ -632,20 +641,21 @@ class HostClassifier:
                         raw_data = f.read()
                     with open(sig_path, "rb") as sf:
                         expected_sig = sf.read().strip()
+                    hmac_key = os.environ.get("WORMY_MODEL_KEY", "").encode() or (
+                        b"wormy_model_integrity_key"
+                    )
                     computed_sig = (
-                        hmac.new(b"wormy_model_integrity_key", raw_data, hashlib.sha256)
-                        .hexdigest()
-                        .encode()
+                        hmac.new(hmac_key, raw_data, hashlib.sha256).hexdigest().encode()
                     )
                     if not hmac.compare_digest(computed_sig, expected_sig):
                         raise ValueError("Model integrity check failed — possible tampering")
                     self.model = pickle.loads(raw_data)
                 else:
-                    logger.warning(
-                        f"No signature for {self.model_path}, loading without verification"
+                    raise ValueError(
+                        f"Signature file missing for {self.model_path}: refusing to "
+                        "deserialize an unverified pickle (RCE risk); training a "
+                        "fresh model instead"
                     )
-                    with open(self.model_path, "rb") as f:
-                        self.model = pickle.load(f)
                 if not hasattr(self.model, "predict"):
                     raise ValueError("Loaded object is not a valid model (no predict method)")
                 self.is_trained = True
@@ -663,13 +673,22 @@ class HostClassifier:
                 sig_path = self.model_path + ".sig"
                 with open(self.model_path, "rb") as f:
                     raw_data = f.read()
-                sig = hmac.new(b"wormy_model_integrity_key", raw_data, hashlib.sha256).hexdigest()
+                hmac_key = os.environ.get("WORMY_MODEL_KEY", "").encode() or (
+                    b"wormy_model_integrity_key"
+                )
+                sig = hmac.new(hmac_key, raw_data, hashlib.sha256).hexdigest()
                 with open(sig_path, "wb") as sf:
                     sf.write(sig.encode())
 
         except ImportError:
             self.model = None
             self.is_trained = False
+        except ValueError as ve:
+            # Tampered / unsigned model: log loudly and fall back to
+            # training a fresh synthetic model (never crash the worm).
+            logger.warning(f"{ve}")
+            self.model = self._train_synthetic()
+            self.is_trained = True
 
     def _train_synthetic(self):
         """Train on synthetic host data"""

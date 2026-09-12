@@ -70,25 +70,29 @@ class EvasionModel:
             try:
                 if self.model_path.endswith(".pkl") and SKLEARN_AVAILABLE:
                     sig_path = self.model_path + ".sig"
+                    # SECURITY (fail closed): an unsigned pickle is REFUSED,
+                    # not loaded with a warning -- pickle.loads() on an
+                    # attacker-controlled file is RCE. Key is rotatable via
+                    # WORMY_MODEL_KEY (same scheme as scanner/__init__.py).
+                    hmac_key = os.environ.get("WORMY_MODEL_KEY", "").encode() or (
+                        b"wormy_model_integrity_key"
+                    )
                     if os.path.exists(sig_path):
                         with open(self.model_path, "rb") as f:
                             raw_data = f.read()
                         with open(sig_path, "rb") as sf:
                             expected_sig = sf.read().strip()
                         computed_sig = (
-                            hmac.new(b"wormy_model_integrity_key", raw_data, hashlib.sha256)
-                            .hexdigest()
-                            .encode()
+                            hmac.new(hmac_key, raw_data, hashlib.sha256).hexdigest().encode()
                         )
                         if not hmac.compare_digest(computed_sig, expected_sig):
                             raise ValueError("Model integrity check failed — possible tampering")
                         self.model = pickle.loads(raw_data)
                     else:
-                        logger.warning(
-                            f"No signature file for {self.model_path}, loading without verification"
+                        raise ValueError(
+                            f"Signature file missing for {self.model_path}: refusing to "
+                            "deserialize an unverified pickle (RCE risk)"
                         )
-                        with open(self.model_path, "rb") as f:
-                            self.model = pickle.load(f)
                     if not hasattr(self.model, "predict"):
                         raise ValueError("Loaded object is not a valid model (no predict method)")
                     self.is_trained = True

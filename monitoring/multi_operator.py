@@ -8,6 +8,7 @@ import hashlib
 import hmac
 import json
 import os
+import secrets
 import sqlite3
 import sys
 import threading
@@ -101,12 +102,38 @@ class OperatorDB:
                     expires    REAL,
                     ip         TEXT
                 );
+                CREATE TABLE IF NOT EXISTS meta (
+                    key   TEXT PRIMARY KEY,
+                    value TEXT NOT NULL
+                );
             """)
-        # Ensure default admin exists
-        self.create_operator("admin", "wormy_admin_2024", "admin")
+        # Per-installation random salt (persisted so hashes stay valid
+        # across restarts). Replaces the previous hardcoded b"wormy_salt",
+        # which made all deployments share one salt.
+        with self._conn() as c:
+            row = c.execute("SELECT value FROM meta WHERE key='pw_salt'").fetchone()
+            if row:
+                self._salt = row["value"].encode()
+            else:
+                self._salt = os.urandom(16).hex().encode()
+                c.execute(
+                    "INSERT OR IGNORE INTO meta (key, value) VALUES ('pw_salt', ?)",
+                    (self._salt.decode(),),
+                )
+        # Ensure default admin exists. SECURITY: the password comes from
+        # WORMY_ADMIN_PASSWORD, or is randomly generated and logged ONCE.
+        # Never a public hardcoded constant.
+        default_pw = os.getenv("WORMY_ADMIN_PASSWORD") or secrets.token_urlsafe(16)
+        self.create_operator("admin", default_pw, "admin")
+        if not os.getenv("WORMY_ADMIN_PASSWORD"):
+            logger.warning(
+                "Multi-Operator: no WORMY_ADMIN_PASSWORD set -- generated a random "
+                "one-time admin password (see below). It will NOT be shown again."
+            )
+            logger.info(f"  generated admin password: {default_pw}")
 
     def _hash_pw(self, password: str) -> str:
-        return hashlib.pbkdf2_hmac("sha256", password.encode(), b"wormy_salt", 100_000).hex()
+        return hashlib.pbkdf2_hmac("sha256", password.encode(), self._salt, 100_000).hex()
 
     def create_operator(self, username: str, password: str, role: str = "operator") -> bool:
         if role not in self.ROLES:
@@ -198,7 +225,7 @@ class MultiOperatorServer:
 
     def __init__(
         self,
-        host: str = "0.0.0.0",
+        host: str = "127.0.0.1",
         port: int = 8444,
         jwt_secret: str = None,
         db_path: str = "operators.db",
@@ -206,11 +233,41 @@ class MultiOperatorServer:
         self.host = host
         self.port = port
         self.db = OperatorDB(db_path)
-        self.jwt = JWT(jwt_secret or os.urandom(32).hex())
+        # SECURITY: never fall back to a public/default JWT secret. If the
+        # caller does not supply one, generate an ephemeral random secret
+        # (tokens won't survive restarts, but nobody can forge them either).
+        if not jwt_secret or jwt_secret in (
+            "wormy_jwt_secret_change_me",
+            "secret",
+            "changeme",
+        ):
+            if jwt_secret:
+                logger.warning(
+                    "Multi-Operator: refusing known-default JWT secret; "
+                    "generating an ephemeral random secret instead"
+                )
+            jwt_secret = secrets.token_hex(32)
+            logger.info(
+                "Multi-Operator: ephemeral random JWT secret generated "
+                "(set WORMY_JWT_SECRET for stable tokens across restarts)"
+            )
+        self.jwt = JWT(jwt_secret)
+        # Agent polling token: agents must present X-Agent-Token. Defaults to
+        # a random per-process value (fail closed) unless WORMY_AGENT_TOKEN
+        # is set so agents can be configured with it.
+        self.agent_token = os.getenv("WORMY_AGENT_TOKEN") or secrets.token_hex(32)
+        if not os.getenv("WORMY_AGENT_TOKEN"):
+            logger.info(
+                "Multi-Operator: random agent token generated (agents need "
+                "WORMY_AGENT_TOKEN to poll /agent/<id>)"
+            )
         self._server = None
         self._thread = None
         self._commands: Dict[str, List] = {}  # agent_id -> [pending_commands]
         self._lock = threading.Lock()
+        # Login brute-force protection: consecutive failures per username.
+        self._login_failures: Dict[str, int] = {}
+        self._login_locked_until: Dict[str, float] = {}
 
     def _require_auth(self, handler, min_role: str = "viewer") -> Optional[Dict]:
         auth = handler.headers.get("Authorization", "")
@@ -267,8 +324,18 @@ class MultiOperatorServer:
                     body = server_ref._read_body(self)
                     user = body.get("username", "")
                     pw = body.get("password", "")
+                    # Brute-force protection: after 5 consecutive failures a
+                    # username is locked out for 60 seconds.
+                    locked_until = server_ref._login_locked_until.get(user, 0)
+                    if time.time() < locked_until:
+                        server_ref.db.log(user, "login_locked", ip=ip, success=False)
+                        server_ref._json_response(
+                            self, 429, {"error": "Too many failed attempts; try later"}
+                        )
+                        return
                     op = server_ref.db.authenticate(user, pw)
                     if op:
+                        server_ref._login_failures[user] = 0
                         token = server_ref.jwt.encode(op, expires_in=3600)
                         server_ref.db.log(user, "login", ip=ip, success=True)
                         logger.info(f"Operator login: {user} from {ip}")
@@ -282,6 +349,13 @@ class MultiOperatorServer:
                             },
                         )
                     else:
+                        failures = server_ref._login_failures.get(user, 0) + 1
+                        server_ref._login_failures[user] = failures
+                        if failures >= 5:
+                            server_ref._login_locked_until[user] = time.time() + 60
+                            logger.warning(
+                                f"Login lockout: {user} after {failures} failures (60s)"
+                            )
                         server_ref.db.log(user, "login_fail", ip=ip, success=False)
                         server_ref._json_response(self, 401, {"error": "Invalid credentials"})
 
@@ -356,8 +430,15 @@ class MultiOperatorServer:
                     logger.info(f"[{op['username']}] → agent {agent_id}: {cmd}")
                     server_ref._json_response(self, 200, {"queued": True})
 
-                # ── agent polling endpoint ───────────────────────────────────
+                # ── agent polling endpoint (authenticated) ─────────────
+                # SECURITY: previously unauthenticated -- anyone on the
+                # network could read/consume the pending command queue of
+                # any agent. Agents must now present X-Agent-Token.
                 elif method == "GET" and path.startswith("/agent/"):
+                    presented = self.headers.get("X-Agent-Token", "")
+                    if not hmac.compare_digest(presented, server_ref.agent_token):
+                        server_ref._json_response(self, 401, {"error": "Invalid agent token"})
+                        return
                     agent_id = path.split("/agent/", 1)[1]
                     with server_ref._lock:
                         cmds = server_ref._commands.pop(agent_id, [])
@@ -374,8 +455,13 @@ class MultiOperatorServer:
         handler = self._make_handler()
         self._server = HTTPServer((self.host, self.port), handler)
         logger.success(f"Multi-operator C2 API: http://{self.host}:{self.port}")
-        logger.info("  Default admin credentials: admin / wormy_admin_2024")
-        logger.warning("  CHANGE DEFAULT PASSWORD IMMEDIATELY IN PRODUCTION")
+        logger.info(
+            "  Admin password comes from WORMY_ADMIN_PASSWORD (or was randomly generated)"
+        )
+        logger.warning(
+            "  Set WORMY_JWT_SECRET, WORMY_ADMIN_PASSWORD and WORMY_AGENT_TOKEN "
+            "for any multi-host deployment"
+        )
 
         if background:
             self._thread = threading.Thread(target=self._server.serve_forever, daemon=True)

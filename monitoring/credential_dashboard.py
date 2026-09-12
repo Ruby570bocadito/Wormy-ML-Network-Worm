@@ -32,7 +32,7 @@ class CredentialDashboard:
     - Export credentials
     """
 
-    def __init__(self, worm_core=None, host: str = "0.0.0.0", port: int = 5002):
+    def __init__(self, worm_core=None, host: str = "127.0.0.1", port: int = 5002):
         self.worm = worm_core
         self.host = host
         self.port = port
@@ -44,6 +44,15 @@ class CredentialDashboard:
 
         self.app = Flask(__name__)
         self._setup_routes()
+        # SECURITY: this dashboard lists and EXPORTS every discovered
+        # credential (usernames + passwords) with no authentication. It must
+        # never bind to 0.0.0.0 by default -- loopback only unless the
+        # operator explicitly passes another host.
+        if host == "0.0.0.0":
+            logger.warning(
+                "Credential Dashboard bound to 0.0.0.0: every discovered "
+                "credential is exposed to the network without authentication"
+            )
         logger.info(f"Credential Dashboard initialized on {host}:{port}")
 
     def _setup_routes(self):

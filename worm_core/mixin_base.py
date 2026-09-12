@@ -512,7 +512,10 @@ class WormCoreBase:
         self.icmp_tunnel = None
         if ICMP_TUNNEL_AVAILABLE:
             try:
-                local_ip = get_local_ip()
+                # dry-run must not resolve the outbound interface (keeps
+                # reports loopback-only; same invariant as adaptive_cycle
+                # and distributed_redundancy below).
+                local_ip = "127.0.0.1" if self.dry_run else get_local_ip()
                 self.icmp_tunnel = ICMPTunnel(c2_ip=local_ip)
                 logger.info("ICMP Tunnel: enabled")
             except Exception as e:
@@ -537,13 +540,18 @@ class WormCoreBase:
         self.multi_operator = None
         if MULTI_OPERATOR_AVAILABLE:
             try:
+                # SECURITY: loopback by default (the operator control plane
+                # must never face the network unless explicitly exposed via
+                # WORMY_MULTIOP_HOST). The JWT secret is never the public
+                # default: if WORMY_JWT_SECRET is unset the server generates
+                # an ephemeral random secret.
                 self.multi_operator = MultiOperatorServer(
-                    host="0.0.0.0",
+                    host=os.getenv("WORMY_MULTIOP_HOST", "127.0.0.1"),
                     port=8444,
-                    jwt_secret=os.getenv("WORMY_JWT_SECRET", "wormy_jwt_secret_change_me"),
+                    jwt_secret=os.getenv("WORMY_JWT_SECRET"),
                     db_path="saved/operators.db",
                 )
-                logger.info("Multi-Operator Server: enabled (port 8444)")
+                logger.info("Multi-Operator Server: enabled (port 8444, loopback)")
             except Exception as e:
                 logger.warning(f"Multi-Operator Server failed: {e}")
 

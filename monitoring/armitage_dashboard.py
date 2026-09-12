@@ -131,7 +131,13 @@ class ArmitageDashboard:
 
         if self.worm and self.worm.host_monitor:
             mapped_ips = {h["ip"] for h in hosts}
-            for ip, host_state in self.worm.host_monitor.hosts.items():
+            # Snapshot under the host-monitor lock: propagation threads call
+            # register_host() concurrently and a bare .items() iteration can
+            # raise RuntimeError ("dictionary changed size during iteration")
+            # turning /api/map into intermittent 500s during propagation.
+            with self.worm.host_monitor._lock:
+                monitor_states = list(self.worm.host_monitor.hosts.items())
+            for ip, host_state in monitor_states:
                 if ip not in mapped_ips:
                     hosts.append(
                         {

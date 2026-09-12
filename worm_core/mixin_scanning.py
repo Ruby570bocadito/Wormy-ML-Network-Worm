@@ -117,6 +117,13 @@ class WormCoreScanning:
                 logger.warning(f"AD attack failed: {e}")
 
         if self.knowledge_graph:
+            # Snapshot infected_hosts once per scan under the data lock:
+            # concurrent worker threads mutate the set while we iterate and
+            # `for ... in self.infected_hosts` can raise RuntimeError
+            # ("Set changed size during iteration").
+            with self._data_lock:
+                infected_snapshot = list(self.infected_hosts)
+
             for host in results:
                 ip = host.get("ip", "")
                 self.knowledge_graph.add_host(
@@ -137,7 +144,7 @@ class WormCoreScanning:
                             continue
                         self.knowledge_graph.add_service(ip, port, svc_name)
 
-                for infected_ip in self.infected_hosts:
+                for infected_ip in infected_snapshot:
                     self.knowledge_graph.add_reachability(infected_ip, ip)
 
         if self.vuln_scanner and results:

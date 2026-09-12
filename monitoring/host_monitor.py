@@ -125,10 +125,13 @@ class HostState:
         if detection_risk is not None:
             self.detection_risk = max(0, min(100, detection_risk))
 
-        if self.health_score < 50:
-            self.status = "degraded"
-        elif self.health_score < 20:
+        # Order matters: check the most severe band first. The previous
+        # `if < 50: degraded elif < 20: critical` made "critical"
+        # unreachable (any score < 20 also satisfies < 50).
+        if self.health_score < 20:
             self.status = "critical"
+        elif self.health_score < 50:
+            self.status = "degraded"
         else:
             self.status = "active"
 
@@ -181,7 +184,11 @@ class HostMonitor:
     def __init__(self, polymorphic_engine=None):
         self.hosts: Dict[str, HostState] = {}
         self.polymorphic_engine = polymorphic_engine
-        self._lock = threading.Lock()
+        # RLock: monitor_loop() holds the lock and calls
+        # trigger_self_healing(), which re-acquires it. A plain (non
+        # reentrant) Lock deadlocks the monitor thread there and blocks
+        # register_host()/get_status() callers forever.
+        self._lock = threading.RLock()
         self._monitoring = False
         self._monitor_thread = None
 

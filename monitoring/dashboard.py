@@ -435,11 +435,19 @@ class MonitoringDashboard:
         """
 
     def run(self, debug=False):
-        """Start monitoring dashboard"""
+        """Start monitoring dashboard.
+
+        SECURITY: binds to 127.0.0.1 by default (override explicitly via
+        WORMY_MONITOR_HOST). The previous hardcoded 0.0.0.0 exposed the
+        monitoring plane (no auth) to the whole network. debug=True must
+        never be the default: Flask/Werkzeug debug mode ships an interactive
+        debugger that allows remote code execution when exposed.
+        """
         if not FLASK_AVAILABLE:
             return
-        logger.info(f"Starting monitoring dashboard on port {self.port}")
-        self.app.run(host="0.0.0.0", port=self.port, debug=debug, threaded=True)
+        host = os.environ.get("WORMY_MONITOR_HOST", "127.0.0.1")
+        logger.info(f"Starting monitoring dashboard on {host}:{self.port}")
+        self.app.run(host=host, port=self.port, debug=debug, threaded=True)
 
     def run_background(self):
         """Run dashboard in background thread"""
@@ -510,4 +518,4 @@ if __name__ == "__main__":
     # Start simulation in background
     threading.Thread(target=simulate_activity, daemon=True).start()
 
-    dashboard.run(debug=True)
+    dashboard.run(debug=False)

