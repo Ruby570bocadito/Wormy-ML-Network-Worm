@@ -16,8 +16,8 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Dict, List, Optional
 from urllib.parse import urlparse
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from utils.logger import logger
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from utils.logger import logger  # noqa: E402
 
 # ── JWT (minimal, no external dep) ───────────────────────────────────────────
 

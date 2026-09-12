@@ -1,10 +1,4 @@
 """
-Wormy ML Network Worm v3.0
-Developed by Ruby570bocadito (https://github.com/Ruby570bocadito)
-Copyright (c) 2024 Ruby570bocadito. All rights reserved.
-"""
-
-"""
 Host Monitor
 Real-time monitoring of all infected hosts:
 - System metrics (CPU, memory, disk, network)
@@ -15,7 +9,6 @@ Real-time monitoring of all infected hosts:
 - Self-healing coordination
 """
 
-
 import hashlib
 import os
 import sys
@@ -25,9 +18,9 @@ from collections import defaultdict, deque
 from datetime import datetime
 from typing import Dict, List, Optional
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from utils.logger import logger
+from utils.logger import logger  # noqa: E402
 
 
 class HostState:

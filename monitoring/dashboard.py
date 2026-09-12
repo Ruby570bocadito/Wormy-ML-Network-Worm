@@ -1,14 +1,7 @@
 """
-Wormy ML Network Worm v3.0
-Developed by Ruby570bocadito (https://github.com/Ruby570bocadito)
-Copyright (c) 2024 Ruby570bocadito. All rights reserved.
-"""
-
-"""
 Real-Time Monitoring Dashboard
 Live view of worm activity and infected devices
 """
-
 
 import os
 import sys
@@ -17,12 +10,14 @@ import time
 from collections import deque
 from datetime import datetime
 
-from flask import Flask, jsonify
-
-# Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from utils.logger import logger
+from monitoring._server_utils import (  # noqa: E402 — path fix above must run first
+    FLASK_AVAILABLE,
+    Flask,
+    jsonify,
+)
+from utils.logger import logger  # noqa: E402
 
 
 class MonitoringDashboard:
@@ -32,6 +27,10 @@ class MonitoringDashboard:
     """
 
     def __init__(self, port=8080):
+        self.app = None
+        if not FLASK_AVAILABLE:
+            logger.error("Flask not available for Monitoring Dashboard")
+            return
         self.app = Flask(__name__)
         self.port = port
 
@@ -437,11 +436,15 @@ class MonitoringDashboard:
 
     def run(self, debug=False):
         """Start monitoring dashboard"""
+        if not FLASK_AVAILABLE:
+            return
         logger.info(f"Starting monitoring dashboard on port {self.port}")
         self.app.run(host="0.0.0.0", port=self.port, debug=debug, threaded=True)
 
     def run_background(self):
         """Run dashboard in background thread"""
+        if not FLASK_AVAILABLE:
+            return None
         thread = threading.Thread(target=self.run, daemon=True)
         thread.start()
         logger.info(f"Monitoring dashboard running: http://localhost:{self.port}")
@@ -450,7 +453,7 @@ class MonitoringDashboard:
 
 # Global dashboard instance
 _dashboard = None
-_dashboard_lock = __import__("threading").Lock()
+_dashboard_lock = threading.Lock()
 
 
 def get_dashboard(port=8080):

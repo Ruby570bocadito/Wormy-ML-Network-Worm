@@ -3,26 +3,21 @@ Wormy ML Network Worm - Credential Dashboard
 Web dashboard for viewing and managing discovered credentials.
 """
 
-import logging
 import os
 import sys
 import threading
 from datetime import datetime
 from typing import Dict
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from utils.logger import logger
-
-logging.getLogger("werkzeug").setLevel(logging.ERROR)
-logging.getLogger("flask.app").setLevel(logging.ERROR)
-
-try:
-    from flask import Flask, jsonify, render_template_string, request  # noqa: F401
-
-    FLASK_AVAILABLE = True
-except ImportError:
-    FLASK_AVAILABLE = False
+from monitoring._server_utils import (  # noqa: E402 — path fix above must run first
+    FLASK_AVAILABLE,
+    Flask,
+    jsonify,
+    render_template_string,
+)
+from utils.logger import logger  # noqa: E402
 
 
 class CredentialDashboard:

@@ -13,24 +13,18 @@ Safety by design:
 """
 
 import json
-import logging
 import os
 import threading
 from typing import Dict, List
 
+from monitoring._server_utils import (
+    FLASK_AVAILABLE,
+    Flask,
+    jsonify,
+    render_template_string,
+    request,
+)
 from utils.logger import logger
-
-# ── Silence Flask/Werkzeug access logs (they pollute the Rich live TUI) ──
-logging.getLogger("werkzeug").setLevel(logging.ERROR)
-logging.getLogger("flask.app").setLevel(logging.ERROR)
-
-try:
-    from flask import Flask, jsonify, render_template_string, request
-
-    FLASK_AVAILABLE = True
-except ImportError:
-    FLASK_AVAILABLE = False
-    logger.warning("Flask not installed: pip install flask")
 
 DEFAULT_HOST = os.environ.get("WORMY_DASHBOARD_HOST", "127.0.0.1")
 COMMANDS_ENABLED = os.environ.get("WORMY_DASHBOARD_COMMANDS", "").strip().lower() in (

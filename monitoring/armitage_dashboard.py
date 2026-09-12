@@ -1,35 +1,23 @@
 """
-Wormy ML Network Worm v3.0
-Developed by Ruby570bocadito (https://github.com/Ruby570bocadito)
-Copyright (c) 2024 Ruby570bocadito. All rights reserved.
-"""
-
-"""
 Armitage-Style Dashboard
 Visual network map with host icons, training panel, and real-time control
 Inspired by Armitage's Metasploit GUI
 """
 
-import logging
 import os
 import sys
 import threading
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from utils.logger import logger
-
-# ── Silence Flask/Werkzeug access logs (they pollute Rich Live TUI) ───────────
-logging.getLogger("werkzeug").setLevel(logging.ERROR)
-logging.getLogger("flask.app").setLevel(logging.ERROR)
-
-try:
-    from flask import Flask, jsonify, render_template_string, request
-
-    FLASK_AVAILABLE = True
-except ImportError:
-    FLASK_AVAILABLE = False
-
+from monitoring._server_utils import (  # noqa: E402 — path fix above must run first
+    FLASK_AVAILABLE,
+    Flask,
+    jsonify,
+    render_template_string,
+    request,
+)
+from utils.logger import logger  # noqa: E402
 
 DEFAULT_HOST = os.environ.get("WORMY_ARMITAGE_HOST", "127.0.0.1")  # control plane stays local
 

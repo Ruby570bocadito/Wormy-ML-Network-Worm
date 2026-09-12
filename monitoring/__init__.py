@@ -1,28 +1,27 @@
 """
-Wormy ML Network Worm v3.0
-Developed by Ruby570bocadito (https://github.com/Ruby570bocadito)
-Copyright (c) 2024 Ruby570bocadito. All rights reserved.
-"""
+Monitoring package — live interfaces for Wormy operations.
 
+Exports are lazy so that CLI startup stays fast: the heavy UI modules
+(Flask dashboards, Rich live monitor) are only imported when an
+attribute is actually requested.
 """
-Monitoring Module
-"""
-
 
 __all__ = ["MonitoringDashboard", "get_dashboard", "CLIMonitor", "WormActivityBridge"]
 
+# name -> (module, attribute)
+_LAZY_IMPORTS = {
+    "MonitoringDashboard": ("monitoring.dashboard", "MonitoringDashboard"),
+    "get_dashboard": ("monitoring.dashboard", "get_dashboard"),
+    "CLIMonitor": ("monitoring.cli_monitor", "CLIMonitor"),
+    "WormActivityBridge": ("monitoring.cli_monitor", "WormActivityBridge"),
+}
+
 
 def __getattr__(name):
-    if name == "MonitoringDashboard" or name == "get_dashboard":
-        from monitoring.dashboard import MonitoringDashboard, get_dashboard
+    try:
+        module_name, attr = _LAZY_IMPORTS[name]
+    except KeyError:
+        raise AttributeError(f"module 'monitoring' has no attribute '{name}'") from None
+    import importlib
 
-        return MonitoringDashboard if name == "MonitoringDashboard" else get_dashboard
-    if name == "CLIMonitor":
-        from monitoring.cli_monitor import CLIMonitor
-
-        return CLIMonitor
-    if name == "WormActivityBridge":
-        from monitoring.cli_monitor import WormActivityBridge
-
-        return WormActivityBridge
-    raise AttributeError(f"module 'monitoring' has no attribute '{name}'")
+    return getattr(importlib.import_module(module_name), attr)
