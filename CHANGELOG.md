@@ -86,6 +86,39 @@ safety caps per run without editing YAML.
 - 62 new tests (prune hub 24, metrics filter 9, scan CSV 7, CLI/REPL
   wiring 22); suite total 443 passing
 
+### Added (round 4 — docs & media)
+- **README portada** — generated hero banner (`docs/images/banner.png`)
+  and restructured top: banner + title + badges, dashboard overview
+  moved into its own section
+- **"Real code, simulated attacks" README section** — a layer-by-layer
+  table answering the classic question head-on: what is real (CLI,
+  scanning, RL, lab, exports, 475 tests) vs simulated in `--dry-run`
+  (the exploit step) vs real-but-gated in live mode
+- **New demo media from real captured output** (pty recordings of the
+  actual CLI, replayed verbatim):
+  - `docs/images/demo-report-hub.gif` — typed walkthrough of the report
+    hub: `report list` → `compare` (trend deltas) → `compare --metrics`
+    → `prune --dry-run` → `scan --csv` → `cat hosts.csv`
+  - `docs/images/report-compare.png` — side-by-side engagement
+    comparison, 2× terminal render
+  - `docs/images/repl-report-hub.png` — the report hub from inside the
+    REPL, 2× terminal render
+- **`scripts/generate_docs_media.py` + `scripts/demo_listeners.py`** —
+  the media pipeline, committed for reproducibility: regenerates the
+  demo engagements, captures real CLI/REPL output through a pty and
+  emits SVG shots + an HTML typing player (browser/ffmpeg steps
+  documented in the docstring)
+- README: new "Engagement reports" section, test badge 410 → 475
+
+### Removed (round 4 — legacy cleanup)
+- 8 pre-CLI Windows wrappers in `scripts/` (`cleanup_worm.bat`,
+  `monitor_simulation.bat`, `quick_scan.bat`, `quick_scan.ps1`,
+  `run_aggressive.bat`, `run_simulation.bat`, `run_tests.bat`,
+  `start_monitoring.bat`) — unreferenced anywhere, superseded by the
+  `wormy` CLI, and bypassing the authorization gate the CLI enforces
+  (`run_simulation.bat` literally advertised "Maximum Network
+  Infection… up to 1000 hosts"); `wormy.bat` (the CLI launcher) stays
+
 ## v4.3.1 (2026-09-10)
 
 Polish release: demo mode for the dashboard, honest doctor semantics and a

@@ -66,3 +66,7 @@ site/
 # Runtime state (agent registry, lab artifacts) — never commit live state
 data/agents.json
 docker-lab/volumes/
+
+# Docs media regeneration (scripts/generate_docs_media.py)
+media_work/
+hosts.csv

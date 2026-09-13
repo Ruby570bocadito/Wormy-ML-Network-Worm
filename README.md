@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="docs/images/banner.png" alt="Wormy — an ML-driven network propagation framework" width="100%">
+
 # Wormy
 
 **An ML-driven network propagation framework for authorized security labs**
@@ -10,14 +12,10 @@ authorization gate, hard infection caps and a kill switch.
 
 [![CI](https://github.com/Ruby570bocadito/Wormy-ML-Network-Worm/actions/workflows/ci.yml/badge.svg)](https://github.com/Ruby570bocadito/Wormy-ML-Network-Worm/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
-[![Tests](https://img.shields.io/badge/tests-410%20passing-brightgreen)](#testing--ci)
+[![Tests](https://img.shields.io/badge/tests-491%20passing-brightgreen)](#testing--ci)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 `wormy doctor` · `wormy lab up` · `wormy run --dry-run` · `wormy shell`
-
-<img src="docs/images/dashboard-overview.png" alt="Wormy operations dashboard — KPIs, propagation timeline, severity distribution and network topology" width="100%">
-
-*Operations dashboard in demo mode — KPIs, propagation timeline, vulnerability severity and live network topology.*
 
 </div>
 
@@ -34,6 +32,24 @@ built for TFG-level research, labs and controlled engagements.
 - `--dry-run` gives you the full pipeline with zero real exploits —
   simulation only, safe to demo anywhere.
 - The authors take no responsibility for misuse. See [docs/SAFETY.md](docs/SAFETY.md).
+
+## Real code, simulated attacks
+
+The honest answer to the obvious question: **everything you run is real code —
+what it does to targets is your choice of mode.**
+
+| Layer | Status | Detail |
+|---|---|---|
+| CLI, REPL, report hub, CSV/HTML/JSON exports | **real** | real files written, real parsing, 475 unit tests |
+| Reconnaissance (`wormy scan`, `run`) | **real** | live TCP port scan + banner grabbing against your target range |
+| RL brain | **real** | PyTorch Double-DQN + PER, real training and inference |
+| Docker lab | **real** | actually-vulnerable services (SSH, Tomcat, Redis, Postgres…) bound to 127.0.0.1 |
+| Exploitation in `--dry-run` | **simulated** | the pipeline runs end-to-end, but the exploit step logs `[DRY RUN] would exploit <ip>` and marks hosts as would-be-infected — no exploit module is launched, no payload leaves the machine |
+| Dashboard `--demo` | **simulated** | clearly-labelled synthetic engagement data |
+| Exploitation in live mode | **real, gated** | the 44 exploit modules run for real — behind `--yes-i-am-authorized`, geofence and hard caps |
+
+The screenshots and GIFs in this README are replays of **real captured
+terminal output** (pty recordings of the actual CLI), not mock-ups.
 
 ## What is Wormy?
 
@@ -102,6 +118,11 @@ KPIs, propagation timeline, vulnerability severity, topology and per-host drill-
 
 ![Dashboard demo](docs/images/demo-dashboard.gif)
 
+**Report hub** — the audit trail as a product: engagement inventory, side-by-side
+comparison with trend deltas, metric filtering and retention preview. Real
+captured output, replayed verbatim:
+
+![Report hub demo](docs/images/demo-report-hub.gif)
 
 ## The CLI
 
@@ -148,6 +169,36 @@ REPL session against the lab:
 ━ Iteration 1 ━
 ```
 
+## Engagement reports
+
+Every run writes an audit trail to `reports/audit_report_<timestamp>.json|csv|txt`,
+and `wormy report` turns that trail into something you can actually consume:
+`list`, `show`, `html`, `compare` and `prune`, all scriptable with `--json`.
+
+The signature view is `compare`: two engagements side-by-side with signed
+deltas over 10 KPIs, trend arrows (`▲` better, `▼` worse) and a stable
+baseline rule (the older report is always the baseline). Focus on the KPIs
+you care about with `--metrics infected,success_rate`.
+
+<img src="docs/images/report-compare.png" alt="wormy report compare — side-by-side engagement deltas with trend arrows" width="100%">
+
+*Two real dry-run engagements compared: the candidate discovered 3 lab hosts
+and would-have-infected 4 (patient zero included) versus a bare 1-host
+baseline; duration, scans and recommendations deltas are plain (no value
+judgement by design).*
+
+The interactive shell carries the whole hub — `report list`, `report
+compare`, `report prune`… — without leaving the REPL:
+
+<img src="docs/images/repl-report-hub.png" alt="wormy shell — the report hub from inside the REPL" width="100%">
+
+*The REPL in dry-run mode: `report list` inventory and a `report compare`
+side-by-side, straight from the prompt.*
+
+Reconnaissance exports travel well too: `wormy scan --csv hosts.csv` writes
+one row per discovered host (ports and services flattened with `;`) so the
+results drop straight into a spreadsheet.
+
 ## Web dashboard
 
 Start the engine with `wormy run --web` (or `wormy run --dry-run --web`) and open
@@ -167,6 +218,11 @@ python -m monitoring.web_dashboard --demo   # clearly-labelled demo engagement
 - **Emergency stop** button — cooperative stop, same code path as the CLI
 - Binds to `127.0.0.1` by default; command execution over HTTP is **disabled**
   unless `WORMY_DASHBOARD_COMMANDS=1`
+
+<img src="docs/images/dashboard-overview.png" alt="Wormy operations dashboard — KPIs, propagation timeline, severity distribution and network topology" width="100%">
+
+*Operations dashboard in demo mode — KPIs, propagation timeline, vulnerability
+severity and live network topology.*
 
 <img src="docs/images/dashboard-tables.png" alt="Dashboard hosts, vulnerabilities and live activity feed" width="100%">
 
