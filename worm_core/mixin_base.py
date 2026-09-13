@@ -876,7 +876,15 @@ class WormCoreBase:
 
         Does NOT call sys.exit(): from a worker thread SystemExit only kills
         the thread, not the process. Callers decide how to terminate.
+
+        Idempotent: the REPL's `exit`, kill-switch, self-destruct and the
+        CLI wrapper's finally block can all race to call shutdown(), and a
+        second call used to duplicate the whole final report. The guard
+        flag is set at entry (not exit) so re-entrant calls are no-ops.
         """
+        if getattr(self, "_shutdown_started", False):
+            return
+        self._shutdown_started = True
         logger.info("Shutting down")
         self.running = False
         self.stop_event.set()

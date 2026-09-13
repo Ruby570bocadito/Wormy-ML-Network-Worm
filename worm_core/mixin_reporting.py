@@ -1,7 +1,31 @@
 import os
 from datetime import datetime
 
+from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
+
 from .module_imports import logger
+
+_report_console = Console()
+
+
+def _fmt_duration(seconds: float) -> str:
+    """Humanize a duration in seconds (0.42s / 12.3m / 1.5h)."""
+    if seconds < 60:
+        return f"{seconds:.2f}s"
+    if seconds < 3600:
+        return f"{seconds / 60:.1f}m"
+    return f"{seconds / 3600:.1f}h"
+
+
+def _host_chips(hosts, style: str, limit: int = 8) -> str:
+    """Render a compact comma list of host ips, truncated past `limit`."""
+    hosts = list(hosts)
+    shown = ", ".join(f"[{style}]{ip}[/]" for ip in sorted(hosts)[:limit])
+    if len(hosts) > limit:
+        shown += f" [dim]… and {len(hosts) - limit} more[/]"
+    return shown or "[dim]none[/]"
 
 
 class WormCoreReporting:
@@ -125,70 +149,86 @@ class WormCoreReporting:
         print(f"{'-' * 60}\n")
 
     def print_final_report(self):
-        self.stats["end_time"] = self.stats.get("end_time") or datetime.now()
-        start_time = self.stats.get("start_time") or datetime.now()
-
-        print(f"\n{'=' * 60}")
-        print("FINAL REPORT")
-        print(f"{'=' * 60}")
-        print(f"Start: {start_time}")
-        print(f"End: {self.stats['end_time']}")
-
-        duration = self.stats["end_time"] - start_time
-        print(f"Duration: {duration}")
-
-        print(f"\nInfections: {self.stats['infections']}")
-        print(f"Failed: {self.stats['failed_exploits']}")
-        print(f"Scans: {self.stats['scans']}")
-        print(f"Hosts Discovered: {self.stats['total_hosts_discovered']}")
-        print(f"Vulnerabilities Found: {self.stats['vulnerabilities_found']}")
-        print(f"Exploit Chains Built: {self.stats['exploit_chains_built']}")
-        print(
-            f"Lateral Movements: {self.stats['lateral_success']}/{self.stats['lateral_movements']}"
+        # Resolve start BEFORE end: when a session never set start_time the
+        # old code stamped end first, making end < start by microseconds and
+        # printing "Duration: -1 day, 23:59:59.999998".
+        start_time = (
+            self.stats.get("start_time")
+            or getattr(self, "start_time", None)
+            or datetime.now()
         )
-        print(
-            f"Brute Force: {self.stats['brute_force_successes']}/{self.stats['brute_force_attempts']}"
+        end_time = self.stats.get("end_time") or datetime.now()
+        if end_time < start_time:
+            end_time = start_time  # clock-skew guard, never negative
+        self.stats["start_time"] = start_time
+        self.stats["end_time"] = end_time
+        seconds = max((end_time - start_time).total_seconds(), 0.0)
+
+        attempts = self.stats["infections"] + self.stats["failed_exploits"]
+
+        t = Table.grid(padding=(0, 2))
+        t.add_column(style="dim", justify="right")
+        t.add_column(style="bold")
+        t.add_row("Duration", _fmt_duration(seconds))
+        t.add_row("Infections", str(self.stats["infections"]))
+        t.add_row("Failed", str(self.stats["failed_exploits"]))
+        if attempts:
+            t.add_row("Success Rate", f"{self.stats['infections'] / attempts * 100:.1f}%")
+        t.add_row("Scans", str(self.stats["scans"]))
+        t.add_row("Hosts Discovered", str(self.stats["total_hosts_discovered"]))
+        t.add_row("Vulnerabilities Found", str(self.stats["vulnerabilities_found"]))
+        t.add_row("Exploit Chains Built", str(self.stats["exploit_chains_built"]))
+        t.add_row(
+            "Lateral Movements", f"{self.stats['lateral_success']}/{self.stats['lateral_movements']}"
         )
-        print(f"Credentials Discovered: {self.stats['credentials_discovered']}")
-        print(f"C2 Beacons: {self.stats['c2_beacons']}")
-        print(f"Polymorphic Mutations: {self.stats['polymorphic_mutations']}")
+        t.add_row(
+            "Brute Force",
+            f"{self.stats['brute_force_successes']}/{self.stats['brute_force_attempts']}",
+        )
+        t.add_row("Credentials Discovered", str(self.stats["credentials_discovered"]))
+        t.add_row("C2 Beacons", str(self.stats["c2_beacons"]))
+        t.add_row("Polymorphic Mutations", str(self.stats["polymorphic_mutations"]))
 
-        total = self.stats["infections"] + self.stats["failed_exploits"]
-        if total > 0:
-            print(f"Success Rate: {self.stats['infections'] / total * 100:.1f}%")
+        if self.infected_hosts:
+            t.add_row("Infected Hosts", _host_chips(self.infected_hosts, "green"))
+        if self.failed_targets:
+            t.add_row("Failed Targets", _host_chips(self.failed_targets, "red"))
 
-        print(f"\nInfected Hosts:")
-        for ip in sorted(self.infected_hosts):
-            print(f"  [INFECTED] {ip}")
+        _report_console.print(
+            Panel(
+                t,
+                title="[bold]Final report[/] [dim]— engagement summary[/]",
+                border_style="bright_blue",
+                padding=(0, 1),
+            )
+        )
 
-        print(f"\nFailed Targets:")
-        for ip in sorted(self.failed_targets):
-            print(f"  [FAILED] {ip}")
-
-        if self.cred_manager:
+        # Detail sections only when they carry data: an empty REPL session
+        # used to dump four all-zero blocks of noise on every exit.
+        if self.cred_manager and (
+            self.stats["credentials_discovered"] or self.stats["brute_force_attempts"]
+        ):
             self.cred_manager.print_statistics()
 
-        if self.lateral_movement:
+        if self.lateral_movement and self.stats["lateral_movements"]:
             lm_stats = self.lateral_movement.get_statistics()
-            print(f"\nLateral Movement:")
+            print("\nLateral Movement:")
             print(f"  Attempts: {lm_stats['attempts']}")
             print(f"  Successes: {lm_stats['successes']}")
             print(f"  Rate: {lm_stats['success_rate']:.1f}%")
             print(f"  By technique: {lm_stats['by_technique']}")
 
-        if self.knowledge_graph:
+        if self.knowledge_graph and len(self.scan_results):
             kg_summary = self.knowledge_graph.get_network_summary()
-            print(f"\nKnowledge Graph Summary:")
+            print("\nKnowledge Graph Summary:")
             for k, v in kg_summary.items():
                 print(f"  {k}: {v}")
 
-        if self.polymorphic_engine:
+        if self.polymorphic_engine and self.stats["polymorphic_mutations"]:
             poly_stats = self.polymorphic_engine.get_statistics()
-            print(f"\nPolymorphic Engine:")
+            print("\nPolymorphic Engine:")
             print(f"  Mutations: {poly_stats['mutations_generated']}")
             print(f"  Unique signatures: {poly_stats['unique_signatures']}")
-
-        print(f"{'=' * 60}\n")
 
         if self.audit_generator:
             try:
@@ -211,6 +251,13 @@ class WormCoreReporting:
                     output_dir="reports",
                 )
                 logger.info(f"Audit reports: {report_files}")
+                # Console footer (not logger): `wormy shell` keeps the
+                # terminal at WARNING+, and the operator still needs to see
+                # where the audit trail landed.
+                names = " · ".join(os.path.basename(p) for p in report_files.values())
+                _report_console.print(
+                    f"[green]Reports written:[/] [cyan]{names}[/] [dim](./reports/)[/]"
+                )
             except Exception as e:
                 logger.warning(f"Failed to generate audit report: {e}")
 

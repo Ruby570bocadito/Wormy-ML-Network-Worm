@@ -12,7 +12,7 @@ authorization gate, hard infection caps and a kill switch.
 
 [![CI](https://github.com/Ruby570bocadito/Wormy-ML-Network-Worm/actions/workflows/ci.yml/badge.svg)](https://github.com/Ruby570bocadito/Wormy-ML-Network-Worm/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
-[![Tests](https://img.shields.io/badge/tests-491%20passing-brightgreen)](#testing--ci)
+[![Tests](https://img.shields.io/badge/tests-522%20passing-brightgreen)](#testing--ci)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 `wormy doctor` · `wormy lab up` · `wormy run --dry-run` · `wormy shell`
@@ -147,14 +147,16 @@ warnings with a fix hint:
 | `wormy lab` | Docker lab manager: `up`, `down`, `status`, `rebuild`, `urls` (`--expanded` for the 15-service compose) |
 | `wormy train` | Train ML models: `rl` (curriculum), `classifier`, `evasion`, `all`; `--list-scenarios`, `--status` |
 | `wormy doctor` | Environment health check: deps, torch/CUDA, docker, config validity, feature geometry, writable dirs |
-| `wormy shell` | Interactive REPL: `scan`, `targets`, `exploit <ip>`, `creds`, `run`, `stop`, `report [new\|list\|show\|compare\|html\|prune]`, … Supports `--dry-run` and the same cap flags as `run` (`--max-infections`, `--max-runtime`) |
+| `wormy shell` | Interactive REPL: `scan`, `targets`, `exploit <ip>`, `creds`, `run`, `stop`, `report [new\|list\|show\|compare\|html\|prune]`, … Supports `--dry-run` and the same cap flags as `run` (`--max-infections`, `--max-runtime`). Boots **quiet** (engine INFO logs go to `logs/`, terminal stays clean); `--verbose` streams them back |
 | `wormy version` | Version + platform info (`--json` for scripts) |
 
-REPL session against the lab:
+REPL session against the lab (colored status prompt, single-line scan
+progress bar, and a clean engagement summary on exit):
 
 ```
 ○ IDLE  wormy::0 infected::0 hosts
 > scan
+  [████████████████████░░░░░░░░░░░░░░░░░░]  66.7%  170/254 hosts  |  Found: 6
               6 hosts discovered
  IP          OS        Ports       Vulns  Chains  Status
  10.0.0.5    Linux     22, 8080    3      2       DISCOVERED

@@ -61,8 +61,9 @@ examples:
   %(prog)s scan --json -o scan.json     # reconnaissance only
   %(prog)s scan --csv hosts.csv         # reconnaissance to a spreadsheet
   %(prog)s run --dry-run                # full pipeline, simulation only
+  %(prog)s run --dry-run --web          # engine + web dashboard at 127.0.0.1:5000
   %(prog)s run --profile stealth        # authorized engagement (asks gate)
-  %(prog)s shell                        # interactive REPL
+  %(prog)s shell                        # interactive REPL (quiet; --verbose for logs)
 """
 
 REPORT_EPILOG = """\
@@ -724,8 +725,19 @@ def cmd_doctor(args) -> int:
 
 
 def cmd_shell(args) -> int:
+    import logging
+
     from . import WormCore
+    from .module_imports import logger
     from .shell import InteractiveCLI
+
+    # Terminal hygiene: the engine boots ~90 components and each one logs
+    # an INFO line — that used to bury the REPL banner. Quiet by default:
+    # console shows WARNING+ while everything keeps flowing to the rotating
+    # log file (logs/worm_*.log). `--verbose` restores the old behaviour.
+    # getattr: embedders/tests may build args Namespaces without the flag.
+    if not getattr(args, "verbose", False):
+        logger.set_console_level(logging.WARNING)
 
     # Fail fast: reject invalid cap values BEFORE booting the engine
     # (same contract as `wormy run`).
@@ -755,6 +767,9 @@ def cmd_shell(args) -> int:
         pass
     finally:
         worm.shutdown()
+        # Restore default verbosity for embedders/tests that reuse the
+        # process after the REPL exits.
+        logger.set_console_level(logging.INFO)
     return EXIT_OK
 
 
@@ -1011,6 +1026,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     common(p)
     p.add_argument("--dry-run", action="store_true", help="simulate; no real exploits are executed")
+    p.add_argument(
+        "--verbose",
+        "-v",
+        action="store_true",
+        help="stream engine INFO logs to the console (default: warnings only, full log in logs/)",
+    )
     p.add_argument(
         "--max-infections",
         type=int,

@@ -52,7 +52,11 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PY = sys.executable
 LISTENERS = os.path.join(REPO, "scripts", "demo_listeners.py")
 WORK = os.path.join(REPO, "media_work")
-COLS = 100
+# Capture width. GitHub renders README images at ~844 CSS px, so effective
+# glyph size = display_width / COLS: fewer columns → bigger readable text.
+# 100 cols → ~8.4px glyphs (mushy); 82 cols → ~10.3px (comfortable).
+# Override per-run: WORMY_MEDIA_COLS=82 .venv/bin/python scripts/generate_docs_media.py
+COLS = int(os.environ.get("WORMY_MEDIA_COLS", "100"))
 
 ANSI_RE = re.compile(r"\x1b\[[0-9;?]*[a-zA-Z]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)")
 
@@ -257,8 +261,10 @@ def write_svg_asset(name, svg, scale=2):
         fh.write(svg)
     m = re.search(r'viewBox="0 0 ([\d.]+) ([\d.]+)"', svg)
     w = int(float(m.group(1))) * scale
+    # .replace (not .format): the template CSS braces are literal, and
+    # .format() raised KeyError('margin') on them.
     with open(os.path.join(WORK, f"{name}_wrap.html"), "w", encoding="utf-8") as fh:
-        fh.write(WRAP_TMPL.format(src=f"{name}.svg", width=w))
+        fh.write(WRAP_TMPL.replace("{src}", f"{name}.svg").replace("{width}", str(w)))
     return w
 
 

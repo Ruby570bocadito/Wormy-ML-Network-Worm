@@ -6,6 +6,45 @@ Post-engagement product surface: consume the reports the engine already
 produces, see the configuration the engine will actually use, and set
 safety caps per run without editing YAML.
 
+### Added (round 5 — terminal UX)
+- **`wormy shell --verbose`** — the REPL now boots **quiet**: engine INFO
+  logs go to the rotating file (`logs/worm_*.log`) while the console
+  keeps warnings and above; `--verbose` restores the old stream. The
+  ~90 component-init INFO lines used to bury the prompt on every start
+- **Readable README media at 82 columns** — `report-compare.png`,
+  `repl-report-hub.png`, `cli-help.png` and `cli-doctor.png`
+  regenerated from fresh pty captures with ~22% larger effective glyphs
+  at GitHub display width (`WORMY_MEDIA_COLS` now drives the pipeline);
+  all four pass vision QA
+- `wormy --help` examples now show how to launch the web dashboard
+  (`wormy run --dry-run --web` → 127.0.0.1:5000)
+- 31 new tests (`tests/test_shell_ux.py`) + a real-pty E2E script
+  (`scripts/e2e_shell_ux.py`, 10 checks) pinning the new behaviours
+
+### Fixed (round 5 — terminal UX)
+- **REPL prompt rendered raw rich markup** (`[dim]○ IDLE[/]…`): the
+  prompt is now rendered as real ANSI colors (colorama) on terminals
+  and plain text when piped — never literal `[...]` tags
+- **`exit` printed the whole final report twice**: `shutdown()` is now
+  idempotent (guard flag), so the REPL's exit and the CLI wrapper's
+  finally block no longer duplicate the report and component teardown
+- **Negative duration in the final report** (`-1 day, 23:59:59…`):
+  start is resolved before end and clamped (engine start_time honored),
+  so a session without `run` reports a real duration
+- **Final report redesign**: Rich panel with humanized duration
+  (`1.5m`), host chips truncated past 8, success rate only when there
+  are attempts, and zero-value subsections (credential/lateral/graph
+  noise) suppressed; report file paths printed on the console (they
+  were INFO-only and vanished with the quiet shell)
+- **Scan progress bar printed one line per host** (254 lines): it now
+  rewrites a single line in place on TTYs and prints ~10% milestones
+  when piped; the REPL no longer wraps scans in a spinner that fought
+  the bar's cursor rewrites
+- **Help table colors**: command word in bold cyan, usage hints dim
+  italic (`Text` cells — no markup-escaping regressions)
+- Media pipeline: `WRAP_TMPL.format()` crashed on literal CSS braces
+  (`KeyError: 'margin'`) — switched to `.replace()`
+
 ### Added
 - **`wormy report`** — read-only engagement report hub:
   - `report list`: inventory of `reports/audit_report_<ts>.json` with date,

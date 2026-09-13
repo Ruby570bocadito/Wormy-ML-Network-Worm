@@ -500,19 +500,28 @@ class ProfessionalScanner:
         tasks = [scan_single(ip) for ip in all_ips]
         await asyncio.gather(*tasks)
 
-        if show_progress and not progress_callback:
-            print()  # New line after progress bar
+        if show_progress and not progress_callback and sys.stdout.isatty():
+            print()  # terminate the in-place progress line
 
         return results
 
     def _print_progress(self, scanned: int, total: int, found: int):
-        """Print visual progress bar"""
+        """Render the scan progress as a single self-updating line.
+
+        On a TTY the line is redrawn in place with a carriage return, so a
+        254-host scan occupies exactly one terminal line. When stdout is a
+        pipe (CI, `wormy scan --json | jq`, recordings) a full line per
+        host would be useless noise, so only ~10% milestones are printed.
+        """
         pct = (scanned / max(total, 1)) * 100
         bar_len = 40
         filled = int(bar_len * scanned // max(total, 1))
         bar = "█" * filled + "░" * (bar_len - filled)
-        print(
-            f"\r  [{bar}] {pct:5.1f}%  {scanned}/{total} hosts  |  Found: {found}",
-            end="",
-            flush=True,
-        )
+        line = f"  [{bar}] {pct:5.1f}%  {scanned}/{total} hosts  |  Found: {found}"
+        if sys.stdout.isatty():
+            sys.stdout.write("\r" + line)
+            sys.stdout.flush()
+        else:
+            step = max(1, total // 10)
+            if scanned == total or scanned % step == 0:
+                print(line)

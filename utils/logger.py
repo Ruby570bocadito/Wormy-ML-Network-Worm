@@ -82,6 +82,9 @@ class WormLogger:
         ch = logging.StreamHandler(sys.stderr)
         ch.setLevel(logging.INFO)
         ch.setFormatter(ColoredFormatter("%(levelname)s - %(message)s"))
+        # Kept as an attribute so operators (e.g. `wormy shell`) can lower
+        # the console verbosity at runtime without touching file logging.
+        self._console_handler = ch
 
         # Error handler - always writes to stderr with full traceback
         eh = logging.StreamHandler(sys.stderr)
@@ -101,7 +104,17 @@ class WormLogger:
         self.json_logs = []
         self._json_file_handle = open(self.json_log_file, "a", encoding="utf-8")
 
-        self.info("Logger initialized", {"log_dir": str(self.log_dir)})
+        self.debug("Logger initialized", {"log_dir": str(self.log_dir)})
+
+    def set_console_level(self, level: int) -> None:
+        """Change the stderr console handler level (file logging is unchanged).
+
+        `wormy shell` uses this to keep the terminal readable: engine INFO
+        lines keep flowing to the rotating log file while the console only
+        shows WARNING and above. Pass ``logging.INFO`` to restore the
+        default verbosity.
+        """
+        self._console_handler.setLevel(level)
 
     def _log_json(self, level: str, message: str, data: Optional[Dict[str, Any]] = None):
         """Log structured JSON data"""
