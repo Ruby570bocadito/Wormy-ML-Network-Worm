@@ -63,7 +63,7 @@ examples:
   %(prog)s run --dry-run                # full pipeline, simulation only
   %(prog)s run --dry-run --web          # engine + web dashboard at 127.0.0.1:5000
   %(prog)s run --profile stealth        # authorized engagement (asks gate)
-  %(prog)s shell                        # interactive REPL (quiet; --verbose for logs)
+  %(prog)s shell                        # interactive REPL (--verbose: logs)
 """
 
 REPORT_EPILOG = """\
@@ -594,30 +594,22 @@ def cmd_doctor(args) -> int:
                 "",
             )
         )
-    except Exception as e:  # noqa: BLE001
-        checks.append((False, "torch (RL engine)", False, str(e)[:60], "pip install torch"))
+    except Exception:  # noqa: BLE001
+        checks.append((False, "torch (RL engine)", False, "not installed", "pip install torch"))
 
     # feature geometry (training == inference)
     try:
         from rl_engine.features import FEATURES_PER_HOST
 
         checks.append(
-            (
-                True,
-                "Feature geometry (15/host)",
-                FEATURES_PER_HOST == 15,
-                f"{FEATURES_PER_HOST} features/host",
-                "reinstall rl_engine",
-            )
+            (True, "Feature geometry", FEATURES_PER_HOST == 15, f"{FEATURES_PER_HOST} features/host", "")
         )
     except Exception as e:  # noqa: BLE001
-        checks.append((True, "Feature geometry (15/host)", False, str(e)[:60], "check rl_engine"))
+        checks.append((True, "Feature geometry", False, str(e)[:22], "check rl_engine"))
 
     # Docker
     docker_ok = shutil.which("docker") is not None
-    checks.append(
-        (False, "Docker CLI", docker_ok, shutil.which("docker") or "not found", "install docker")
-    )
+    checks.append((False, "Docker CLI", docker_ok, "found" if docker_ok else "not found", "install docker"))
     if docker_ok:
         try:
             out = subprocess.run(
@@ -628,8 +620,8 @@ def cmd_doctor(args) -> int:
                     False,
                     "Docker compose v2",
                     out.returncode == EXIT_OK,
-                    (out.stdout or "unavailable").strip().splitlines()[0][:60],
-                    "install docker-compose-plugin",
+                    (out.stdout or "unavailable").strip().splitlines()[0][:22],
+                    "install compose plugin",
                 )
             )
         except Exception:  # noqa: BLE001
@@ -638,13 +630,7 @@ def cmd_doctor(args) -> int:
     # Lab compose file
     root = _find_repo_root()
     checks.append(
-        (
-            False,
-            "Lab compose file",
-            root is not None,
-            root or "not found",
-            "run from project root or set WORMY_LAB_DIR",
-        )
+        (False, "Lab compose file", root is not None, "docker-compose-lab.yml" if root else "not found", "run from repo root")
     )
 
     # Default config loads & validates
@@ -654,7 +640,7 @@ def cmd_doctor(args) -> int:
         cfg = Config()
         checks.append((True, "Default config", bool(cfg.validate()), "valid", ""))
     except Exception as e:  # noqa: BLE001
-        checks.append((True, "Default config", False, str(e)[:60], "check configs/"))
+        checks.append((True, "Default config", False, str(e)[:22], "check configs/"))
 
     # Writable runtime dirs
     for d in ("logs", "reports"):
@@ -666,15 +652,15 @@ def cmd_doctor(args) -> int:
             os.remove(probe)
             checks.append((False, f"'{d}/' writable", True, "ok", ""))
         except Exception as e:  # noqa: BLE001
-            checks.append((False, f"'{d}/' writable", False, str(e)[:40], "check permissions"))
+            checks.append((False, f"'{d}/' writable", False, str(e)[:22], "check permissions"))
 
     # Report
     t = Table(title=f"{PROGRAM} doctor — environment check", border_style="bright_blue")
     t.add_column("")
-    t.add_column("Check", style="cyan")
+    t.add_column("Check", style="cyan", max_width=24)
     t.add_column("Status")
-    t.add_column("Detail", max_width=48)
-    t.add_column("Hint", style="dim", max_width=32)
+    t.add_column("Detail", max_width=24)
+    t.add_column("Hint", style="dim", max_width=24)
     failed_critical = 0
     failed_optional = 0
     for critical, name, ok, detail, hint in checks:
@@ -800,7 +786,7 @@ def cmd_version(args) -> int:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog=PROGRAM,
-        description=f"Wormy v{__version__} — ML-driven network propagation platform "
+        description=f"Wormy v{__version__} — an ML-driven network worm "
         "for authorized security labs.",
         epilog=EPILOG_EXAMPLES,
         formatter_class=argparse.RawDescriptionHelpFormatter,

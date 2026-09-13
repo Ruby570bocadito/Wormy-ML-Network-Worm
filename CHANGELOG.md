@@ -6,6 +6,49 @@ Post-engagement product surface: consume the reports the engine already
 produces, see the configuration the engine will actually use, and set
 safety caps per run without editing YAML.
 
+### Added (round 6 — README media, real recordings)
+- **Real-recording media pipeline** — `scripts/gen_readme_media.py`
+  records genuine pty sessions (asciinema v2 casts with real timing),
+  replays them through a terminal emulator (pyte) and renders every
+  frame (Pillow, 2x supersampled, GitHub-dark palette) before ffmpeg
+  assembles the GIF with frame-diffing. No fake typing players. Outputs
+  `demo-cli.gif` (doctor + live scan), `demo-shell.gif` (REPL session)
+  and the `cli-help.png` / `report-compare.png` stills
+- **Real dashboard capture** — `scripts/record_dashboard.sh` records
+  the web dashboard during a live `run --dry-run --web` engagement
+  (KPIs ticking, timeline and topology updating) and shoots final-state
+  stills; `demo-dashboard.gif` + both screenshots are from that single
+  real engagement
+- **`WORMY_CONSOLE_LOG_LEVEL`** — env knob for the stderr log handler
+  (DEBUG…CRITICAL, default INFO); file logging is untouched. Capture
+  tooling and operators can keep terminals clean without code changes
+- `pip install -e .` now works out of the box for media capture: the
+  venv exposes the real `wormy` console script the demos type
+- `scripts/qa_media.sh` re-aimed at the new asset set (vision QA for
+  every PNG + first/mid/last GIF frames)
+- Bigger loopback demo lab: `scripts/demo_listeners.py` now binds 6
+  hosts (127.0.0.2–.7, 15 services) for richer scans and topology
+
+### Fixed (round 6 — README media)
+- **`wormy scan` printed "Total Hosts: 0" right after finding hosts**:
+  the summary renderer now tracks whichever scanner actually ran
+  (professional/enterprise results are synced into it) — "Total Hosts",
+  OS distribution and top vulnerable hosts reflect the real findings
+- **`wormy doctor` table wrapped at 80 columns** (the `torch` row broke
+  the grid): cells are now width-constrained and long details shortened
+  (`not installed`, compose filename instead of repo path) — the table
+  fits a standard 80-column terminal with zero wrapped rows
+- `wormy --help` epilog lines no longer exceed 80 columns (they used to
+  soft-wrap and misalign in narrow terminals)
+- README images no longer render full-bleed: every asset is centered
+  with an explicit width (~720px terminal media, ~780px dashboard),
+  captions included
+
+### Changed (round 6 — README media)
+- README fully rewritten around the new media set: banner at restrained
+  width, two real terminal GIFs, real dashboard recording + stills, and
+  the test badges updated to the real count (525 passing)
+
 ### Added (round 5 — terminal UX)
 - **`wormy shell --verbose`** — the REPL now boots **quiet**: engine INFO
   logs go to the rotating file (`logs/worm_*.log`) while the console

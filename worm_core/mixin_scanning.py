@@ -79,6 +79,12 @@ class WormCoreScanning:
 
         self.scan_results = results
         self.stats["total_hosts_discovered"] = len(results)
+        # Keep the summary renderer in sync with whichever scanner actually
+        # ran. Previously the professional/enterprise paths left
+        # `scanner.discovered_hosts` untouched, so `wormy scan` printed
+        # "Total Hosts: 0" right after the progress bar had found hosts.
+        if self.scanner is not None:
+            self.scanner.discovered_hosts = results
 
         if self.host_classifier:
             for host in results:

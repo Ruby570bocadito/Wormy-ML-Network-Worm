@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 """Tiny loopback service lab for Wormy demo captures.
 
-Binds plausible services to 127.0.0.2 / 127.0.0.3 / 127.0.0.4 so the
-scanner discovers 3 extra hosts with real open ports and banners:
+Binds plausible services to 127.0.0.2 … 127.0.0.7 so the scanner
+discovers 6 extra hosts with real open ports and banners:
 
-    127.0.0.2  22    SSH banner  -> Linux
-    127.0.0.2  3306  (silent)    -> database
-    127.0.0.3  80    HTTP banner -> web
-    127.0.0.3  6379  Redis err   -> database
-    127.0.0.4  445   (silent)    -> Windows/SMB
-    127.0.0.4  3389  (silent)    -> Windows/RDP
+    127.0.0.2  3306/5432/8080   database + Apache
+    127.0.0.3  6379/8888/5900   Redis + nginx + VNC
+    127.0.0.4  5985/3000/9090   WinRM + Express + Prometheus
+    127.0.0.5  22/80            OpenSSH + Apache
+    127.0.0.6  1433/8443        MSSQL + Tomcat
+    127.0.0.7  27017/9200       MongoDB + Elasticsearch
 
-Run:  python3 wormy_demo_listeners.py &   (kill by PID)
+Run:  python3 scripts/demo_listeners.py &   (kill by PID)
 """
 import signal
 import socket
@@ -28,6 +28,12 @@ LISTENERS = [
     ("127.0.0.4", 5985, b"HTTP/1.1 401 Unauthorized\r\nServer: Microsoft-HTTPAPI/2.0\r\n\r\n"),
     ("127.0.0.4", 3000, b"HTTP/1.1 302 Found\r\nServer: Express\r\n\r\n"),
     ("127.0.0.4", 9090, b"HTTP/1.1 200 OK\r\nServer: Prometheus/2.40.0\r\n\r\n"),
+    ("127.0.0.5", 22, b"SSH-2.0-OpenSSH_8.9p1 Ubuntu-3ubuntu0.4\r\n"),
+    ("127.0.0.5", 80, b"HTTP/1.1 200 OK\r\nServer: Apache/2.4.29 (Debian)\r\nContent-Length: 0\r\n\r\n"),
+    ("127.0.0.6", 1433, b""),
+    ("127.0.0.6", 8443, b"HTTP/1.1 200 OK\r\nServer: Tomcat/9.0.62\r\nContent-Length: 0\r\n\r\n"),
+    ("127.0.0.7", 27017, b""),
+    ("127.0.0.7", 9200, b"HTTP/1.1 200 OK\r\nServer: Elasticsearch/7.17.9\r\nContent-Length: 0\r\n\r\n"),
 ]
 
 _stop = threading.Event()

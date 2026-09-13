@@ -12,6 +12,7 @@ Comprehensive logging with encryption, rotation, and audit trail
 
 import json
 import logging
+import os
 import sys
 import traceback
 from datetime import datetime
@@ -20,6 +21,24 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 from colorama import Fore, Style, init
+
+
+def _console_level_from_env() -> int:
+    """WORMY_CONSOLE_LOG_LEVEL — stderr handler verbosity at startup.
+
+    File logging is always DEBUG. Operators, CI and capture tooling can
+    keep terminals clean with ``WORMY_CONSOLE_LOG_LEVEL=ERROR`` without
+    touching code (same spirit as `wormy shell`'s quiet default).
+    Accepts DEBUG/INFO/WARNING/ERROR/CRITICAL; anything else = INFO.
+    """
+    raw = os.environ.get("WORMY_CONSOLE_LOG_LEVEL", "").strip().upper()
+    return {
+        "DEBUG": logging.DEBUG,
+        "INFO": logging.INFO,
+        "WARNING": logging.WARNING,
+        "ERROR": logging.ERROR,
+        "CRITICAL": logging.CRITICAL,
+    }.get(raw, logging.INFO)
 
 init(autoreset=True)
 
@@ -80,7 +99,7 @@ class WormLogger:
         # Console handler with colors — stderr so stdout stays clean for
         # machine-readable output (e.g. `wormy scan --json | jq`).
         ch = logging.StreamHandler(sys.stderr)
-        ch.setLevel(logging.INFO)
+        ch.setLevel(_console_level_from_env())
         ch.setFormatter(ColoredFormatter("%(levelname)s - %(message)s"))
         # Kept as an attribute so operators (e.g. `wormy shell`) can lower
         # the console verbosity at runtime without touching file logging.
